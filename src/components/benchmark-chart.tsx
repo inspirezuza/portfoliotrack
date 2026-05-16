@@ -107,6 +107,14 @@ function formatChartDate(value: string) {
   }).format(parseChartDate(value));
 }
 
+function formatAxisDate(value: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC"
+  }).format(parseChartDate(value));
+}
+
 function formatIndexedReturn(value: number) {
   return formatPercentRatio(value / 100 - 1, {
     maximumFractionDigits: 1,
@@ -646,7 +654,7 @@ export function BenchmarkChart({
                 <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 6" vertical={false} />
                 <XAxis
                   dataKey="date"
-                  tickFormatter={formatChartDate}
+                  tickFormatter={formatAxisDate}
                   tickLine={false}
                   axisLine={false}
                   minTickGap={28}

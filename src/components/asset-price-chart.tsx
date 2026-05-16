@@ -79,6 +79,14 @@ function formatChartDate(value: string) {
   }).format(parseChartDate(value));
 }
 
+function formatAxisDate(value: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC"
+  }).format(parseChartDate(value));
+}
+
 function formatCompactChartDate(value: string) {
   const hasTime = isIntradayDate(value);
 
@@ -461,7 +469,7 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
                 <CartesianGrid stroke="var(--line)" strokeDasharray="3 6" vertical={false} />
                 <XAxis
                   dataKey="date"
-                  tickFormatter={formatChartDate}
+                  tickFormatter={formatAxisDate}
                   tickLine={false}
                   axisLine={false}
                   minTickGap={28}
