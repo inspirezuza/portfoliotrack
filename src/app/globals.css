@@ -791,7 +791,46 @@ html[data-theme="dark"] .empty-panel {
 }
 
 .transactions-workspace .workstation-topbar {
-  align-items: flex-end;
+  align-items: flex-start;
+  padding: 2px 0 4px;
+}
+
+.transaction-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 8px;
+  background: color-mix(in srgb, var(--surface-strong) 84%, transparent);
+}
+
+.transaction-summary-strip div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  min-height: 58px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: var(--surface-muted);
+}
+
+.transaction-summary-strip span {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.transaction-summary-strip strong {
+  align-self: end;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+  font-size: clamp(1rem, 0.88rem + 0.34vw, 1.22rem);
+  font-weight: 780;
+  letter-spacing: 0;
+  line-height: 1.08;
 }
 
 .compact-stat-grid {
@@ -1019,14 +1058,23 @@ html[data-theme="dark"] .secondary-button {
 .transaction-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px 12px;
+}
+
+.transaction-panel {
+  padding: 16px;
+}
+
+.transaction-panel-header {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
 }
 
 .instrument-manager {
   display: grid;
   gap: 12px;
-  padding-bottom: 15px;
-  margin-bottom: 15px;
+  padding-bottom: 14px;
+  margin-bottom: 2px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -1859,6 +1907,10 @@ html[data-theme="dark"] .subtabs .active {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .transaction-summary-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .metric-card-hero {
     grid-column: span 2;
   }
@@ -1886,6 +1938,7 @@ html[data-theme="dark"] .subtabs .active {
   }
 
   .summary-card-grid,
+  .transaction-summary-strip,
   .asset-performance-grid,
   .dr-formula-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1972,6 +2025,7 @@ html[data-theme="dark"] .subtabs .active {
 
   .workstation-metrics,
   .summary-card-grid,
+  .transaction-summary-strip,
   .asset-performance-grid,
   .dr-formula-grid,
   .route-grid,

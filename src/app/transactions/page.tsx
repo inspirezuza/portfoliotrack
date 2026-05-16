@@ -54,53 +54,40 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
     <section className="transactions-page transactions-workspace">
       <div className="workstation-topbar">
         <div>
-          <p className="eyebrow">Transactions</p>
-          <h1>Record a trade</h1>
+          <p className="eyebrow">Ledger</p>
+          <h1>Transactions</h1>
+          <p>Record buys, sells, and fees without preselecting an instrument.</p>
         </div>
       </div>
 
-      <div className="transactions-layout">
-        <TransactionForm instruments={formInstruments} editingTransaction={editingTransaction} />
-        <aside className="feature-stack">
-          <article className="surface-card transaction-overview-card">
-            <p className="eyebrow">State</p>
-            <h2 className="side-card-title">Ledger</h2>
-            <div className="compact-stat-grid">
-              <div>
-                <span>Recorded</span>
-                <strong>{transactionCount}</strong>
-              </div>
-              <div>
-                <span>Traded</span>
-                <strong>{uniqueInstrumentCount}</strong>
-              </div>
-              <div>
-                <span>Open</span>
-                <strong>{openInstrumentCount}</strong>
-              </div>
-              <div>
-                <span>Latest</span>
-                <strong>{latestTradeDate}</strong>
-              </div>
-            </div>
-          </article>
-          <article className="surface-card transaction-overview-card">
-            <p className="eyebrow">Instruments</p>
-            <h2 className="side-card-title">{instruments.length} selectable</h2>
-            <div className="compact-stat-grid">
-              <div>
-                <span>All</span>
-                <strong>{allInstruments.length}</strong>
-              </div>
-              <div>
-                <span>Open</span>
-                <strong>{openInstrumentCount}</strong>
-              </div>
-            </div>
-          </article>
-        </aside>
+      <div className="transaction-summary-strip" aria-label="Transaction summary">
+        <div>
+          <span>Recorded</span>
+          <strong>{transactionCount}</strong>
+        </div>
+        <div>
+          <span>Traded</span>
+          <strong>{uniqueInstrumentCount}</strong>
+        </div>
+        <div>
+          <span>Open</span>
+          <strong>{openInstrumentCount}</strong>
+        </div>
+        <div>
+          <span>Latest</span>
+          <strong>{latestTradeDate}</strong>
+        </div>
+        <div>
+          <span>Selectable</span>
+          <strong>{instruments.length}</strong>
+        </div>
+        <div>
+          <span>All instruments</span>
+          <strong>{allInstruments.length}</strong>
+        </div>
       </div>
 
+      <TransactionForm instruments={formInstruments} editingTransaction={editingTransaction} />
       <TransactionTable transactions={transactions} editingTransactionId={editingTransaction?.id ?? null} />
     </section>
   );
