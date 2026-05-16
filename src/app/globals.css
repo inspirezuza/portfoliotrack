@@ -908,6 +908,84 @@ html[data-theme="dark"] .empty-panel {
   list-style: none;
 }
 
+.holdings-allocation {
+  display: grid;
+  grid-template-columns: minmax(128px, 0.9fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  margin-top: 12px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.holdings-pie-shell {
+  min-width: 0;
+  height: 190px;
+}
+
+.holdings-pie-legend {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.holdings-pie-legend li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.holdings-pie-legend li > span {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5);
+}
+
+html[data-theme="dark"] .holdings-pie-legend li > span {
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.2);
+}
+
+.holdings-pie-legend div {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.holdings-pie-legend strong,
+.holdings-pie-legend em {
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
+.holdings-pie-legend strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.holdings-pie-legend em {
+  color: var(--muted);
+  font-style: normal;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.allocation-tooltip em {
+  color: var(--muted);
+  font-style: normal;
+}
+
 .holding-bar-row {
   display: flex;
   align-items: flex-start;
@@ -2111,6 +2189,14 @@ html[data-theme="dark"] .subtabs .active {
 
   .shell-content {
     padding: 10px;
+  }
+
+  .holdings-allocation {
+    grid-template-columns: 1fr;
+  }
+
+  .holdings-pie-shell {
+    height: 180px;
   }
 
   .workstation-metrics,

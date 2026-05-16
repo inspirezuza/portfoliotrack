@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BenchmarkChart } from "@/components/benchmark-chart";
+import { HoldingsAllocationChart } from "@/components/holdings-allocation-chart";
 import { PortfolioChart } from "@/components/portfolio-chart";
 import { formatCurrency, formatPercentRatio, formatQuantity } from "@/lib/format";
 import { getDashboardSnapshot, type DashboardSummary } from "@/server/dashboard";
@@ -339,41 +340,45 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 <strong>No open positions</strong>
               </div>
             ) : (
-              <ul className="holding-bars">
-                {leadingHoldings.map((holding) => (
-                  <li key={holding.instrumentId}>
-                    <div className="holding-bar-row">
-                      <div>
-                        <Link
-                          href={`/assets/${encodeURIComponent(holding.symbol)}`}
-                          className="holding-symbol"
-                        >
-                          {holding.symbol}
-                        </Link>
-                        <span>{holding.displayName}</span>
+              <>
+                <HoldingsAllocationChart holdings={holdingsSnapshot.holdings} />
+
+                <ul className="holding-bars">
+                  {leadingHoldings.map((holding) => (
+                    <li key={holding.instrumentId}>
+                      <div className="holding-bar-row">
+                        <div>
+                          <Link
+                            href={`/assets/${encodeURIComponent(holding.symbol)}`}
+                            className="holding-symbol"
+                          >
+                            {holding.symbol}
+                          </Link>
+                          <span>{holding.displayName}</span>
+                        </div>
+                        <strong>
+                          {holding.portfolioWeight == null
+                            ? formatQuantity(holding.quantity)
+                            : formatPercentRatio(holding.portfolioWeight, {
+                                maximumFractionDigits: 0,
+                                minimumFractionDigits: 0
+                              })}
+                        </strong>
                       </div>
-                      <strong>
-                        {holding.portfolioWeight == null
-                          ? formatQuantity(holding.quantity)
-                          : formatPercentRatio(holding.portfolioWeight, {
-                              maximumFractionDigits: 0,
-                              minimumFractionDigits: 0
-                            })}
-                      </strong>
-                    </div>
-                    <div className="holding-bar-track">
-                      <span
-                        style={{
-                          width:
-                            holding.portfolioWeight == null
-                              ? "18%"
-                              : `${Math.min(100, Math.max(3, holding.portfolioWeight * 100))}%`
-                        }}
-                      />
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                      <div className="holding-bar-track">
+                        <span
+                          style={{
+                            width:
+                              holding.portfolioWeight == null
+                                ? "18%"
+                                : `${Math.min(100, Math.max(3, holding.portfolioWeight * 100))}%`
+                          }}
+                        />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
           </article>
         </aside>
