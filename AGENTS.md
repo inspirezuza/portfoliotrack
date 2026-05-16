@@ -1,6 +1,7 @@
 # User Preferences
 
 - Commits are allowed in this repository when the user asks for a commit or clearly asks to finish/checkpoint the completed work.
+- Codex may create commits by itself for a completed, coherent work set in this repository; do not ask for extra confirmation unless the next action is risky or destructive.
 - When using Superpowers skills or workflows, do not create commits silently; mention the commit in the final summary.
 - Keep related changes bundled together instead of splitting tiny commits unless the user asks otherwise.
 - Never write or update tests unless the user explicitly asks to do so.

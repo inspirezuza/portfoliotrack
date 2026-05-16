@@ -12,6 +12,8 @@ type SummaryCardConfig = {
   detail: string;
 };
 
+const DEFAULT_DISPLAY_CURRENCY = "THB";
+
 function getPnlTone(value: number | null): SummaryCardConfig["tone"] {
   if (value == null || value === 0) {
     return "neutral";
@@ -92,7 +94,7 @@ function buildCards(summary: DashboardSummary): SummaryCardConfig[] {
         summary.totalCostBasis == null
           ? "หลายสกุลเงิน"
           : formatCurrency(summary.totalCostBasis, {
-              currency: summary.openPositionCurrency ?? "USD"
+              currency: summary.openPositionCurrency ?? DEFAULT_DISPLAY_CURRENCY
             }),
       detail:
         summary.totalCostBasis == null
@@ -107,7 +109,7 @@ function buildCards(summary: DashboardSummary): SummaryCardConfig[] {
             ? "หลายสกุลเงิน"
             : "รอราคา"
           : formatCurrency(summary.totalMarketValue, {
-              currency: summary.openPositionCurrency ?? "USD"
+              currency: summary.openPositionCurrency ?? DEFAULT_DISPLAY_CURRENCY
             }),
       detail:
         summary.totalMarketValue == null
@@ -126,7 +128,7 @@ function buildCards(summary: DashboardSummary): SummaryCardConfig[] {
             ? "หลายสกุลเงิน"
             : "รอราคา"
           : formatCurrency(summary.totalUnrealizedPnl, {
-              currency: summary.openPositionCurrency ?? "USD"
+              currency: summary.openPositionCurrency ?? DEFAULT_DISPLAY_CURRENCY
             }),
       tone: getPnlTone(summary.totalUnrealizedPnl),
       detail:
@@ -142,7 +144,7 @@ function buildCards(summary: DashboardSummary): SummaryCardConfig[] {
         summary.totalRealizedPnl == null
           ? "หลายสกุลเงิน"
           : formatCurrency(summary.totalRealizedPnl, {
-              currency: summary.realizedBreakdown[0]?.currency ?? "USD"
+              currency: summary.realizedBreakdown[0]?.currency ?? DEFAULT_DISPLAY_CURRENCY
             }),
       tone: getPnlTone(summary.totalRealizedPnl),
       detail:

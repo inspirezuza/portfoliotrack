@@ -22,7 +22,7 @@ type PortfolioChartProps = {
 };
 
 function formatChartDate(value: string) {
-  return new Intl.DateTimeFormat("th-TH", {
+  return new Intl.DateTimeFormat("en-GB", {
     month: "short",
     day: "numeric",
     timeZone: "UTC"
@@ -45,13 +45,13 @@ function formatChartValue(value: number, currency: string | null) {
 function getUnavailableMessage(status: PortfolioBenchmarkTimelineStatus) {
   switch (status) {
     case "no-transactions":
-      return "เพิ่มรายการซื้อขายแรก แล้วกราฟมูลค่าพอร์ตจะเริ่มจากวันนั้น";
+      return "Add a transaction to start the portfolio chart.";
     case "mixed-currency":
-      return "พอร์ตมีหลายสกุลเงิน จึงยังไม่รวมเป็นเส้นมูลค่าเดียวเพื่อไม่ให้ตีความผิด";
+      return "Portfolio chart is paused for mixed open-position currencies.";
     case "missing-portfolio-history":
-      return "ยังไม่มีราคาย้อนหลังครบสำหรับหุ้นที่ถืออยู่";
+      return "Price history is incomplete for current holdings.";
     default:
-      return "ยังไม่มีข้อมูลกราฟพอร์ตในตอนนี้";
+      return "No portfolio chart data yet.";
   }
 }
 
@@ -63,18 +63,18 @@ export function PortfolioChart({ currency, series, status }: PortfolioChartProps
       <div className="chart-card-header">
         <div>
           <p className="eyebrow">Portfolio value</p>
-          <h2 className="section-title">มูลค่าพอร์ตย้อนหลัง</h2>
+          <h2 className="section-title">Portfolio value history</h2>
         </div>
         <p className="surface-copy">
           {hasSeries
-            ? "เส้นนี้ใช้ราคาย้อนหลังและ position จาก transaction จริง"
+            ? "Uses cached prices and ledger positions."
             : getUnavailableMessage(status)}
         </p>
       </div>
 
       {hasSeries ? (
         <div className="chart-shell">
-          <ResponsiveContainer width="100%" height={320}>
+          <ResponsiveContainer width="100%" height={300}>
             <AreaChart data={series} margin={{ top: 12, right: 8, left: 0, bottom: 8 }}>
               <defs>
                 <linearGradient id="portfolioArea" x1="0" y1="0" x2="0" y2="1">
@@ -107,7 +107,7 @@ export function PortfolioChart({ currency, series, status }: PortfolioChartProps
                   boxShadow: "var(--tooltip-shadow)",
                   color: "var(--ink)"
                 }}
-                formatter={(value: number) => [formatChartValue(value, currency), "มูลค่าพอร์ต"]}
+                formatter={(value: number) => [formatChartValue(value, currency), "Portfolio value"]}
                 labelFormatter={(value: string) => formatChartDate(value)}
               />
               <Area
@@ -124,7 +124,7 @@ export function PortfolioChart({ currency, series, status }: PortfolioChartProps
         </div>
       ) : (
         <div className="chart-empty-state">
-          <strong>ยังไม่มีกราฟ</strong>
+          <strong>No chart data</strong>
           <p>{getUnavailableMessage(status)}</p>
         </div>
       )}

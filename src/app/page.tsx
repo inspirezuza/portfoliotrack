@@ -22,27 +22,28 @@ type RefreshParams = NonNullable<DashboardPageProps["searchParams"]> extends Pro
   : never;
 
 const REFRESH_BANNER_MAX_AGE_MINUTES = 5;
+const DEFAULT_DISPLAY_CURRENCY = "THB";
 
 function formatAgeLabel(minutes: number | null) {
   if (minutes == null) {
-    return "ยังไม่มีข้อมูลในแคช";
+    return "No cached data";
   }
 
   if (minutes < 1) {
-    return "อัปเดตเมื่อสักครู่";
+    return "Just updated";
   }
 
   if (minutes < 60) {
-    return `${minutes} นาทีที่แล้ว`;
+    return `${minutes} min ago`;
   }
 
   const hours = Math.floor(minutes / 60);
-  return `${hours} ชั่วโมงที่แล้ว`;
+  return `${hours}h ago`;
 }
 
 function formatDateLabel(value: string | null) {
   if (value == null) {
-    return "ยังไม่มีแคช";
+    return "No cache";
   }
 
   const date = new Date(value);
@@ -51,7 +52,7 @@ function formatDateLabel(value: string | null) {
     return value;
   }
 
-  return new Intl.DateTimeFormat("th-TH", {
+  return new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -62,13 +63,13 @@ function formatDateLabel(value: string | null) {
 function formatDashboardMoney(
   value: number | null,
   currency: string | null,
-  fallback = "รอราคา"
+  fallback = formatCurrency(0, { currency: DEFAULT_DISPLAY_CURRENCY })
 ) {
   if (value == null) {
     return fallback;
   }
 
-  return formatCurrency(value, { currency: currency ?? "USD" });
+  return formatCurrency(value, { currency: currency ?? DEFAULT_DISPLAY_CURRENCY });
 }
 
 function formatSummaryMoney(
@@ -78,24 +79,32 @@ function formatSummaryMoney(
   const value = summary[key];
 
   if (value != null) {
-    return formatCurrency(value, { currency: summary.openPositionCurrency ?? "USD" });
+    return formatCurrency(value, {
+      currency: summary.openPositionCurrency ?? DEFAULT_DISPLAY_CURRENCY
+    });
   }
 
   if (summary.currencyBreakdown.length > 1) {
-    return "หลายสกุลเงิน";
+    return "Mixed";
   }
 
-  return "รอราคา";
+  if (summary.openPositionCount === 0) {
+    return formatCurrency(0, { currency: DEFAULT_DISPLAY_CURRENCY });
+  }
+
+  return "Pending";
 }
 
 function formatRealizedMoney(summary: DashboardSummary) {
   if (summary.totalRealizedPnl != null) {
     return formatCurrency(summary.totalRealizedPnl, {
-      currency: summary.realizedBreakdown[0]?.currency ?? "USD"
+      currency: summary.realizedBreakdown[0]?.currency ?? DEFAULT_DISPLAY_CURRENCY
     });
   }
 
-  return summary.realizedBreakdown.length > 1 ? "หลายสกุลเงิน" : "$0.00";
+  return summary.realizedBreakdown.length > 1
+    ? "Mixed"
+    : formatCurrency(0, { currency: DEFAULT_DISPLAY_CURRENCY });
 }
 
 function getValueTone(value: number | null) {
@@ -137,28 +146,26 @@ function buildRefreshMessage({
   }
 
   if (refresh === "success") {
-    const quotesLabel = quoteCount == null ? "" : `อัปเดตราคาแล้ว ${quoteCount} รายการ`;
-    const providerLabel = refreshedAt ? `ข้อมูลล่าสุดจาก provider: ${refreshedAt}` : "";
+    const quotesLabel = quoteCount == null ? "" : `${quoteCount} quotes updated`;
+    const providerLabel = refreshedAt ? `Provider timestamp ${refreshedAt}` : "";
     const issuesLabel =
-      issueCount == null || issueCount === "0"
-        ? ""
-        : `ยังมี ${issueCount} symbol ที่ต้องตรวจต่อ`;
+      issueCount == null || issueCount === "0" ? "" : `${issueCount} symbols still need review`;
 
     return {
       tone: issueCount != null && issueCount !== "0" ? "warning" : "success",
       title:
         issueCount != null && issueCount !== "0"
-          ? "รีเฟรชสำเร็จ แต่ยังมีบางรายการขาดข้อมูล"
-          : "รีเฟรชข้อมูลตลาดแล้ว",
-      body: [quotesLabel, providerLabel, issuesLabel].filter(Boolean).join(" · ")
+          ? "Market data updated with warnings"
+          : "Market data updated",
+      body: [quotesLabel, providerLabel, issuesLabel].filter(Boolean).join(" | ")
     } as const;
   }
 
   if (refresh === "error") {
     return {
       tone: "warning",
-      title: "รีเฟรชไม่สำเร็จ",
-      body: message ?? "แดชบอร์ดยังใช้ข้อมูลแคชล่าสุดอยู่"
+      title: "Market data refresh failed",
+      body: message ?? "The dashboard is still using the latest cached prices."
     } as const;
   }
 
@@ -170,37 +177,37 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const resolvedSearchParams = (await searchParams) ?? {};
   const refreshMessage = buildRefreshMessage(resolvedSearchParams);
   const leadingHoldings = holdingsSnapshot.holdings.slice(0, 5);
-  const marketCurrency = summary.openPositionCurrency ?? "USD";
-  const marketValueLabel = formatDashboardMoney(summary.totalMarketValue, marketCurrency, "$0.00");
+  const marketCurrency = summary.openPositionCurrency ?? DEFAULT_DISPLAY_CURRENCY;
+  const marketValueLabel = formatDashboardMoney(summary.totalMarketValue, marketCurrency);
   const latestPriceLabel = formatDateLabel(marketData.latestMarketDataAsOf);
   const priceFreshnessLabel = marketData.latestMarketDataAsOf
     ? marketData.isPriceDataStale
-      ? `แคชเก่า ${formatAgeLabel(marketData.priceAgeMinutes)}`
+      ? `Stale ${formatAgeLabel(marketData.priceAgeMinutes)}`
       : formatAgeLabel(marketData.priceAgeMinutes)
-    : "รอข้อมูลราคา";
+    : "No price cache";
 
   const metrics = [
     {
-      label: "ต้นทุน",
+      label: "Cost basis",
       value: formatSummaryMoney(summary, "totalCostBasis"),
-      detail: summary.openPositionCount === 0 ? "ยังไม่มี position" : "เฉพาะสถานะที่ยังเปิด"
+      detail: summary.openPositionCount === 0 ? "No positions" : "Open positions only"
     },
     {
       label: "Unrealized P&L",
       value: formatSummaryMoney(summary, "totalUnrealizedPnl"),
-      detail: "เทียบกับต้นทุน",
+      detail: "vs cost basis",
       tone: getValueTone(summary.totalUnrealizedPnl)
     },
     {
       label: "Realized P&L",
       value: formatRealizedMoney(summary),
-      detail: "จากรายการขาย",
+      detail: "Closed trades",
       tone: getValueTone(summary.totalRealizedPnl)
     },
     {
-      label: "ค่าธรรมเนียม",
-      value: formatDashboardMoney(holdingsSnapshot.totalFees, marketCurrency, "$0.00"),
-      detail: "รวมทุก transaction"
+      label: "Fees",
+      value: formatDashboardMoney(holdingsSnapshot.totalFees, marketCurrency),
+      detail: "All transactions"
     }
   ];
 
@@ -208,17 +215,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     <section className="workstation-page">
       <div className="workstation-topbar">
         <div>
-          <p className="eyebrow">Portfolio workspace</p>
-          <h1>ภาพรวมพอร์ต</h1>
-          <p>
-            อ่านสถานะหลักในจอเดียว: มูลค่า, P&amp;L, ความสดของราคา, benchmark และหุ้นที่ถือ
-          </p>
+          <p className="eyebrow">Workspace</p>
+          <h1>Dashboard</h1>
         </div>
 
         <form action="/api/market-data/refresh" method="post" className="refresh-form">
           <input type="hidden" name="redirectTo" value="/" />
           <button type="submit" className="primary-button">
-            รีเฟรชราคา
+            Refresh prices
           </button>
         </form>
       </div>
@@ -237,12 +241,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <div>
             <p className="metric-label">Portfolio value</p>
             <p className="metric-value metric-value-xl">{marketValueLabel}</p>
+            <p className="metric-detail">
+              {summary.openPositionCount === 0
+                ? "No positions"
+                : `${summary.openPositionCount} positions`}
+            </p>
           </div>
-          <span className="state-pill">
-            {summary.openPositionCount === 0
-              ? "ยังไม่มี position"
-              : `${summary.openPositionCount} positions`}
-          </span>
         </article>
 
         {metrics.map((metric) => (
@@ -284,27 +288,27 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <article className="surface-card price-health-card">
             <div className="side-card-header">
               <div>
-                <p className="eyebrow">ข้อมูลราคา</p>
-                <h2 className="side-card-title">Price coverage</h2>
+                <p className="eyebrow">Prices</p>
+                <h2 className="side-card-title">Coverage</h2>
               </div>
               <span className="state-pill state-pill-muted">{priceFreshnessLabel}</span>
             </div>
 
             <div className="compact-stat-grid">
               <div>
-                <span>มีราคา</span>
+                <span>Priced</span>
                 <strong>{summary.pricedPositionCount}</strong>
               </div>
               <div>
-                <span>ขาดราคา</span>
+                <span>Missing</span>
                 <strong>{summary.missingPricePositionCount}</strong>
               </div>
               <div>
-                <span>ปิดแล้ว</span>
+                <span>Closed</span>
                 <strong>{holdingsSnapshot.closedPositionCount}</strong>
               </div>
               <div>
-                <span>แคชล่าสุด</span>
+                <span>Latest cache</span>
                 <strong>{latestPriceLabel}</strong>
               </div>
             </div>
@@ -312,7 +316,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             <form action="/api/market-data/refresh" method="post" className="refresh-form">
               <input type="hidden" name="redirectTo" value="/" />
               <button type="submit" className="secondary-button">
-                อัปเดตราคาตลาด
+                Update market data
               </button>
             </form>
           </article>
@@ -320,18 +324,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <article className="surface-card holdings-preview-card">
             <div className="side-card-header">
               <div>
-                <p className="eyebrow">หุ้นที่ถือ</p>
+                <p className="eyebrow">Holdings</p>
                 <h2 className="side-card-title">Open positions</h2>
               </div>
               <Link href="/holdings" className="route-link">
-                ดูทั้งหมด
+                View all
               </Link>
             </div>
 
             {leadingHoldings.length === 0 ? (
               <div className="empty-panel">
-                <strong>ยังไม่มีหุ้นในพอร์ต</strong>
-                <p>เพิ่มรายการซื้อขายแรกเพื่อเริ่ม tracking position, DR และต้นทุน</p>
+                <strong>No open positions</strong>
               </div>
             ) : (
               <ul className="holding-bars">
@@ -370,19 +373,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 ))}
               </ul>
             )}
-          </article>
-
-          <article className="surface-card action-card">
-            <p className="eyebrow">Next step</p>
-            <h2 className="side-card-title">อยากอัปเดตอะไรต่อ?</h2>
-            <div className="action-list">
-              <Link href="/transactions" className="action-link">
-                เพิ่มรายการซื้อขาย
-              </Link>
-              <Link href="/holdings" className="action-link">
-                ดูต้นทุนและ P&amp;L รายหุ้น
-              </Link>
-            </div>
           </article>
         </aside>
       </section>

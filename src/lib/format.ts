@@ -20,7 +20,7 @@ function createNumberFormatter(locale: string | undefined, options: Intl.NumberF
 
 export function formatCurrency(
   value: number,
-  { currency = "USD", minimumFractionDigits = 2, maximumFractionDigits = 2 }: CurrencyFormatOptions = {}
+  { currency = "THB", minimumFractionDigits = 2, maximumFractionDigits = 2 }: CurrencyFormatOptions = {}
 ) {
   return createNumberFormatter(undefined, {
     style: "currency",

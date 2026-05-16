@@ -23,7 +23,7 @@ type BenchmarkChartProps = {
 };
 
 function formatChartDate(value: string) {
-  return new Intl.DateTimeFormat("th-TH", {
+  return new Intl.DateTimeFormat("en-GB", {
     month: "short",
     day: "numeric",
     timeZone: "UTC"
@@ -48,21 +48,21 @@ function getUnavailableMessage({
 }) {
   switch (status) {
     case "no-transactions":
-      return "เพิ่ม transaction แรกก่อน แล้วกราฟเทียบ benchmark จะเริ่มจากวันนั้น";
+      return "Add a transaction to start the benchmark chart.";
     case "mixed-currency":
-      return "ปิดการเทียบ benchmark เพราะ position เปิดอยู่มากกว่าหนึ่งสกุลเงิน";
+      return "Benchmark comparison is disabled for mixed open-position currencies.";
     case "missing-portfolio-history":
-      return "ต้องมีราคาย้อนหลังของหุ้นที่ถือครบก่อน จึงจะเทียบ benchmark ได้ตรง";
+      return "Price history is incomplete for current holdings.";
     case "benchmark-currency-mismatch":
       return benchmarkSymbol == null || portfolioCurrency == null
-        ? "benchmark ที่ตั้งไว้ไม่ตรงกับสกุลเงินของพอร์ต"
-        : `${benchmarkSymbol} ยังเทียบตรงไม่ได้ เพราะไม่ได้อ้างอิงราคาเป็น ${portfolioCurrency}`;
+        ? "The benchmark currency does not match the portfolio currency."
+        : `${benchmarkSymbol} is not quoted in ${portfolioCurrency}.`;
     case "missing-benchmark-history":
       return benchmarkSymbol == null
-        ? "ตั้งค่า benchmark เพื่อเปิดกราฟเปรียบเทียบผลตอบแทน"
-        : `${benchmarkSymbol} ยังไม่มีราคาย้อนหลังที่ใช้เทียบได้`;
+        ? "Set a benchmark to enable comparison."
+        : `No cached history for ${benchmarkSymbol}.`;
     default:
-      return "ยังไม่สามารถแสดงกราฟเทียบ benchmark ได้ในตอนนี้";
+      return "Benchmark chart is not available yet.";
   }
 }
 
@@ -87,14 +87,14 @@ export function BenchmarkChart({
         </div>
         <p className="surface-copy">
           {hasSeries
-            ? "ทั้งสองเส้นเริ่มที่ 100 และปรับ cash flow ออกจากพอร์ตแล้ว"
+            ? "Indexed to 100; cash flows are excluded."
             : getUnavailableMessage({ benchmarkSymbol, portfolioCurrency, status })}
         </p>
       </div>
 
       {hasSeries ? (
         <div className="chart-shell">
-          <ResponsiveContainer width="100%" height={320}>
+          <ResponsiveContainer width="100%" height={300}>
             <LineChart data={series} margin={{ top: 12, right: 8, left: 0, bottom: 8 }}>
               <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 6" vertical={false} />
               <XAxis
@@ -127,7 +127,7 @@ export function BenchmarkChart({
               <Line
                 type="monotone"
                 dataKey="portfolio"
-                name="พอร์ต"
+                name="Portfolio"
                 stroke="var(--accent)"
                 strokeWidth={2.5}
                 dot={false}
@@ -147,7 +147,7 @@ export function BenchmarkChart({
         </div>
       ) : (
         <div className="chart-empty-state">
-          <strong>ยังไม่มีกราฟ</strong>
+          <strong>No chart data</strong>
           <p>{getUnavailableMessage({ benchmarkSymbol, portfolioCurrency, status })}</p>
         </div>
       )}

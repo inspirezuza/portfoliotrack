@@ -3,19 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { shellCopy, type UiTheme } from "@/lib/ui/translations";
+import { languages, shellCopy, type UiTheme } from "@/lib/ui/translations";
 import { useUiPreferences } from "@/lib/ui/preferences";
 
 type NavItem = {
   href: "/" | "/holdings" | "/transactions";
   label: keyof typeof shellCopy.TH.nav;
-  shortLabel: string;
 };
 
 const navItems: NavItem[] = [
-  { href: "/", label: "dashboard", shortLabel: "ภาพ" },
-  { href: "/holdings", label: "holdings", shortLabel: "หุ้น" },
-  { href: "/transactions", label: "transactions", shortLabel: "ซื้อ" }
+  { href: "/", label: "dashboard" },
+  { href: "/holdings", label: "holdings" },
+  { href: "/transactions", label: "transactions" }
 ];
 
 function isActivePath(pathname: string, href: NavItem["href"]) {
@@ -28,7 +27,7 @@ function isActivePath(pathname: string, href: NavItem["href"]) {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { language, theme, setTheme } = useUiPreferences();
+  const { language, theme, setLanguage, setTheme } = useUiPreferences();
   const copy = shellCopy[language];
 
   return (
@@ -51,7 +50,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   aria-label={copy.nav[item.label]}
                   title={copy.nav[item.label]}
                 >
-                  <span className="nav-short">{item.shortLabel}</span>
+                  <span className="nav-short">{copy.navShort[item.label]}</span>
                   <span className="nav-full">{copy.nav[item.label]}</span>
                 </Link>
               );
@@ -63,21 +62,36 @@ export function AppShell({ children }: { children: ReactNode }) {
           <header className="shell-header">
             <div className="brand-lockup">
               <p className="brand-name">PortfolioTrack</p>
-              <p className="brand-subtitle">{copy.appTagline}</p>
+              {copy.appTagline ? <p className="brand-subtitle">{copy.appTagline}</p> : null}
             </div>
 
             <div className="shell-actions">
-              <span className="language-pill" aria-label="Language">
-                TH
-              </span>
+              <div className="preference-group" aria-label={copy.language}>
+                {languages.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    data-preference-kind="language"
+                    data-preference-value={item}
+                    className="preference-button"
+                    onClick={() => setLanguage(item)}
+                    aria-pressed={language === item}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
 
-              <div className="preference-group" aria-label="Theme">
+              <div className="preference-group" aria-label={copy.themeLabel}>
                 {(["light", "dark"] satisfies UiTheme[]).map((item) => (
                   <button
                     key={item}
                     type="button"
-                    className={`preference-button${theme === item ? " preference-button-active" : ""}`}
+                    data-preference-kind="theme"
+                    data-preference-value={item}
+                    className="preference-button"
                     onClick={() => setTheme(item)}
+                    aria-pressed={theme === item}
                   >
                     {copy.theme[item]}
                   </button>
