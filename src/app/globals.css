@@ -605,6 +605,22 @@ html[data-theme="dark"] .route-card {
   margin-top: 8px;
 }
 
+.chart-subtitle {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.chart-control-stack {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+  min-width: min(520px, 100%);
+}
+
+.chart-view-modes,
 .chart-timeframes {
   display: flex;
   flex-wrap: wrap;
@@ -612,6 +628,7 @@ html[data-theme="dark"] .route-card {
   justify-content: flex-end;
 }
 
+.chart-view-modes button,
 .chart-timeframes button {
   min-width: 42px;
   border: 1px solid transparent;
@@ -626,23 +643,36 @@ html[data-theme="dark"] .route-card {
   cursor: pointer;
 }
 
+.chart-view-modes button {
+  min-width: 76px;
+  background: transparent;
+  border-color: var(--line);
+}
+
+.chart-view-modes button:hover,
+.chart-view-modes button:focus-visible,
 .chart-timeframes button:hover,
 .chart-timeframes button:focus-visible {
   border-color: var(--line-strong);
   color: var(--ink);
 }
 
+.chart-view-modes button.active,
 .chart-timeframes button.active {
   color: #fff;
   background: var(--accent);
+  border-color: transparent;
 }
 
+html[data-theme="dark"] .chart-view-modes button,
 html[data-theme="dark"] .chart-timeframes button {
   background: rgba(255, 255, 255, 0.06);
 }
 
+html[data-theme="dark"] .chart-view-modes button.active,
 html[data-theme="dark"] .chart-timeframes button.active {
   color: #06100c;
+  background: var(--accent);
 }
 
 .chart-stat-strip {
@@ -1962,6 +1992,12 @@ html[data-theme="dark"] .subtabs .active {
     align-items: stretch;
   }
 
+  .chart-control-stack {
+    justify-items: stretch;
+    min-width: 0;
+  }
+
+  .chart-view-modes,
   .chart-timeframes {
     justify-content: flex-start;
   }
@@ -2065,6 +2101,7 @@ html[data-theme="dark"] .subtabs .active {
     min-width: 860px;
   }
 
+  .chart-view-modes button,
   .chart-timeframes button {
     flex: 1 1 44px;
   }

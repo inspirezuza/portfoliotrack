@@ -13,22 +13,33 @@ import {
 } from "recharts";
 import { formatPercentRatio } from "@/lib/format";
 import type {
+  BenchmarkComparisonBasis,
   BenchmarkTimelinePoint,
   PortfolioBenchmarkTimelineStatus
 } from "@/lib/portfolio/timeline";
 
 type BenchmarkChartProps = {
   benchmarkSymbol: string | null;
+  benchmarkCurrency: string | null;
+  comparisonBasis: BenchmarkComparisonBasis | null;
   portfolioCurrency: string | null;
   series: BenchmarkTimelinePoint[];
   status: PortfolioBenchmarkTimelineStatus;
 };
 
 type TimeframeKey = "1D" | "5D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "START" | "ALL";
+type PerformanceMode = "INDEXED" | "GAP" | "DRAWDOWN";
 
 type ChartPoint = BenchmarkTimelinePoint & {
   benchmarkChangeFromRangeStart: number | null;
+  benchmarkDisplay: number;
+  benchmarkDrawdown: number;
+  benchmarkReturn: number;
+  gap: number;
+  portfolioDisplay: number;
   portfolioChangeFromRangeStart: number | null;
+  portfolioDrawdown: number;
+  portfolioReturn: number;
 };
 
 type ChartMouseState = {
@@ -68,6 +79,15 @@ const TIMEFRAME_OPTIONS: Array<{
   { key: "ALL", label: "All" }
 ];
 
+const PERFORMANCE_MODE_OPTIONS: Array<{
+  key: PerformanceMode;
+  label: string;
+}> = [
+  { key: "INDEXED", label: "Indexed" },
+  { key: "GAP", label: "Gap" },
+  { key: "DRAWDOWN", label: "Drawdown" }
+];
+
 function parseChartDate(value: string) {
   return new Date(value.includes("T") ? value : `${value}T00:00:00.000Z`);
 }
@@ -96,6 +116,63 @@ function formatIndexedReturn(value: number) {
 
 function formatSignedPercent(value: number) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+function formatPercentagePoint(value: number) {
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)} pp`;
+}
+
+function formatModeValue(value: number, mode: PerformanceMode) {
+  if (mode === "INDEXED") {
+    return formatIndexedReturn(value);
+  }
+
+  return mode === "GAP" ? formatPercentagePoint(value) : formatSignedPercent(value);
+}
+
+function getModeCopy(mode: PerformanceMode) {
+  switch (mode) {
+    case "GAP":
+      return {
+        portfolioName: "Portfolio gap",
+        benchmarkName: "Benchmark baseline",
+        yAxisLabel: "Gap"
+      };
+    case "DRAWDOWN":
+      return {
+        portfolioName: "Portfolio drawdown",
+        benchmarkName: "Benchmark drawdown",
+        yAxisLabel: "Drawdown"
+      };
+    default:
+      return {
+        portfolioName: "Portfolio",
+        benchmarkName: "Benchmark",
+        yAxisLabel: "Return"
+      };
+  }
+}
+
+function getBasisLabel({
+  benchmarkCurrency,
+  comparisonBasis,
+  portfolioCurrency
+}: {
+  benchmarkCurrency: string | null;
+  comparisonBasis: BenchmarkComparisonBasis | null;
+  portfolioCurrency: string | null;
+}) {
+  if (comparisonBasis === "same-currency") {
+    return portfolioCurrency == null ? "Same-currency return" : `${portfolioCurrency} return`;
+  }
+
+  if (comparisonBasis === "native-currency-return") {
+    return benchmarkCurrency == null
+      ? "Native-currency benchmark return"
+      : `${benchmarkCurrency} benchmark return, compared by %`;
+  }
+
+  return "Performance return";
 }
 
 function getUnavailableMessage({
@@ -269,7 +346,12 @@ function getChartPoint(state: ChartMouseState | undefined) {
   return state?.activePayload?.[0]?.payload ?? null;
 }
 
-function BenchmarkChartTooltip({ active, label, payload }: BenchmarkChartTooltipProps) {
+function BenchmarkChartTooltip({
+  active,
+  label,
+  mode,
+  payload
+}: BenchmarkChartTooltipProps & { mode: PerformanceMode }) {
   const point = payload?.[0]?.payload;
 
   if (!active || point == null || label == null) {
@@ -287,15 +369,15 @@ function BenchmarkChartTooltip({ active, label, payload }: BenchmarkChartTooltip
         }
 
         const change =
-          item.dataKey === "portfolio"
+          item.dataKey === "portfolioDisplay"
             ? point.portfolioChangeFromRangeStart
             : point.benchmarkChangeFromRangeStart;
 
         return (
           <div className="chart-tooltip-row" key={item.dataKey}>
             <span>{item.name ?? item.dataKey}</span>
-            <strong>{formatIndexedReturn(value)}</strong>
-            {change == null ? null : (
+            <strong>{formatModeValue(value, mode)}</strong>
+            {mode !== "INDEXED" || change == null ? null : (
               <em className={change >= 0 ? "value-positive" : "value-negative"}>
                 {formatSignedPercent(change)}
               </em>
@@ -309,30 +391,60 @@ function BenchmarkChartTooltip({ active, label, payload }: BenchmarkChartTooltip
 
 export function BenchmarkChart({
   benchmarkSymbol,
+  benchmarkCurrency,
+  comparisonBasis,
   portfolioCurrency,
   series,
   status
 }: BenchmarkChartProps) {
   const [timeframe, setTimeframe] = useState<TimeframeKey>("ALL");
+  const [mode, setMode] = useState<PerformanceMode>("INDEXED");
   const [selection, setSelection] = useState<SelectionRange | null>(null);
   const isDraggingRef = useRef(false);
   const hasSeries = series.length > 0;
   const visibleSeries = useMemo(() => getVisibleSeries(series, timeframe), [series, timeframe]);
   const chartData = useMemo<ChartPoint[]>(() => {
     const firstPoint = visibleSeries[0] ?? null;
+    let portfolioHighWatermark = firstPoint?.portfolio ?? 100;
+    let benchmarkHighWatermark = firstPoint?.benchmark ?? 100;
 
-    return visibleSeries.map((point) => ({
-      ...point,
-      benchmarkChangeFromRangeStart:
-        firstPoint == null
-          ? null
-          : calculatePercentChange(firstPoint.benchmark, point.benchmark),
-      portfolioChangeFromRangeStart:
-        firstPoint == null
-          ? null
-          : calculatePercentChange(firstPoint.portfolio, point.portfolio)
-    }));
-  }, [visibleSeries]);
+    return visibleSeries.map((point) => {
+      portfolioHighWatermark = Math.max(portfolioHighWatermark, point.portfolio);
+      benchmarkHighWatermark = Math.max(benchmarkHighWatermark, point.benchmark);
+
+      const portfolioReturn =
+        firstPoint == null ? 0 : calculatePercentChange(firstPoint.portfolio, point.portfolio) ?? 0;
+      const benchmarkReturn =
+        firstPoint == null ? 0 : calculatePercentChange(firstPoint.benchmark, point.benchmark) ?? 0;
+      const portfolioDrawdown =
+        portfolioHighWatermark === 0
+          ? 0
+          : ((point.portfolio - portfolioHighWatermark) / portfolioHighWatermark) * 100;
+      const benchmarkDrawdown =
+        benchmarkHighWatermark === 0
+          ? 0
+          : ((point.benchmark - benchmarkHighWatermark) / benchmarkHighWatermark) * 100;
+
+      return {
+        ...point,
+        benchmarkChangeFromRangeStart: firstPoint == null ? null : benchmarkReturn,
+        benchmarkDisplay:
+          mode === "DRAWDOWN" ? benchmarkDrawdown : mode === "GAP" ? 0 : point.benchmark,
+        benchmarkDrawdown,
+        benchmarkReturn,
+        gap: portfolioReturn - benchmarkReturn,
+        portfolioChangeFromRangeStart: firstPoint == null ? null : portfolioReturn,
+        portfolioDisplay:
+          mode === "DRAWDOWN"
+            ? portfolioDrawdown
+            : mode === "GAP"
+              ? portfolioReturn - benchmarkReturn
+              : point.portfolio,
+        portfolioDrawdown,
+        portfolioReturn
+      };
+    });
+  }, [mode, visibleSeries]);
   const rangeStats = useMemo(() => {
     if (chartData.length === 0) {
       return null;
@@ -364,10 +476,15 @@ export function BenchmarkChart({
     selectionPoints == null
       ? null
       : calculatePercentChange(selectionPoints.startPoint.benchmark, selectionPoints.endPoint.benchmark);
+  const selectedGap =
+    selectedPortfolioChange == null || selectedBenchmarkChange == null
+      ? null
+      : selectedPortfolioChange - selectedBenchmarkChange;
+  const modeCopy = getModeCopy(mode);
   const yDomain = useMemo(
     () =>
       getPaddedDomain(
-        chartData.flatMap((point) => [point.portfolio, point.benchmark])
+        chartData.flatMap((point) => [point.portfolioDisplay, point.benchmarkDisplay])
       ),
     [chartData]
   );
@@ -417,22 +534,45 @@ export function BenchmarkChart({
               ? "Performance vs benchmark"
               : `Performance vs ${benchmarkSymbol}`}
           </h2>
+          {hasSeries ? (
+            <p className="chart-subtitle">
+              {getBasisLabel({ benchmarkCurrency, comparisonBasis, portfolioCurrency })}
+            </p>
+          ) : null}
         </div>
-        <div className="chart-timeframes" aria-label="Benchmark chart timeframe">
-          {TIMEFRAME_OPTIONS.map((option) => (
-            <button
-              aria-pressed={timeframe === option.key}
-              className={timeframe === option.key ? "active" : ""}
-              key={option.key}
-              onClick={() => {
-                setTimeframe(option.key);
-                setSelection(null);
-              }}
-              type="button"
-            >
-              {option.label}
-            </button>
-          ))}
+        <div className="chart-control-stack">
+          <div className="chart-view-modes" aria-label="Benchmark performance mode">
+            {PERFORMANCE_MODE_OPTIONS.map((option) => (
+              <button
+                aria-pressed={mode === option.key}
+                className={mode === option.key ? "active" : ""}
+                key={option.key}
+                onClick={() => {
+                  setMode(option.key);
+                  setSelection(null);
+                }}
+                type="button"
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <div className="chart-timeframes" aria-label="Benchmark chart timeframe">
+            {TIMEFRAME_OPTIONS.map((option) => (
+              <button
+                aria-pressed={timeframe === option.key}
+                className={timeframe === option.key ? "active" : ""}
+                key={option.key}
+                onClick={() => {
+                  setTimeframe(option.key);
+                  setSelection(null);
+                }}
+                type="button"
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -473,7 +613,7 @@ export function BenchmarkChart({
                 </strong>
               </div>
               <div>
-                <span>Gap</span>
+                <span>{mode === "GAP" ? "Latest gap" : "Gap"}</span>
                 <strong
                   className={
                     rangeStats.gap == null
@@ -483,12 +623,12 @@ export function BenchmarkChart({
                         : "value-negative"
                   }
                 >
-                  {rangeStats.gap == null ? "-" : formatSignedPercent(rangeStats.gap)}
+                  {rangeStats.gap == null ? "-" : formatPercentagePoint(rangeStats.gap)}
                 </strong>
               </div>
               <div>
-                <span>Latest index</span>
-                <strong>{formatIndexedReturn(rangeStats.latestPoint.portfolio)}</strong>
+                <span>{modeCopy.yAxisLabel}</span>
+                <strong>{formatModeValue(rangeStats.latestPoint.portfolioDisplay, mode)}</strong>
               </div>
             </div>
           )}
@@ -515,7 +655,7 @@ export function BenchmarkChart({
                   stroke="var(--chart-axis)"
                 />
                 <YAxis
-                  tickFormatter={(value: number) => formatIndexedReturn(value)}
+                  tickFormatter={(value: number) => formatModeValue(value, mode)}
                   tickLine={false}
                   axisLine={false}
                   width={76}
@@ -525,7 +665,7 @@ export function BenchmarkChart({
                 />
                 <Tooltip
                   cursor={{ stroke: "rgba(17, 27, 23, 0.16)", strokeWidth: 1 }}
-                  content={<BenchmarkChartTooltip />}
+                  content={<BenchmarkChartTooltip mode={mode} />}
                 />
                 {!hasActiveSelection || selection == null ? null : (
                   <ReferenceArea
@@ -539,8 +679,8 @@ export function BenchmarkChart({
                 <Line
                   isAnimationActive={false}
                   type="linear"
-                  dataKey="portfolio"
-                  name="Portfolio"
+                  dataKey="portfolioDisplay"
+                  name={modeCopy.portfolioName}
                   stroke="var(--accent)"
                   strokeWidth={2.5}
                   dot={false}
@@ -549,8 +689,8 @@ export function BenchmarkChart({
                 <Line
                   isAnimationActive={false}
                   type="linear"
-                  dataKey="benchmark"
-                  name={benchmarkSymbol ?? "Benchmark"}
+                  dataKey="benchmarkDisplay"
+                  name={mode === "GAP" ? modeCopy.benchmarkName : benchmarkSymbol ?? modeCopy.benchmarkName}
                   stroke="var(--warm)"
                   strokeWidth={2.5}
                   dot={false}
@@ -585,6 +725,11 @@ export function BenchmarkChart({
                 <span className={selectedBenchmarkChange >= 0 ? "value-positive" : "value-negative"}>
                   {benchmarkSymbol ?? "Benchmark"} {formatSignedPercent(selectedBenchmarkChange)}
                 </span>
+                {selectedGap == null ? null : (
+                  <span className={selectedGap >= 0 ? "value-positive" : "value-negative"}>
+                    Gap {formatPercentagePoint(selectedGap)}
+                  </span>
+                )}
                 </>
               )}
             </div>

@@ -66,11 +66,15 @@ export type PortfolioBenchmarkTimelineStatus =
   | "missing-portfolio-history"
   | "missing-benchmark-history";
 
+export type BenchmarkComparisonBasis = "same-currency" | "native-currency-return";
+
 export type PortfolioBenchmarkTimeline = {
   status: PortfolioBenchmarkTimelineStatus;
   baselineDate: string | null;
   portfolioCurrency: string | null;
   benchmarkSymbol: string | null;
+  benchmarkCurrency: string | null;
+  comparisonBasis: BenchmarkComparisonBasis | null;
   portfolio: PortfolioTimelinePoint[];
   comparison: BenchmarkTimelinePoint[];
 };
@@ -406,6 +410,8 @@ export function buildPortfolioBenchmarkTimeline({
       baselineDate: null,
       portfolioCurrency: null,
       benchmarkSymbol,
+      benchmarkCurrency: null,
+      comparisonBasis: null,
       portfolio: [],
       comparison: []
     };
@@ -449,6 +455,8 @@ export function buildPortfolioBenchmarkTimeline({
       baselineDate,
       portfolioCurrency: openHoldingCurrencies.length === 1 ? openHoldingCurrencies[0] : null,
       benchmarkSymbol,
+      benchmarkCurrency: null,
+      comparisonBasis: null,
       portfolio: [],
       comparison: []
     };
@@ -463,6 +471,8 @@ export function buildPortfolioBenchmarkTimeline({
       baselineDate,
       portfolioCurrency: null,
       benchmarkSymbol,
+      benchmarkCurrency: null,
+      comparisonBasis: null,
       portfolio: [],
       comparison: []
     };
@@ -481,8 +491,9 @@ export function buildPortfolioBenchmarkTimeline({
     historicalPrices: portfolioHistoricalPrices,
     intradayPrices: portfolioIntradayPrices
   });
-  const portfolioSeries = portfolioValuationSeries.map(({ date, value }) => ({
+  const portfolioSeries = portfolioValuationSeries.map(({ date, interval, value }) => ({
     date,
+    interval,
     value
   }));
 
@@ -492,6 +503,8 @@ export function buildPortfolioBenchmarkTimeline({
       baselineDate,
       portfolioCurrency,
       benchmarkSymbol,
+      benchmarkCurrency: null,
+      comparisonBasis: null,
       portfolio: [],
       comparison: []
     };
@@ -503,6 +516,8 @@ export function buildPortfolioBenchmarkTimeline({
       baselineDate,
       portfolioCurrency,
       benchmarkSymbol,
+      benchmarkCurrency: null,
+      comparisonBasis: null,
       portfolio: portfolioSeries,
       comparison: []
     };
@@ -510,19 +525,16 @@ export function buildPortfolioBenchmarkTimeline({
 
   const benchmarkInstrument = instrumentsById.get(benchmarkInstrumentId);
 
-  if (benchmarkInstrument?.currency !== portfolioCurrency) {
-    return {
-      status: "benchmark-currency-mismatch",
-      baselineDate,
-      portfolioCurrency,
-      benchmarkSymbol,
-      portfolio: portfolioSeries,
-      comparison: []
-    };
-  }
+  const benchmarkCurrency = benchmarkInstrument?.currency ?? null;
+  const comparisonBasis =
+    benchmarkCurrency == null
+      ? null
+      : benchmarkCurrency === portfolioCurrency
+        ? "same-currency"
+        : "native-currency-return";
 
   const benchmarkHistoricalPrices = historicalPrices
-    .filter((row) => row.currency === benchmarkInstrument.currency && row.priceDate <= today)
+    .filter((row) => benchmarkCurrency != null && row.currency === benchmarkCurrency && row.priceDate <= today)
     .filter((row) => row.instrumentId === benchmarkInstrumentId && row.priceDate >= baselineDate)
     .sort((left, right) => left.priceDate.localeCompare(right.priceDate));
   const benchmarkIntradayPrices = validIntradayPrices
@@ -539,6 +551,8 @@ export function buildPortfolioBenchmarkTimeline({
     baselineDate,
     portfolioCurrency,
     benchmarkSymbol,
+    benchmarkCurrency,
+    comparisonBasis,
     portfolio: portfolioSeries,
     comparison: comparisonSeries
   };

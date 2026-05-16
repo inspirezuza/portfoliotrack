@@ -272,6 +272,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <div className="workstation-main-stack">
           <BenchmarkChart
             benchmarkSymbol={timeline.benchmarkSymbol}
+            benchmarkCurrency={timeline.benchmarkCurrency}
+            comparisonBasis={timeline.comparisonBasis}
             portfolioCurrency={timeline.portfolioCurrency}
             series={timeline.comparison}
             status={timeline.status}
