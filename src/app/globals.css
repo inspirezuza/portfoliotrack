@@ -551,6 +551,10 @@ html[data-theme="dark"] .route-card {
   gap: 12px;
 }
 
+.chart-card-header {
+  flex-wrap: wrap;
+}
+
 .section-title,
 .panel-title,
 .side-card-title,
@@ -572,6 +576,7 @@ html[data-theme="dark"] .route-card {
 }
 
 .chart-shell {
+  position: relative;
   padding: 8px 5px 2px;
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -580,6 +585,150 @@ html[data-theme="dark"] .route-card {
     linear-gradient(90deg, transparent 24%, var(--chart-grid) 25%, transparent 26%),
     linear-gradient(145deg, rgba(8, 116, 93, 0.08), rgba(184, 120, 36, 0.04));
   background-size: 100% 58px, 76px 100%, auto;
+  cursor: crosshair;
+  user-select: none;
+}
+
+.chart-workspace {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.chart-timeframes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  justify-content: flex-end;
+}
+
+.chart-timeframes button {
+  min-width: 42px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 7px 10px;
+  color: var(--muted);
+  background: rgba(18, 31, 25, 0.06);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 750;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.chart-timeframes button:hover,
+.chart-timeframes button:focus-visible {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.chart-timeframes button.active {
+  color: #fff;
+  background: var(--accent);
+}
+
+html[data-theme="dark"] .chart-timeframes button {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+html[data-theme="dark"] .chart-timeframes button.active {
+  color: #06100c;
+}
+
+.chart-stat-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.chart-stat-strip div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  background: rgba(18, 31, 25, 0.035);
+}
+
+html[data-theme="dark"] .chart-stat-strip div {
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.chart-stat-strip span,
+.chart-selection-readout span,
+.chart-tooltip span {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 650;
+  line-height: 1.15;
+}
+
+.chart-stat-strip strong,
+.chart-selection-readout strong,
+.chart-tooltip strong {
+  min-width: 0;
+  color: var(--ink);
+  font-size: 0.96rem;
+  font-weight: 760;
+  letter-spacing: 0;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.chart-selection-readout {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  max-width: min(620px, calc(100% - 24px));
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--surface-strong) 92%, transparent);
+  box-shadow: 0 8px 24px rgba(18, 31, 25, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+.chart-selection-readout strong {
+  font-size: 0.9rem;
+}
+
+.chart-tooltip {
+  display: grid;
+  gap: 4px;
+  min-width: 154px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 12px;
+  color: var(--ink);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow);
+}
+
+.chart-tooltip-row {
+  display: grid;
+  grid-template-columns: minmax(76px, 1fr) auto auto;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.chart-tooltip-row span {
+  color: var(--ink);
+}
+
+.chart-tooltip-row em {
+  justify-self: end;
+}
+
+.chart-tooltip em {
+  font-size: 0.76rem;
+  font-style: normal;
+  font-weight: 750;
+  line-height: 1.2;
 }
 
 .chart-empty-state,
@@ -1179,6 +1328,10 @@ html[data-theme="dark"] .subtabs .active {
     align-items: stretch;
   }
 
+  .chart-timeframes {
+    justify-content: flex-start;
+  }
+
   .shell-content {
     padding: 10px;
   }
@@ -1209,6 +1362,19 @@ html[data-theme="dark"] .subtabs .active {
   .transaction-form-footer {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .chart-stat-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .chart-selection-readout {
+    position: static;
+    align-items: flex-start;
+    flex-direction: column;
+    max-width: none;
+    margin: 0 5px 8px;
+    border-radius: var(--radius-md);
   }
 }
 
@@ -1248,5 +1414,13 @@ html[data-theme="dark"] .subtabs .active {
 
   .holdings-table {
     min-width: 860px;
+  }
+
+  .chart-timeframes button {
+    flex: 1 1 44px;
+  }
+
+  .chart-stat-strip {
+    grid-template-columns: 1fr;
   }
 }
