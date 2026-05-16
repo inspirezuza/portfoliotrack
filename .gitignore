@@ -1,0 +1,13 @@
+node_modules/
+.next/
+.tmp-node-path/
+data/portfolio.sqlite
+data/portfolio.sqlite-shm
+data/portfolio.sqlite-wal
+drizzle/*.sqlite
+*.log
+*.err.log
+tsconfig.tsbuildinfo
+.env
+.env.*
+!.env.example
