@@ -3,10 +3,12 @@ import "server-only";
 import { asc } from "drizzle-orm";
 import { OperationTimeoutError, withOperationTimeout } from "@/lib/async/timeout";
 import { db } from "@/lib/db/runtime";
-import { appSettings, historicalPrices, instruments, priceSnapshots, transactions } from "@/lib/db/schema";
+import { appSettings, historicalPrices, instruments, intradayPrices, priceSnapshots, transactions } from "@/lib/db/schema";
 import type {
   MarketDataProvider,
   MarketHistoricalSeries,
+  MarketIntradayInterval,
+  MarketIntradaySeries,
   MarketQuoteSnapshot
 } from "@/lib/market/types";
 import { yahooProvider } from "@/lib/market/yahoo-provider";
@@ -27,7 +29,9 @@ export type MarketRefreshIssue = {
     | "missing_quote"
     | "quote_currency_mismatch"
     | "missing_history"
-    | "history_currency_mismatch";
+    | "history_currency_mismatch"
+    | "missing_intraday"
+    | "intraday_currency_mismatch";
 };
 
 export type MarketDataRefreshResult = {
@@ -37,6 +41,7 @@ export type MarketDataRefreshResult = {
   requestedSymbols: string[];
   quoteRefreshCount: number;
   historicalBarCount: number;
+  intradayBarCount: number;
   latestSuccessfulAsOf: string | null;
   issues: MarketRefreshIssue[];
 };
@@ -58,6 +63,14 @@ type InflightRefresh = {
 };
 
 let inflightRefresh: InflightRefresh | null = null;
+
+const INTRADAY_REFRESH_WINDOWS: Array<{
+  interval: MarketIntradayInterval;
+  lookbackDays: number;
+}> = [
+  { interval: "5m", lookbackDays: 2 },
+  { interval: "1h", lookbackDays: 35 }
+];
 
 export function getMarketDataProvider(): MarketDataProvider {
   return yahooProvider;
@@ -187,6 +200,27 @@ async function getHistoryCoverageByInstrument(targets: RefreshTarget[]) {
   }
 
   return coverageByInstrument;
+}
+
+async function hasMissingIntradayData(targets: RefreshTarget[]) {
+  if (targets.length === 0) {
+    return false;
+  }
+
+  const rows = await db.select().from(intradayPrices).all();
+  const intervalsByInstrumentId = new Map<number, Set<string>>();
+
+  for (const row of rows) {
+    const intervals = intervalsByInstrumentId.get(row.instrumentId) ?? new Set<string>();
+    intervals.add(row.interval);
+    intervalsByInstrumentId.set(row.instrumentId, intervals);
+  }
+
+  return targets.some((target) => {
+    const intervals = intervalsByInstrumentId.get(target.instrument.id);
+
+    return intervals == null || INTRADAY_REFRESH_WINDOWS.some((window) => !intervals.has(window.interval));
+  });
 }
 
 function contextCoversTarget(existingTarget: RefreshTarget, requestedTarget: RefreshTarget) {
@@ -398,8 +432,9 @@ export async function ensureFreshMarketDataCache({
     targets,
     snapshotByInstrumentId
   });
+  const missingIntradayData = await hasMissingIntradayData(targets);
 
-  if (!hasMissingSnapshot && !hasStaleSnapshot && !missingHistoricalData) {
+  if (!hasMissingSnapshot && !hasStaleSnapshot && !missingHistoricalData && !missingIntradayData) {
     return null;
   }
 
@@ -428,6 +463,7 @@ async function performRefreshMarketDataCache(
       requestedSymbols: [],
       quoteRefreshCount: 0,
       historicalBarCount: 0,
+      intradayBarCount: 0,
       latestSuccessfulAsOf: null,
       issues: []
     };
@@ -450,9 +486,23 @@ async function performRefreshMarketDataCache(
   const historyByInstrumentId = new Map(
     historicalResults.filter(([, result]) => result != null) as Array<[number, MarketHistoricalSeries]>
   );
+  const now = new Date();
+  const intradayResults = await Promise.all(
+    targets.flatMap((target) =>
+      INTRADAY_REFRESH_WINDOWS.map(async (window) => [
+        target.instrument.id,
+        window.interval,
+        await provider.getIntradayPrices(target.instrument.providerSymbol, {
+          interval: window.interval,
+          startAt: addDays(now, -window.lookbackDays).toISOString()
+        })
+      ] as const)
+    )
+  );
   const issues: MarketRefreshIssue[] = [];
   const validQuotes = new Map<number, MarketQuoteSnapshot>();
   const validHistories = new Map<number, MarketHistoricalSeries>();
+  const validIntradaySeries = new Map<string, { instrumentId: number; series: MarketIntradaySeries }>();
 
   for (const target of targets) {
     const quote = quoteByProviderSymbol.get(target.instrument.providerSymbol);
@@ -471,6 +521,35 @@ async function performRefreshMarketDataCache(
       });
     } else {
       validQuotes.set(target.instrument.id, quote);
+    }
+
+    for (const window of INTRADAY_REFRESH_WINDOWS) {
+      const intraday = intradayResults.find(
+        ([instrumentId, interval]) => instrumentId === target.instrument.id && interval === window.interval
+      )?.[2];
+
+      if (intraday == null) {
+        issues.push({
+          symbol: target.instrument.symbol,
+          providerSymbol: target.instrument.providerSymbol,
+          reason: "missing_intraday"
+        });
+        continue;
+      }
+
+      if (intraday.currency !== target.instrument.currency) {
+        issues.push({
+          symbol: target.instrument.symbol,
+          providerSymbol: target.instrument.providerSymbol,
+          reason: "intraday_currency_mismatch"
+        });
+        continue;
+      }
+
+      validIntradaySeries.set(`${target.instrument.id}:${window.interval}`, {
+        instrumentId: target.instrument.id,
+        series: intraday
+      });
     }
 
     if (target.historyStartDate == null) {
@@ -501,6 +580,7 @@ async function performRefreshMarketDataCache(
   }
 
   let historicalBarCount = 0;
+  let intradayBarCount = 0;
 
   db.transaction((tx) => {
     for (const [instrumentId, quote] of validQuotes) {
@@ -547,6 +627,31 @@ async function performRefreshMarketDataCache(
         historicalBarCount += 1;
       }
     }
+
+    for (const { instrumentId, series } of validIntradaySeries.values()) {
+      for (const bar of series.bars) {
+        tx.insert(intradayPrices)
+          .values({
+            instrumentId,
+            interval: series.interval,
+            observedAt: bar.observedAt,
+            close: bar.close,
+            currency: series.currency,
+            source: series.source
+          })
+          .onConflictDoUpdate({
+            target: [intradayPrices.instrumentId, intradayPrices.interval, intradayPrices.observedAt],
+            set: {
+              close: bar.close,
+              currency: series.currency,
+              source: series.source
+            }
+          })
+          .run();
+
+        intradayBarCount += 1;
+      }
+    }
   });
 
   const latestSuccessfulAsOf =
@@ -563,6 +668,7 @@ async function performRefreshMarketDataCache(
     ),
     quoteRefreshCount: validQuotes.size,
     historicalBarCount,
+    intradayBarCount,
     latestSuccessfulAsOf,
     issues
   };

@@ -19,7 +19,7 @@ type AssetPriceChartProps = {
   asset: AssetDetail;
 };
 
-type TimeframeKey = "1W" | "1M" | "3M" | "YTD" | "1Y" | "START" | "ALL";
+type TimeframeKey = "1D" | "5D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "START" | "ALL";
 
 type ChartPoint = AssetDetail["marketData"]["priceHistory"][number] & {
   changeFromRangeStart: number | null;
@@ -49,6 +49,8 @@ const TIMEFRAME_OPTIONS: Array<{
   key: TimeframeKey;
   label: string;
 }> = [
+  { key: "1D", label: "1D" },
+  { key: "5D", label: "5D" },
   { key: "1W", label: "1W" },
   { key: "1M", label: "1M" },
   { key: "3M", label: "3M" },
@@ -58,21 +60,34 @@ const TIMEFRAME_OPTIONS: Array<{
   { key: "ALL", label: "All" }
 ];
 
+function parseChartDate(value: string) {
+  return new Date(value.includes("T") ? value : `${value}T00:00:00.000Z`);
+}
+
+function isIntradayDate(value: string) {
+  return value.includes("T");
+}
+
 function formatChartDate(value: string) {
+  const hasTime = isIntradayDate(value);
+
   return new Intl.DateTimeFormat("en-GB", {
     month: "short",
     day: "numeric",
-    year: "numeric",
+    ...(hasTime ? { hour: "2-digit", minute: "2-digit" } : { year: "numeric" }),
     timeZone: "UTC"
-  }).format(new Date(`${value}T00:00:00.000Z`));
+  }).format(parseChartDate(value));
 }
 
 function formatCompactChartDate(value: string) {
+  const hasTime = isIntradayDate(value);
+
   return new Intl.DateTimeFormat("en-GB", {
     month: "short",
     day: "numeric",
+    ...(hasTime ? { hour: "2-digit", minute: "2-digit" } : {}),
     timeZone: "UTC"
-  }).format(new Date(`${value}T00:00:00.000Z`));
+  }).format(parseChartDate(value));
 }
 
 function formatPrice(value: number, currency: string) {
@@ -80,6 +95,12 @@ function formatPrice(value: number, currency: string) {
     currency,
     maximumFractionDigits: value >= 100 ? 2 : 4
   });
+}
+
+function formatAxisPrice(value: number) {
+  return new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: value >= 100 ? 2 : 4
+  }).format(value);
 }
 
 function formatSignedPercent(value: number) {
@@ -91,25 +112,29 @@ function getUnavailableMessage(asset: AssetDetail) {
 }
 
 function getUtcDateTime(value: string) {
-  return new Date(`${value}T00:00:00.000Z`).getTime();
+  return parseChartDate(value).getTime();
 }
 
 function getTimeframeStartDate(key: TimeframeKey, latestDate: string, sinceStartDate: string | null) {
-  const latest = new Date(`${latestDate}T00:00:00.000Z`);
+  const latest = parseChartDate(latestDate);
 
   if (key === "ALL") {
     return null;
   }
 
   if (key === "START") {
-    return sinceStartDate;
+    return sinceStartDate == null || sinceStartDate.includes("T")
+      ? sinceStartDate
+      : `${sinceStartDate}T00:00:00.000Z`;
   }
 
   if (key === "YTD") {
-    return `${latest.getUTCFullYear()}-01-01`;
+    return `${latest.getUTCFullYear()}-01-01T00:00:00.000Z`;
   }
 
   const daysByKey: Record<Exclude<TimeframeKey, "ALL" | "YTD" | "START">, number> = {
+    "1D": 1,
+    "5D": 5,
     "1W": 7,
     "1M": 30,
     "3M": 90,
@@ -117,7 +142,23 @@ function getTimeframeStartDate(key: TimeframeKey, latestDate: string, sinceStart
   };
   latest.setUTCDate(latest.getUTCDate() - daysByKey[key]);
 
-  return latest.toISOString().slice(0, 10);
+  return latest.toISOString();
+}
+
+function isShortTimeframe(timeframe: TimeframeKey) {
+  return timeframe === "1D" || timeframe === "5D" || timeframe === "1W" || timeframe === "1M";
+}
+
+function getPreferredIntradayInterval(timeframe: TimeframeKey) {
+  if (timeframe === "1D") {
+    return "5m";
+  }
+
+  if (timeframe === "5D" || timeframe === "1W" || timeframe === "1M") {
+    return "1h";
+  }
+
+  return null;
 }
 
 function getVisibleHistory(
@@ -132,8 +173,36 @@ function getVisibleHistory(
   }
 
   const startDate = getTimeframeStartDate(timeframe, latestPoint.date, sinceStartDate);
+  const startTime = startDate == null ? null : getUtcDateTime(startDate);
   const filteredHistory =
-    startDate == null ? history : history.filter((point) => point.date >= startDate);
+    startTime == null ? history : history.filter((point) => getUtcDateTime(point.date) >= startTime);
+
+  if (isShortTimeframe(timeframe)) {
+    const preferredInterval = getPreferredIntradayInterval(timeframe);
+    const preferredIntradayHistory = filteredHistory.filter(
+      (point) => preferredInterval != null && point.interval === preferredInterval
+    );
+
+    if (preferredIntradayHistory.length >= 2) {
+      return preferredIntradayHistory;
+    }
+
+    const intradayHistory = filteredHistory.filter(
+      (point) => point.interval !== "1d" && isIntradayDate(point.date)
+    );
+
+    if (intradayHistory.length >= 2) {
+      return intradayHistory;
+    }
+  } else {
+    const dailyHistory = filteredHistory.filter(
+      (point) => point.interval === "1d" || !isIntradayDate(point.date)
+    );
+
+    if (dailyHistory.length >= 2) {
+      return dailyHistory;
+    }
+  }
 
   return filteredHistory.length > 0 ? filteredHistory : history;
 }
@@ -158,6 +227,10 @@ function getSelectionPoints(data: ChartPoint[], selection: SelectionRange | null
     startPoint,
     endPoint
   };
+}
+
+function hasSelectionSpan(points: ReturnType<typeof getSelectionPoints>) {
+  return points != null && points.startPoint.date !== points.endPoint.date;
 }
 
 function getChartPoint(state: ChartMouseState | undefined) {
@@ -259,6 +332,7 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
     selectionPoints == null
       ? null
       : calculatePercentChange(selectionPoints.startPoint.close, selectionPoints.endPoint.close);
+  const hasActiveSelection = hasSelectionSpan(selectionPoints);
   const yDomain = useMemo(() => {
     const values = chartData.map((point) => point.close);
 
@@ -291,8 +365,8 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
     }
 
     setSelection((currentSelection) =>
-      currentSelection == null
-        ? null
+      currentSelection == null || currentSelection.endDate === point.date
+        ? currentSelection
         : {
             ...currentSelection,
             endDate: point.date
@@ -372,7 +446,7 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
             <ResponsiveContainer width="100%" height={360}>
               <AreaChart
                 data={chartData}
-                margin={{ top: 12, right: 8, left: 0, bottom: 8 }}
+                margin={{ top: 12, right: 18, left: 14, bottom: 14 }}
                 onMouseDown={handleChartMouseDown}
                 onMouseLeave={handleChartMouseUp}
                 onMouseMove={handleChartMouseMove}
@@ -391,21 +465,24 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
                   tickLine={false}
                   axisLine={false}
                   minTickGap={28}
+                  height={36}
+                  tickMargin={8}
                   stroke="var(--muted)"
                 />
                 <YAxis
-                  tickFormatter={(value: number) => formatPrice(value, asset.instrument.currency)}
+                  tickFormatter={(value: number) => formatAxisPrice(value)}
                   tickLine={false}
                   axisLine={false}
-                  width={92}
+                  width={78}
                   domain={yDomain}
+                  tickMargin={12}
                   stroke="var(--muted)"
                 />
                 <Tooltip
                   cursor={{ stroke: "rgba(23, 107, 85, 0.18)", strokeWidth: 1 }}
                   content={<AssetChartTooltip currency={asset.instrument.currency} />}
                 />
-                {selection == null || selection.startDate === selection.endDate ? null : (
+                {!hasActiveSelection || selection == null ? null : (
                   <ReferenceArea
                     x1={selection.startDate}
                     x2={selection.endDate}
@@ -432,6 +509,7 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
                   />
                 ) : null}
                 <Area
+                  isAnimationActive={false}
                   type="linear"
                   dataKey="close"
                   stroke="var(--accent)"
@@ -442,8 +520,17 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
                 />
               </AreaChart>
             </ResponsiveContainer>
-            {selectionPoints == null || selectionPercent == null ? null : (
-              <div className="chart-selection-readout">
+            <div
+              className={
+                hasActiveSelection && selectionPoints != null && selectionPercent != null
+                  ? "chart-selection-readout"
+                  : "chart-selection-readout chart-selection-readout-idle"
+              }
+            >
+              {!hasActiveSelection || selectionPoints == null || selectionPercent == null ? (
+                <span>Drag across the chart to compare</span>
+              ) : (
+                <>
                 <span>
                   {formatCompactChartDate(selectionPoints.startPoint.date)} to{" "}
                   {formatCompactChartDate(selectionPoints.endPoint.date)}
@@ -455,8 +542,9 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
                   {formatPrice(selectionPoints.startPoint.close, asset.instrument.currency)} to{" "}
                   {formatPrice(selectionPoints.endPoint.close, asset.instrument.currency)}
                 </span>
-              </div>
-            )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       ) : (

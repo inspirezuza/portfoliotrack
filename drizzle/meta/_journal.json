@@ -15,6 +15,13 @@
       "when": 1778931567751,
       "tag": "0001_dr_metadata",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1778935987681,
+      "tag": "0002_intraday_prices",
+      "breakpoints": true
     }
   ]
 }

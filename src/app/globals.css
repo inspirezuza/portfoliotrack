@@ -582,7 +582,7 @@ html[data-theme="dark"] .route-card {
 
 .chart-shell {
   position: relative;
-  padding: 8px 5px 2px;
+  padding: 10px 18px 10px 18px;
   border: 1px solid var(--line);
   border-radius: 16px;
   background:
@@ -592,6 +592,11 @@ html[data-theme="dark"] .route-card {
   background-size: 100% 58px, 76px 100%, auto;
   cursor: crosshair;
   user-select: none;
+}
+
+.chart-shell .recharts-wrapper,
+.chart-shell .recharts-surface {
+  overflow: visible;
 }
 
 .chart-workspace {
@@ -681,21 +686,43 @@ html[data-theme="dark"] .chart-stat-strip div {
   overflow-wrap: anywhere;
 }
 
+.chart-stat-strip .value-positive,
+.chart-selection-readout .value-positive,
+.chart-tooltip .value-positive {
+  color: var(--accent);
+}
+
+.chart-stat-strip .value-negative,
+.chart-selection-readout .value-negative,
+.chart-tooltip .value-negative {
+  color: var(--danger);
+}
+
 .chart-selection-readout {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  z-index: 1;
+  position: static;
   display: flex;
   align-items: center;
   gap: 9px;
-  max-width: min(620px, calc(100% - 24px));
+  width: fit-content;
+  min-height: 38px;
+  max-width: 100%;
+  margin: 8px 0 2px auto;
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 8px 10px;
   background: color-mix(in srgb, var(--surface-strong) 92%, transparent);
   box-shadow: 0 8px 24px rgba(18, 31, 25, 0.08);
   backdrop-filter: blur(10px);
+}
+
+.chart-selection-readout-idle {
+  color: var(--muted);
+  background: transparent;
+  box-shadow: none;
+}
+
+.chart-selection-readout-idle span {
+  font-weight: 600;
 }
 
 .chart-selection-readout strong {

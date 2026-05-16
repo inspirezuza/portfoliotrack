@@ -2,7 +2,7 @@ import "server-only";
 
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/runtime";
-import { historicalPrices, instruments, priceSnapshots, transactions } from "@/lib/db/schema";
+import { historicalPrices, instruments, intradayPrices, priceSnapshots, transactions } from "@/lib/db/schema";
 import {
   ensureFreshMarketDataCache,
   getMarketSettings,
@@ -11,6 +11,7 @@ import {
 } from "@/lib/market/provider";
 import {
   buildPortfolioBenchmarkTimeline,
+  type TimelineIntradayPrice,
   type PortfolioBenchmarkTimeline
 } from "@/lib/portfolio/timeline";
 import {
@@ -48,10 +49,14 @@ export type DashboardSnapshot = {
   timeline: PortfolioBenchmarkTimeline;
 };
 
+function isTimelineIntradayInterval(value: string): value is TimelineIntradayPrice["interval"] {
+  return value === "5m" || value === "15m" || value === "1h";
+}
+
 export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
   await ensureFreshMarketDataCache({ includeBenchmark: true });
 
-  const [holdingsSnapshot, marketSettings, transactionRows, instrumentRows, historicalPriceRows] =
+  const [holdingsSnapshot, marketSettings, transactionRows, instrumentRows, historicalPriceRows, intradayPriceRows] =
     await Promise.all([
       getHoldingsSnapshot({ ensureFresh: false }),
       getMarketSettings(),
@@ -70,7 +75,8 @@ export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
         .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id))
         .all(),
       db.select().from(instruments).all(),
-      db.select().from(historicalPrices).all()
+      db.select().from(historicalPrices).all(),
+      db.select().from(intradayPrices).all()
     ]);
   const benchmarkInstrument =
     marketSettings.benchmarkSymbol == null
@@ -112,6 +118,17 @@ export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
       close: row.close,
       currency: row.currency
     })),
+    intradayPrices: intradayPriceRows
+      .filter((row): row is typeof row & { interval: TimelineIntradayPrice["interval"] } =>
+        isTimelineIntradayInterval(row.interval)
+      )
+      .map((row) => ({
+        instrumentId: row.instrumentId,
+        observedAt: row.observedAt,
+        close: row.close,
+        currency: row.currency,
+        interval: row.interval
+      })),
     benchmarkInstrumentId: benchmarkInstrument?.id ?? null,
     benchmarkSymbol: marketSettings.benchmarkSymbol
   });

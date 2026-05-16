@@ -7,6 +7,9 @@ import type {
   MarketHistoricalBar,
   MarketHistoricalSeries,
   MarketHistoryRequest,
+  MarketIntradayBar,
+  MarketIntradayRequest,
+  MarketIntradaySeries,
   MarketQuoteSnapshot
 } from "@/lib/market/types";
 
@@ -110,6 +113,55 @@ async function fetchHistoricalPrices(
   }
 }
 
+async function fetchIntradayPrices(
+  providerSymbol: string,
+  request: MarketIntradayRequest
+): Promise<MarketIntradaySeries | null> {
+  try {
+    const chart = await withOperationTimeout(
+      yahooFinance.chart(providerSymbol, {
+        period1: request.startAt,
+        period2: request.endAt ?? new Date().toISOString(),
+        interval: request.interval,
+        return: "array"
+      }),
+      {
+        label: `Yahoo intraday ${providerSymbol}`,
+        timeoutMs: YAHOO_HISTORY_TIMEOUT_MS
+      }
+    );
+
+    const bars = chart.quotes
+      .map<MarketIntradayBar | null>((row) => {
+        if (row.close == null) {
+          return null;
+        }
+
+        return {
+          observedAt: row.date.toISOString(),
+          close: row.close
+        };
+      })
+      .filter((bar): bar is MarketIntradayBar => bar != null)
+      .sort((left, right) => left.observedAt.localeCompare(right.observedAt));
+
+    if (!chart.meta.currency || bars.length === 0) {
+      return null;
+    }
+
+    return {
+      providerSymbol,
+      currency: chart.meta.currency,
+      source: SOURCE,
+      interval: request.interval,
+      bars
+    };
+  } catch (error) {
+    console.error(`Intraday price fetch failed for ${providerSymbol}`, error);
+    return null;
+  }
+}
+
 export const yahooProvider: MarketDataProvider = {
   source: SOURCE,
   async getLatestQuotes(providerSymbols) {
@@ -121,5 +173,8 @@ export const yahooProvider: MarketDataProvider = {
   },
   async getHistoricalPrices(providerSymbol, request) {
     return fetchHistoricalPrices(providerSymbol, request);
+  },
+  async getIntradayPrices(providerSymbol, request) {
+    return fetchIntradayPrices(providerSymbol, request);
   }
 };

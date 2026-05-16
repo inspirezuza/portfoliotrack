@@ -23,7 +23,7 @@ type PortfolioChartProps = {
   status: PortfolioBenchmarkTimelineStatus;
 };
 
-type TimeframeKey = "1W" | "1M" | "3M" | "YTD" | "1Y" | "START" | "ALL";
+type TimeframeKey = "1D" | "5D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "START" | "ALL";
 
 type ChartPoint = PortfolioTimelinePoint & {
   changeFromRangeStart: number | null;
@@ -53,6 +53,8 @@ const TIMEFRAME_OPTIONS: Array<{
   key: TimeframeKey;
   label: string;
 }> = [
+  { key: "1D", label: "1D" },
+  { key: "5D", label: "5D" },
   { key: "1W", label: "1W" },
   { key: "1M", label: "1M" },
   { key: "3M", label: "3M" },
@@ -62,12 +64,23 @@ const TIMEFRAME_OPTIONS: Array<{
   { key: "ALL", label: "All" }
 ];
 
+function parseChartDate(value: string) {
+  return new Date(value.includes("T") ? value : `${value}T00:00:00.000Z`);
+}
+
+function isIntradayDate(value: string) {
+  return value.includes("T");
+}
+
 function formatChartDate(value: string) {
+  const hasTime = isIntradayDate(value);
+
   return new Intl.DateTimeFormat("en-GB", {
     month: "short",
     day: "numeric",
+    ...(hasTime ? { hour: "2-digit", minute: "2-digit" } : {}),
     timeZone: "UTC"
-  }).format(new Date(`${value}T00:00:00.000Z`));
+  }).format(parseChartDate(value));
 }
 
 function formatChartValue(value: number, currency: string | null) {
@@ -82,6 +95,13 @@ function formatChartValue(value: number, currency: string | null) {
     minimumFractionDigits: value >= 100 ? 0 : 2,
     maximumFractionDigits: value >= 100 ? 0 : 2
   });
+}
+
+function formatAxisValue(value: number) {
+  return new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: value >= 100 ? 0 : 2,
+    notation: value >= 1_000_000 ? "compact" : "standard"
+  }).format(value);
 }
 
 function formatSignedPercent(value: number) {
@@ -102,25 +122,29 @@ function getUnavailableMessage(status: PortfolioBenchmarkTimelineStatus) {
 }
 
 function getUtcDateTime(value: string) {
-  return new Date(`${value}T00:00:00.000Z`).getTime();
+  return parseChartDate(value).getTime();
 }
 
 function getTimeframeStartDate(key: TimeframeKey, latestDate: string, sinceStartDate: string | null) {
-  const latest = new Date(`${latestDate}T00:00:00.000Z`);
+  const latest = parseChartDate(latestDate);
 
   if (key === "ALL") {
     return null;
   }
 
   if (key === "START") {
-    return sinceStartDate;
+    return sinceStartDate == null || sinceStartDate.includes("T")
+      ? sinceStartDate
+      : `${sinceStartDate}T00:00:00.000Z`;
   }
 
   if (key === "YTD") {
-    return `${latest.getUTCFullYear()}-01-01`;
+    return `${latest.getUTCFullYear()}-01-01T00:00:00.000Z`;
   }
 
   const daysByKey: Record<Exclude<TimeframeKey, "ALL" | "YTD" | "START">, number> = {
+    "1D": 1,
+    "5D": 5,
     "1W": 7,
     "1M": 30,
     "3M": 90,
@@ -128,7 +152,23 @@ function getTimeframeStartDate(key: TimeframeKey, latestDate: string, sinceStart
   };
   latest.setUTCDate(latest.getUTCDate() - daysByKey[key]);
 
-  return latest.toISOString().slice(0, 10);
+  return latest.toISOString();
+}
+
+function isShortTimeframe(timeframe: TimeframeKey) {
+  return timeframe === "1D" || timeframe === "5D" || timeframe === "1W" || timeframe === "1M";
+}
+
+function getPreferredIntradayInterval(timeframe: TimeframeKey) {
+  if (timeframe === "1D") {
+    return "5m";
+  }
+
+  if (timeframe === "5D" || timeframe === "1W" || timeframe === "1M") {
+    return "1h";
+  }
+
+  return null;
 }
 
 function getVisibleSeries(series: PortfolioTimelinePoint[], timeframe: TimeframeKey) {
@@ -140,8 +180,32 @@ function getVisibleSeries(series: PortfolioTimelinePoint[], timeframe: Timeframe
   }
 
   const startDate = getTimeframeStartDate(timeframe, latestPoint.date, sinceStartDate);
+  const startTime = startDate == null ? null : getUtcDateTime(startDate);
   const filteredSeries =
-    startDate == null ? series : series.filter((point) => point.date >= startDate);
+    startTime == null ? series : series.filter((point) => getUtcDateTime(point.date) >= startTime);
+
+  if (isShortTimeframe(timeframe)) {
+    const preferredInterval = getPreferredIntradayInterval(timeframe);
+    const preferredIntradaySeries = filteredSeries.filter(
+      (point) => preferredInterval != null && point.interval === preferredInterval
+    );
+
+    if (preferredIntradaySeries.length >= 2) {
+      return preferredIntradaySeries;
+    }
+
+    const intradaySeries = filteredSeries.filter((point) => isIntradayDate(point.date));
+
+    if (intradaySeries.length >= 2) {
+      return intradaySeries;
+    }
+  } else {
+    const dailySeries = filteredSeries.filter((point) => !isIntradayDate(point.date));
+
+    if (dailySeries.length >= 2) {
+      return dailySeries;
+    }
+  }
 
   return filteredSeries.length > 0 ? filteredSeries : series;
 }
@@ -189,6 +253,10 @@ function getSelectionPoints(data: ChartPoint[], selection: SelectionRange | null
     startPoint,
     endPoint
   };
+}
+
+function hasSelectionSpan(points: ReturnType<typeof getSelectionPoints>) {
+  return points != null && points.startPoint.date !== points.endPoint.date;
 }
 
 function getChartPoint(state: ChartMouseState | undefined) {
@@ -257,6 +325,7 @@ export function PortfolioChart({ currency, series, status }: PortfolioChartProps
     selectionPoints == null
       ? null
       : calculatePercentChange(selectionPoints.startPoint.value, selectionPoints.endPoint.value);
+  const hasActiveSelection = hasSelectionSpan(selectionPoints);
   const yDomain = useMemo(
     () => getPaddedDomain(chartData.map((point) => point.value)),
     [chartData]
@@ -284,8 +353,8 @@ export function PortfolioChart({ currency, series, status }: PortfolioChartProps
     }
 
     setSelection((currentSelection) =>
-      currentSelection == null
-        ? null
+      currentSelection == null || currentSelection.endDate === point.date
+        ? currentSelection
         : {
             ...currentSelection,
             endDate: point.date
@@ -361,7 +430,7 @@ export function PortfolioChart({ currency, series, status }: PortfolioChartProps
             <ResponsiveContainer width="100%" height={300}>
               <AreaChart
                 data={chartData}
-                margin={{ top: 12, right: 8, left: 0, bottom: 8 }}
+                margin={{ top: 12, right: 18, left: 14, bottom: 14 }}
                 onMouseDown={handleChartMouseDown}
                 onMouseLeave={handleChartMouseUp}
                 onMouseMove={handleChartMouseMove}
@@ -380,21 +449,24 @@ export function PortfolioChart({ currency, series, status }: PortfolioChartProps
                   tickLine={false}
                   axisLine={false}
                   minTickGap={28}
+                  height={36}
+                  tickMargin={8}
                   stroke="var(--chart-axis)"
                 />
                 <YAxis
-                  tickFormatter={(value: number) => formatChartValue(value, currency)}
+                  tickFormatter={(value: number) => formatAxisValue(value)}
                   tickLine={false}
                   axisLine={false}
-                  width={88}
+                  width={78}
                   domain={yDomain}
+                  tickMargin={12}
                   stroke="var(--chart-axis)"
                 />
                 <Tooltip
                   cursor={{ stroke: "rgba(10, 126, 101, 0.2)", strokeWidth: 1 }}
                   content={<PortfolioChartTooltip currency={currency} />}
                 />
-                {selection == null || selection.startDate === selection.endDate ? null : (
+                {!hasActiveSelection || selection == null ? null : (
                   <ReferenceArea
                     x1={selection.startDate}
                     x2={selection.endDate}
@@ -404,6 +476,7 @@ export function PortfolioChart({ currency, series, status }: PortfolioChartProps
                   />
                 )}
                 <Area
+                  isAnimationActive={false}
                   type="linear"
                   dataKey="value"
                   stroke="var(--accent)"
@@ -414,8 +487,17 @@ export function PortfolioChart({ currency, series, status }: PortfolioChartProps
                 />
               </AreaChart>
             </ResponsiveContainer>
-            {selectionPoints == null || selectionPercent == null ? null : (
-              <div className="chart-selection-readout">
+            <div
+              className={
+                hasActiveSelection && selectionPoints != null && selectionPercent != null
+                  ? "chart-selection-readout"
+                  : "chart-selection-readout chart-selection-readout-idle"
+              }
+            >
+              {!hasActiveSelection || selectionPoints == null || selectionPercent == null ? (
+                <span>Drag across the chart to compare</span>
+              ) : (
+                <>
                 <span>
                   {formatChartDate(selectionPoints.startPoint.date)} to{" "}
                   {formatChartDate(selectionPoints.endPoint.date)}
@@ -427,8 +509,9 @@ export function PortfolioChart({ currency, series, status }: PortfolioChartProps
                   {formatChartValue(selectionPoints.startPoint.value, currency)} to{" "}
                   {formatChartValue(selectionPoints.endPoint.value, currency)}
                 </span>
-              </div>
-            )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       ) : (

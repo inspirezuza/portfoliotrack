@@ -116,6 +116,37 @@ export const historicalPrices = sqliteTable(
   })
 );
 
+export const intradayPrices = sqliteTable(
+  "intraday_prices",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    instrumentId: integer("instrument_id")
+      .notNull()
+      .references(() => instruments.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    interval: text("interval").notNull(),
+    observedAt: text("observed_at").notNull(),
+    close: real("close").notNull(),
+    currency: text("currency").notNull(),
+    source: text("source").notNull(),
+    createdAt: timestamps.createdAt
+  },
+  (table) => ({
+    instrumentIntervalObservedUniqueIdx: uniqueIndex("intraday_prices_instrument_interval_observed_unique").on(
+      table.instrumentId,
+      table.interval,
+      table.observedAt
+    ),
+    observedAtIdx: index("intraday_prices_observed_at_idx").on(table.observedAt),
+    instrumentIntervalObservedIdx: index("intraday_prices_instrument_interval_observed_idx").on(
+      table.instrumentId,
+      table.interval,
+      table.observedAt
+    ),
+    closeNonNegative: check("intraday_prices_close_non_negative", sql`${table.close} >= 0`),
+    intervalCheck: check("intraday_prices_interval_check", sql`${table.interval} in ('5m', '15m', '1h')`)
+  })
+);
+
 export const appSettings = sqliteTable(
   "app_settings",
   {
@@ -137,4 +168,5 @@ export type Transaction = typeof transactions.$inferSelect;
 export type NewTransaction = typeof transactions.$inferInsert;
 export type PriceSnapshot = typeof priceSnapshots.$inferSelect;
 export type HistoricalPrice = typeof historicalPrices.$inferSelect;
+export type IntradayPrice = typeof intradayPrices.$inferSelect;
 export type AppSetting = typeof appSettings.$inferSelect;
