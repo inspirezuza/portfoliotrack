@@ -4,6 +4,7 @@ import { asc, eq } from "drizzle-orm";
 import { OperationTimeoutError, withOperationTimeout } from "@/lib/async/timeout";
 import { normalizeMoney } from "@/lib/db/precision";
 import { db } from "@/lib/db/runtime";
+import { applyKnownDrMetadata } from "@/lib/instruments/dr-metadata";
 import {
   historicalPrices,
   instruments,
@@ -652,7 +653,8 @@ export async function getAssetDetail(symbol: string): Promise<AssetDetail | null
     return null;
   }
 
-  const { instrument, transactionRows } = initialRows;
+  const { transactionRows } = initialRows;
+  const instrument = applyKnownDrMetadata(initialRows.instrument);
   const asOfDate = getCurrentLocalIsoDate();
   const currentTransactionRows = transactionRows.filter((row) => row.tradeDate <= asOfDate);
   const marketSettings = await getMarketSettings();

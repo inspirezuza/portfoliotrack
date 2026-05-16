@@ -2,6 +2,7 @@ import "server-only";
 
 import { asc, eq, lte } from "drizzle-orm";
 import { normalizeMoney } from "@/lib/db/precision";
+import { applyKnownDrMetadata } from "@/lib/instruments/dr-metadata";
 import { ensureFreshMarketDataCache, getMarketSettings, getPriceAgeMinutes, isMarketDataStale } from "@/lib/market/provider";
 import { calculatePositions, type InstrumentPosition } from "@/lib/portfolio/positions";
 import { db } from "@/lib/db/runtime";
@@ -212,7 +213,7 @@ export async function getHoldingsSnapshot({
   for (const row of rows) {
     if (!groupedInstruments.has(row.instrument.id)) {
       groupedInstruments.set(row.instrument.id, {
-        instrument: row.instrument,
+        instrument: applyKnownDrMetadata(row.instrument),
         priceSnapshot: row.priceSnapshot
       });
     }

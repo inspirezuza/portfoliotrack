@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import YahooFinance from "yahoo-finance2";
 import { withOperationTimeout } from "@/lib/async/timeout";
+import { getKnownDrMetadata } from "@/lib/instruments/dr-metadata";
 
 const yahooFinance = new YahooFinance({
   suppressNotices: ["yahooSurvey"]
@@ -122,11 +123,17 @@ export async function GET(request: Request) {
             const displayName =
               quote.longName ?? quote.shortName ?? searchQuote.longname ?? searchQuote.shortname ?? quote.symbol;
 
+            const symbol = getDisplaySymbol(quote.symbol);
+            const knownDrMetadata = getKnownDrMetadata({
+              symbol,
+              providerSymbol: quote.symbol
+            });
+
             return {
-              symbol: getDisplaySymbol(quote.symbol),
+              symbol,
               displayName,
               market: getMarket(quote.symbol, quote.exchange, quote.market),
-              instrumentType: getInstrumentType(quote.quoteType ?? searchQuote.quoteType),
+              instrumentType: knownDrMetadata?.instrumentType ?? getInstrumentType(quote.quoteType ?? searchQuote.quoteType),
               currency: quote.currency,
               providerSymbol: quote.symbol,
               exchangeName: searchQuote.exchDisp ?? quote.exchange ?? null,
