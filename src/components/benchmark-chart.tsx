@@ -23,7 +23,7 @@ type BenchmarkChartProps = {
 };
 
 function formatChartDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat("th-TH", {
     month: "short",
     day: "numeric",
     timeZone: "UTC"
@@ -48,21 +48,21 @@ function getUnavailableMessage({
 }) {
   switch (status) {
     case "no-transactions":
-      return "A benchmark comparison appears after the portfolio has at least one recorded trade dated today or earlier.";
+      return "เพิ่ม transaction แรกก่อน แล้วกราฟเทียบ benchmark จะเริ่มจากวันนั้น";
     case "mixed-currency":
-      return "Benchmark comparison is disabled because current open holdings span more than one currency.";
+      return "ปิดการเทียบ benchmark เพราะ position เปิดอยู่มากกว่าหนึ่งสกุลเงิน";
     case "missing-portfolio-history":
-      return "Current open holdings need comparable price history before the benchmark view can be shown honestly.";
+      return "ต้องมีราคาย้อนหลังของหุ้นที่ถือครบก่อน จึงจะเทียบ benchmark ได้ตรง";
     case "benchmark-currency-mismatch":
       return benchmarkSymbol == null || portfolioCurrency == null
-        ? "The configured benchmark does not match the portfolio currency."
-        : `${benchmarkSymbol} cannot be compared directly because it is not priced in ${portfolioCurrency}.`;
+        ? "benchmark ที่ตั้งไว้ไม่ตรงกับสกุลเงินของพอร์ต"
+        : `${benchmarkSymbol} ยังเทียบตรงไม่ได้ เพราะไม่ได้อ้างอิงราคาเป็น ${portfolioCurrency}`;
     case "missing-benchmark-history":
       return benchmarkSymbol == null
-        ? "Set a benchmark instrument to enable the relative comparison chart."
-        : `${benchmarkSymbol} does not have comparable price history yet.`;
+        ? "ตั้งค่า benchmark เพื่อเปิดกราฟเปรียบเทียบผลตอบแทน"
+        : `${benchmarkSymbol} ยังไม่มีราคาย้อนหลังที่ใช้เทียบได้`;
     default:
-      return "Benchmark comparison is unavailable right now.";
+      return "ยังไม่สามารถแสดงกราฟเทียบ benchmark ได้ในตอนนี้";
   }
 }
 
@@ -75,19 +75,19 @@ export function BenchmarkChart({
   const hasSeries = series.length > 0;
 
   return (
-    <article className="surface-card chart-card">
+    <article className="surface-card chart-card benchmark-chart-card">
       <div className="chart-card-header">
         <div>
-          <p className="eyebrow">Benchmark chart</p>
+          <p className="eyebrow">Performance</p>
           <h2 className="section-title">
             {benchmarkSymbol == null
-              ? "Cash-flow-adjusted return"
-              : `Cash-flow-adjusted vs ${benchmarkSymbol}`}
+              ? "Performance vs benchmark"
+              : `Performance vs ${benchmarkSymbol}`}
           </h2>
         </div>
         <p className="surface-copy">
           {hasSeries
-            ? "Both lines start at 100. The portfolio line removes dated trade cash flows first, so later buys and sells do not read as performance."
+            ? "ทั้งสองเส้นเริ่มที่ 100 และปรับ cash flow ออกจากพอร์ตแล้ว"
             : getUnavailableMessage({ benchmarkSymbol, portfolioCurrency, status })}
         </p>
       </div>
@@ -96,29 +96,30 @@ export function BenchmarkChart({
         <div className="chart-shell">
           <ResponsiveContainer width="100%" height={320}>
             <LineChart data={series} margin={{ top: 12, right: 8, left: 0, bottom: 8 }}>
-              <CartesianGrid stroke="rgba(31, 28, 22, 0.08)" strokeDasharray="3 6" vertical={false} />
+              <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 6" vertical={false} />
               <XAxis
                 dataKey="date"
                 tickFormatter={formatChartDate}
                 tickLine={false}
                 axisLine={false}
                 minTickGap={28}
-                stroke="rgba(110, 102, 93, 0.9)"
+                stroke="var(--chart-axis)"
               />
               <YAxis
                 tickFormatter={(value: number) => formatIndexedReturn(value)}
                 tickLine={false}
                 axisLine={false}
                 width={76}
-                stroke="rgba(110, 102, 93, 0.9)"
+                stroke="var(--chart-axis)"
               />
               <Tooltip
-                cursor={{ stroke: "rgba(31, 28, 22, 0.12)", strokeWidth: 1 }}
+                cursor={{ stroke: "rgba(17, 27, 23, 0.16)", strokeWidth: 1 }}
                 contentStyle={{
-                  borderRadius: 18,
-                  border: "1px solid rgba(31, 28, 22, 0.12)",
-                  background: "rgba(255, 251, 244, 0.96)",
-                  boxShadow: "0 24px 80px rgba(53, 40, 21, 0.12)"
+                  borderRadius: 16,
+                  border: "1px solid var(--line)",
+                  background: "var(--tooltip-bg)",
+                  boxShadow: "var(--tooltip-shadow)",
+                  color: "var(--ink)"
                 }}
                 formatter={(value: number, name: string) => [formatIndexedReturn(value), name]}
                 labelFormatter={(value: string) => formatChartDate(value)}
@@ -126,7 +127,7 @@ export function BenchmarkChart({
               <Line
                 type="monotone"
                 dataKey="portfolio"
-                name="Portfolio (cash-flow-adjusted)"
+                name="พอร์ต"
                 stroke="var(--accent)"
                 strokeWidth={2.5}
                 dot={false}
@@ -146,6 +147,7 @@ export function BenchmarkChart({
         </div>
       ) : (
         <div className="chart-empty-state">
+          <strong>ยังไม่มีกราฟ</strong>
           <p>{getUnavailableMessage({ benchmarkSymbol, portfolioCurrency, status })}</p>
         </div>
       )}

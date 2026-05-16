@@ -10,6 +10,12 @@ const defaultInstruments: NewInstrument[] = [
     instrumentType: "ETF",
     currency: "USD",
     providerSymbol: "SPY",
+    underlyingSymbol: null,
+    underlyingDisplayName: null,
+    underlyingCurrency: null,
+    underlyingProviderSymbol: null,
+    drRatio: null,
+    fxProviderSymbol: null,
     isActive: true
   },
   {
@@ -19,6 +25,12 @@ const defaultInstruments: NewInstrument[] = [
     instrumentType: "DR",
     currency: "THB",
     providerSymbol: "AAPL80.BK",
+    underlyingSymbol: "AAPL",
+    underlyingDisplayName: "Apple Inc.",
+    underlyingCurrency: "USD",
+    underlyingProviderSymbol: "AAPL",
+    drRatio: 1000,
+    fxProviderSymbol: "USDTHB=X",
     isActive: true
   }
 ];
@@ -43,6 +55,12 @@ try {
           instrumentType: sql`excluded.instrument_type`,
           currency: sql`excluded.currency`,
           providerSymbol: sql`excluded.provider_symbol`,
+          underlyingSymbol: sql`excluded.underlying_symbol`,
+          underlyingDisplayName: sql`excluded.underlying_display_name`,
+          underlyingCurrency: sql`excluded.underlying_currency`,
+          underlyingProviderSymbol: sql`excluded.underlying_provider_symbol`,
+          drRatio: sql`excluded.dr_ratio`,
+          fxProviderSymbol: sql`excluded.fx_provider_symbol`,
           isActive: sql`excluded.is_active`,
           updatedAt: sql`CURRENT_TIMESTAMP`
         }

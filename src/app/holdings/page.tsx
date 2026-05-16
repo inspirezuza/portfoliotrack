@@ -9,53 +9,53 @@ export default async function HoldingsPage() {
   const holdingsStatus =
     holdingsSnapshot.openPositionCount === 0
       ? {
-          title: "No open positions yet",
-          body: "Once you record a buy, this view will turn that ledger activity into quantities, cost basis, and quote coverage."
+          title: "ยังไม่มีสถานะเปิด",
+          body: "เมื่อบันทึกรายการซื้อ หน้านี้จะสรุปจำนวน ต้นทุน และสถานะราคาจาก ledger ให้ทันที"
         }
       : holdingsSnapshot.latestPriceAsOf == null
         ? {
-            title: "Quotes have not been cached yet",
-            body: "Quantities and cost basis are ready now. Market value and unrealized P&L will fill in after the first successful price refresh."
+            title: "ยังไม่มีราคาในแคช",
+            body: "จำนวนและต้นทุนพร้อมใช้งานแล้ว ส่วนมูลค่าตลาดและ unrealized P&L จะเติมหลังรีเฟรชราคาสำเร็จครั้งแรก"
           }
         : holdingsSnapshot.isPriceDataStale
           ? {
-              title: "Cached prices are aging",
-              body: `This table still reflects the latest successful cache from ${holdingsSnapshot.latestPriceAsOf}. Refresh from the dashboard when you want a newer snapshot.`
+              title: "ราคาในแคชเริ่มเก่า",
+              body: `ตารางนี้ยังใช้แคชสำเร็จล่าสุดจาก ${holdingsSnapshot.latestPriceAsOf} หากต้องการ snapshot ใหม่ให้รีเฟรชจากแดชบอร์ด`
             }
           : {
-              title: "Price coverage is current",
-              body: `${holdingsSnapshot.pricedPositionCount} open holding${holdingsSnapshot.pricedPositionCount === 1 ? " has" : "s have"} cached prices as of ${holdingsSnapshot.latestPriceAsOf}.`
+              title: "ราคาครอบคลุมล่าสุด",
+              body: `มีราคาในแคชสำหรับ ${holdingsSnapshot.pricedPositionCount} สถานะเปิด ณ ${holdingsSnapshot.latestPriceAsOf}`
             };
 
   return (
     <section className="dashboard-grid">
       <article className="hero-card holdings-hero">
         <div className="hero-copy">
-          <p className="eyebrow">Holdings workspace</p>
-          <h1>Open positions, cost basis, and price coverage in one read.</h1>
+          <p className="eyebrow">รายการถือครอง</p>
+          <h1>สถานะเปิด ต้นทุน และราคาล่าสุดในหน้าเดียว</h1>
           <p>
-            Current positions are folded directly from your transaction ledger. Cached quotes add
-            market value where available, but missing prices stay visible instead of being guessed.
+            หน้านี้สรุปสถานะจากรายการซื้อขายจริง ราคาในแคชช่วยเติมมูลค่าตลาดเมื่อมีข้อมูล
+            และแสดงให้เห็นชัดเมื่อราคายังไม่พร้อม
           </p>
-          <span className="feature-accent">Transaction truth first, price overlays second</span>
+          <span className="feature-accent">ยึด ledger เป็นหลัก แล้วเสริมด้วยราคา</span>
         </div>
 
         <div className="hero-stats">
           <article className="metric-card">
             <p className="metric-value">{holdingsSnapshot.openPositionCount}</p>
-            <p className="metric-label">Open positions</p>
+            <p className="metric-label">สถานะเปิด</p>
           </article>
           <article className="metric-card">
             <p className="metric-value">{holdingsSnapshot.pricedPositionCount}</p>
-            <p className="metric-label">Positions with cached prices</p>
+            <p className="metric-label">มีราคาในแคช</p>
           </article>
           <article className="metric-card">
             <p className="metric-value">{holdingsSnapshot.missingPricePositionCount}</p>
-            <p className="metric-label">Awaiting price snapshots</p>
+            <p className="metric-label">รอราคา</p>
           </article>
           <article className="metric-card">
-            <p className="metric-value">{holdingsSnapshot.latestPriceAsOf ?? "No cache yet"}</p>
-            <p className="metric-label">Latest cache timestamp</p>
+            <p className="metric-value">{holdingsSnapshot.latestPriceAsOf ?? "ยังไม่มีแคช"}</p>
+            <p className="metric-label">เวลาแคชล่าสุด</p>
           </article>
         </div>
       </article>

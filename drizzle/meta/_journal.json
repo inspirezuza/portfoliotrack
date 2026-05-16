@@ -8,6 +8,13 @@
       "when": 1778861644330,
       "tag": "0000_rare_wallop",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1778931567751,
+      "tag": "0001_dr_metadata",
+      "breakpoints": true
     }
   ]
 }

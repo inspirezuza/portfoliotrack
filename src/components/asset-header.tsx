@@ -33,7 +33,7 @@ export function AssetHeader({ asset }: AssetHeaderProps) {
     <article className="hero-card asset-hero">
       <div className="hero-copy">
         <Link href="/holdings" className="route-link">
-          Back to holdings
+          กลับไปหน้าหุ้นที่ถือ
         </Link>
         <p className="eyebrow">Asset detail</p>
         <h1>
@@ -41,8 +41,8 @@ export function AssetHeader({ asset }: AssetHeaderProps) {
           <span className="asset-title-muted"> {asset.instrument.displayName}</span>
         </h1>
         <p>
-          {asset.instrument.market} listing, {asset.instrument.instrumentType.toLowerCase()} security,
-          tracked in {asset.instrument.currency}. Price history comes from the provider symbol{" "}
+          {asset.instrument.market} · {asset.instrument.instrumentType} · {asset.instrument.currency}
+          . ใช้ราคาจาก provider symbol{" "}
           <a
             href={asset.instrument.providerHistoryUrl}
             target="_blank"
@@ -55,8 +55,8 @@ export function AssetHeader({ asset }: AssetHeaderProps) {
         </p>
         <span className="feature-accent">
           {asset.position.hasOpenPosition
-            ? "Open position with average-cost context"
-            : "Research view ready before the first trade"}
+            ? "มี position พร้อมต้นทุนเฉลี่ย"
+            : "พร้อมดูข้อมูลก่อนเริ่มซื้อขาย"}
         </span>
       </div>
 
@@ -68,14 +68,14 @@ export function AssetHeader({ asset }: AssetHeaderProps) {
               : asset.position.tradeCount.toString()}
           </p>
           <p className="metric-label">
-            {asset.position.hasOpenPosition ? "Open quantity" : "Recorded trades"}
+            {asset.position.hasOpenPosition ? "จำนวนคงเหลือ" : "รายการที่บันทึก"}
           </p>
         </article>
 
         <article className="metric-card">
           <p className="metric-value">
             {asset.marketData.lastPrice == null
-              ? "Awaiting quote"
+              ? "รอราคา"
               : formatCurrency(asset.marketData.lastPrice, {
                   currency: asset.instrument.currency,
                   maximumFractionDigits: 4
@@ -83,8 +83,8 @@ export function AssetHeader({ asset }: AssetHeaderProps) {
           </p>
           <p className="metric-label">
             {asset.marketData.lastPriceAsOf == null
-              ? "No cached quote yet"
-              : `Latest quote as of ${asset.marketData.lastPriceAsOf}`}
+              ? "ยังไม่มีราคาล่าสุด"
+              : `ราคาล่าสุด ${asset.marketData.lastPriceAsOf}`}
           </p>
         </article>
 
@@ -93,10 +93,10 @@ export function AssetHeader({ asset }: AssetHeaderProps) {
             {formatOptionalMoney(
               asset.position.marketValue,
               asset.instrument.currency,
-              asset.position.hasOpenPosition ? "Awaiting price" : "No open position"
+              asset.position.hasOpenPosition ? "รอราคา" : "ไม่มี position"
             )}
           </p>
-          <p className="metric-label">Current market value</p>
+          <p className="metric-label">มูลค่าปัจจุบัน</p>
         </article>
 
         <article className="metric-card">
@@ -114,11 +114,11 @@ export function AssetHeader({ asset }: AssetHeaderProps) {
             {formatOptionalMoney(
               asset.position.unrealizedPnl,
               asset.instrument.currency,
-              asset.position.hasOpenPosition ? "Awaiting price" : "No open position"
+              asset.position.hasOpenPosition ? "รอราคา" : "ไม่มี position"
             )}
           </p>
           <p className="metric-label">
-            Unrealized P&amp;L{unrealizedPercent == null ? "" : ` (${unrealizedPercent})`}
+            กำไร/ขาดทุนที่ยังไม่ขาย{unrealizedPercent == null ? "" : ` (${unrealizedPercent})`}
           </p>
         </article>
       </div>

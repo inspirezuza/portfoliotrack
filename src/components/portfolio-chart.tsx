@@ -22,7 +22,7 @@ type PortfolioChartProps = {
 };
 
 function formatChartDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat("th-TH", {
     month: "short",
     day: "numeric",
     timeZone: "UTC"
@@ -45,13 +45,13 @@ function formatChartValue(value: number, currency: string | null) {
 function getUnavailableMessage(status: PortfolioBenchmarkTimelineStatus) {
   switch (status) {
     case "no-transactions":
-      return "Add a transaction to start building the portfolio value timeline.";
+      return "เพิ่มรายการซื้อขายแรก แล้วกราฟมูลค่าพอร์ตจะเริ่มจากวันนั้น";
     case "mixed-currency":
-      return "The portfolio currently spans multiple currencies, so a single value line would be misleading.";
+      return "พอร์ตมีหลายสกุลเงิน จึงยังไม่รวมเป็นเส้นมูลค่าเดียวเพื่อไม่ให้ตีความผิด";
     case "missing-portfolio-history":
-      return "Historical prices are not available yet for one or more held symbols.";
+      return "ยังไม่มีราคาย้อนหลังครบสำหรับหุ้นที่ถืออยู่";
     default:
-      return "Portfolio timeline data is unavailable right now.";
+      return "ยังไม่มีข้อมูลกราฟพอร์ตในตอนนี้";
   }
 }
 
@@ -59,15 +59,15 @@ export function PortfolioChart({ currency, series, status }: PortfolioChartProps
   const hasSeries = series.length > 0;
 
   return (
-    <article className="surface-card chart-card">
+    <article className="surface-card chart-card portfolio-chart-card">
       <div className="chart-card-header">
         <div>
-          <p className="eyebrow">Portfolio chart</p>
-          <h2 className="section-title">Value through time</h2>
+          <p className="eyebrow">Portfolio value</p>
+          <h2 className="section-title">มูลค่าพอร์ตย้อนหลัง</h2>
         </div>
         <p className="surface-copy">
           {hasSeries
-            ? "Server-side holdings math, visualized without re-deriving positions in the browser."
+            ? "เส้นนี้ใช้ราคาย้อนหลังและ position จาก transaction จริง"
             : getUnavailableMessage(status)}
         </p>
       </div>
@@ -78,35 +78,36 @@ export function PortfolioChart({ currency, series, status }: PortfolioChartProps
             <AreaChart data={series} margin={{ top: 12, right: 8, left: 0, bottom: 8 }}>
               <defs>
                 <linearGradient id="portfolioArea" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="rgba(12, 122, 102, 0.34)" />
-                  <stop offset="100%" stopColor="rgba(12, 122, 102, 0.04)" />
+                  <stop offset="0%" stopColor="rgba(10, 126, 101, 0.34)" />
+                  <stop offset="100%" stopColor="rgba(10, 126, 101, 0.04)" />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="rgba(31, 28, 22, 0.08)" strokeDasharray="3 6" vertical={false} />
+              <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 6" vertical={false} />
               <XAxis
                 dataKey="date"
                 tickFormatter={formatChartDate}
                 tickLine={false}
                 axisLine={false}
                 minTickGap={28}
-                stroke="rgba(110, 102, 93, 0.9)"
+                stroke="var(--chart-axis)"
               />
               <YAxis
                 tickFormatter={(value: number) => formatChartValue(value, currency)}
                 tickLine={false}
                 axisLine={false}
                 width={88}
-                stroke="rgba(110, 102, 93, 0.9)"
+                stroke="var(--chart-axis)"
               />
               <Tooltip
-                cursor={{ stroke: "rgba(12, 122, 102, 0.18)", strokeWidth: 1 }}
+                cursor={{ stroke: "rgba(10, 126, 101, 0.2)", strokeWidth: 1 }}
                 contentStyle={{
-                  borderRadius: 18,
-                  border: "1px solid rgba(31, 28, 22, 0.12)",
-                  background: "rgba(255, 251, 244, 0.96)",
-                  boxShadow: "0 24px 80px rgba(53, 40, 21, 0.12)"
+                  borderRadius: 16,
+                  border: "1px solid var(--line)",
+                  background: "var(--tooltip-bg)",
+                  boxShadow: "var(--tooltip-shadow)",
+                  color: "var(--ink)"
                 }}
-                formatter={(value: number) => [formatChartValue(value, currency), "Portfolio value"]}
+                formatter={(value: number) => [formatChartValue(value, currency), "มูลค่าพอร์ต"]}
                 labelFormatter={(value: string) => formatChartDate(value)}
               />
               <Area
@@ -123,6 +124,7 @@ export function PortfolioChart({ currency, series, status }: PortfolioChartProps
         </div>
       ) : (
         <div className="chart-empty-state">
+          <strong>ยังไม่มีกราฟ</strong>
           <p>{getUnavailableMessage(status)}</p>
         </div>
       )}

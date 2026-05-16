@@ -28,6 +28,12 @@ export const instruments = sqliteTable(
     instrumentType: text("instrument_type").notNull(),
     currency: text("currency").notNull(),
     providerSymbol: text("provider_symbol").notNull(),
+    underlyingSymbol: text("underlying_symbol"),
+    underlyingDisplayName: text("underlying_display_name"),
+    underlyingCurrency: text("underlying_currency"),
+    underlyingProviderSymbol: text("underlying_provider_symbol"),
+    drRatio: real("dr_ratio"),
+    fxProviderSymbol: text("fx_provider_symbol"),
     isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
     ...timestamps
   },

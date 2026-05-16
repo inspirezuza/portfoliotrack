@@ -18,7 +18,7 @@ type AssetPriceChartProps = {
 };
 
 function formatChartDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat("th-TH", {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -33,6 +33,10 @@ function formatPrice(value: number, currency: string) {
   });
 }
 
+function getUnavailableMessage(asset: AssetDetail) {
+  return asset.marketData.historyUnavailableReason ?? "ยังไม่มีประวัติราคาสำหรับกราฟนี้";
+}
+
 export function AssetPriceChart({ asset }: AssetPriceChartProps) {
   const hasHistory = asset.marketData.priceHistory.length > 0;
   const hasAverageCostLine = asset.position.hasOpenPosition && asset.position.averageCost != null;
@@ -41,15 +45,19 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
     <article className="surface-card chart-card">
       <div className="chart-card-header">
         <div>
-          <p className="eyebrow">Price history</p>
-          <h2 className="section-title">Daily closes</h2>
+          <p className="eyebrow">Performance</p>
+          <h2 className="section-title">
+            {asset.dr == null
+              ? "ราคาหุ้นเทียบต้นทุนเฉลี่ย"
+              : `${asset.instrument.symbol} และราคาเทียบหุ้นแม่`}
+          </h2>
         </div>
         <p className="surface-copy">
           {hasHistory
             ? hasAverageCostLine
-              ? "The dashed guide marks your current average cost across the cached history range."
-              : "Provider-linked price history is available even before you build an open position."
-            : asset.marketData.historyUnavailableReason ?? "Historical prices are unavailable right now."}
+              ? "เส้นประคือ average cost ของ position ปัจจุบัน เพื่อให้เห็นว่าราคาอยู่เหนือหรือต่ำกว่าต้นทุนแค่ไหน"
+              : "กราฟราคาจาก provider พร้อมดูแนวโน้ม แม้ยังไม่มี position เปิดอยู่"
+            : getUnavailableMessage(asset)}
         </p>
       </div>
 
@@ -62,49 +70,50 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
             >
               <defs>
                 <linearGradient id="assetArea" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="rgba(201, 111, 59, 0.30)" />
-                  <stop offset="100%" stopColor="rgba(201, 111, 59, 0.04)" />
+                  <stop offset="0%" stopColor="rgba(23, 107, 85, 0.30)" />
+                  <stop offset="100%" stopColor="rgba(23, 107, 85, 0.04)" />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="rgba(31, 28, 22, 0.08)" strokeDasharray="3 6" vertical={false} />
+              <CartesianGrid stroke="var(--line)" strokeDasharray="3 6" vertical={false} />
               <XAxis
                 dataKey="date"
                 tickFormatter={formatChartDate}
                 tickLine={false}
                 axisLine={false}
                 minTickGap={28}
-                stroke="rgba(110, 102, 93, 0.9)"
+                stroke="var(--muted)"
               />
               <YAxis
                 tickFormatter={(value: number) => formatPrice(value, asset.instrument.currency)}
                 tickLine={false}
                 axisLine={false}
                 width={92}
-                stroke="rgba(110, 102, 93, 0.9)"
+                stroke="var(--muted)"
               />
               <Tooltip
-                cursor={{ stroke: "rgba(201, 111, 59, 0.18)", strokeWidth: 1 }}
+                cursor={{ stroke: "rgba(23, 107, 85, 0.18)", strokeWidth: 1 }}
                 contentStyle={{
                   borderRadius: 18,
-                  border: "1px solid rgba(31, 28, 22, 0.12)",
-                  background: "rgba(255, 251, 244, 0.96)",
-                  boxShadow: "0 24px 80px rgba(53, 40, 21, 0.12)"
+                  border: "1px solid var(--line)",
+                  background: "var(--surface-strong)",
+                  boxShadow: "var(--shadow)",
+                  color: "var(--ink)"
                 }}
-                formatter={(value: number) => [formatPrice(value, asset.instrument.currency), "Close"]}
+                formatter={(value: number) => [formatPrice(value, asset.instrument.currency), "ราคาปิด"]}
                 labelFormatter={(value: string) => formatChartDate(value)}
               />
               {hasAverageCostLine ? (
                 <ReferenceLine
                   y={asset.position.averageCost ?? undefined}
-                  stroke="var(--accent-strong)"
+                  stroke="var(--warning)"
                   strokeDasharray="6 6"
                   ifOverflow="extendDomain"
                   label={{
-                    value: `Avg cost ${formatPrice(
+                    value: `Avg ${formatPrice(
                       asset.position.averageCost ?? 0,
                       asset.instrument.currency
                     )}`,
-                    fill: "var(--accent-strong)",
+                    fill: "var(--warning)",
                     fontSize: 12,
                     position: "insideTopLeft"
                   }}
@@ -113,18 +122,18 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
               <Area
                 type="monotone"
                 dataKey="close"
-                stroke="var(--warm)"
+                stroke="var(--accent)"
                 strokeWidth={2.5}
                 fill="url(#assetArea)"
                 dot={false}
-                activeDot={{ r: 4, fill: "var(--warm)" }}
+                activeDot={{ r: 4, fill: "var(--accent)" }}
               />
             </AreaChart>
           </ResponsiveContainer>
         </div>
       ) : (
         <div className="chart-empty-state">
-          <p>{asset.marketData.historyUnavailableReason ?? "Historical prices are unavailable right now."}</p>
+          <p>{getUnavailableMessage(asset)}</p>
         </div>
       )}
     </article>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/app-shell";
+import { UiPreferencesProvider } from "@/lib/ui/preferences";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -10,9 +11,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="th" data-language="th" data-theme="light">
       <body>
-        <AppShell>{children}</AppShell>
+        <UiPreferencesProvider>
+          <AppShell>{children}</AppShell>
+        </UiPreferencesProvider>
       </body>
     </html>
   );

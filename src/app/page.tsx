@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { BenchmarkChart } from "@/components/benchmark-chart";
 import { PortfolioChart } from "@/components/portfolio-chart";
-import { SummaryCards } from "@/components/summary-cards";
-import { formatCurrency, formatQuantity } from "@/lib/format";
-import { getDashboardSnapshot } from "@/server/dashboard";
+import { formatCurrency, formatPercentRatio, formatQuantity } from "@/lib/format";
+import { getDashboardSnapshot, type DashboardSummary } from "@/server/dashboard";
 
 export const dynamic = "force-dynamic";
 
@@ -18,23 +17,93 @@ type DashboardPageProps = {
   }>;
 };
 
+type RefreshParams = NonNullable<DashboardPageProps["searchParams"]> extends Promise<infer T>
+  ? T
+  : never;
+
 const REFRESH_BANNER_MAX_AGE_MINUTES = 5;
 
 function formatAgeLabel(minutes: number | null) {
   if (minutes == null) {
-    return "No cached market data yet";
+    return "ยังไม่มีข้อมูลในแคช";
   }
 
   if (minutes < 1) {
-    return "Updated just now";
+    return "อัปเดตเมื่อสักครู่";
   }
 
   if (minutes < 60) {
-    return `${minutes} minute${minutes === 1 ? "" : "s"} old`;
+    return `${minutes} นาทีที่แล้ว`;
   }
 
   const hours = Math.floor(minutes / 60);
-  return `${hours} hour${hours === 1 ? "" : "s"} old`;
+  return `${hours} ชั่วโมงที่แล้ว`;
+}
+
+function formatDateLabel(value: string | null) {
+  if (value == null) {
+    return "ยังไม่มีแคช";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("th-TH", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Bangkok"
+  }).format(date);
+}
+
+function formatDashboardMoney(
+  value: number | null,
+  currency: string | null,
+  fallback = "รอราคา"
+) {
+  if (value == null) {
+    return fallback;
+  }
+
+  return formatCurrency(value, { currency: currency ?? "USD" });
+}
+
+function formatSummaryMoney(
+  summary: DashboardSummary,
+  key: "totalCostBasis" | "totalMarketValue" | "totalUnrealizedPnl"
+) {
+  const value = summary[key];
+
+  if (value != null) {
+    return formatCurrency(value, { currency: summary.openPositionCurrency ?? "USD" });
+  }
+
+  if (summary.currencyBreakdown.length > 1) {
+    return "หลายสกุลเงิน";
+  }
+
+  return "รอราคา";
+}
+
+function formatRealizedMoney(summary: DashboardSummary) {
+  if (summary.totalRealizedPnl != null) {
+    return formatCurrency(summary.totalRealizedPnl, {
+      currency: summary.realizedBreakdown[0]?.currency ?? "USD"
+    });
+  }
+
+  return summary.realizedBreakdown.length > 1 ? "หลายสกุลเงิน" : "$0.00";
+}
+
+function getValueTone(value: number | null) {
+  if (value == null || value === 0) {
+    return "neutral";
+  }
+
+  return value > 0 ? "positive" : "negative";
 }
 
 function buildRefreshMessage({
@@ -44,7 +113,7 @@ function buildRefreshMessage({
   quoteCount,
   issueCount,
   message
-}: NonNullable<DashboardPageProps["searchParams"]> extends Promise<infer T> ? T : never) {
+}: RefreshParams) {
   const eventAgeMinutes = (() => {
     if (eventAt == null) {
       return null;
@@ -68,29 +137,28 @@ function buildRefreshMessage({
   }
 
   if (refresh === "success") {
-    const refreshedLabel = refreshedAt ? ` Latest provider snapshot: ${refreshedAt}.` : "";
-    const quotesLabel =
-      quoteCount == null ? "" : ` ${quoteCount} quote${quoteCount === "1" ? "" : "s"} refreshed.`;
+    const quotesLabel = quoteCount == null ? "" : `อัปเดตราคาแล้ว ${quoteCount} รายการ`;
+    const providerLabel = refreshedAt ? `ข้อมูลล่าสุดจาก provider: ${refreshedAt}` : "";
     const issuesLabel =
       issueCount == null || issueCount === "0"
         ? ""
-        : ` ${issueCount} symbol${issueCount === "1" ? " needs" : "s need"} follow-up.`;
+        : `ยังมี ${issueCount} symbol ที่ต้องตรวจต่อ`;
 
     return {
       tone: issueCount != null && issueCount !== "0" ? "warning" : "success",
       title:
         issueCount != null && issueCount !== "0"
-          ? "Refresh completed with a few gaps."
-          : "Market data refreshed.",
-      body: `${quotesLabel.trimStart()}${refreshedLabel}${issuesLabel}`.trim()
+          ? "รีเฟรชสำเร็จ แต่ยังมีบางรายการขาดข้อมูล"
+          : "รีเฟรชข้อมูลตลาดแล้ว",
+      body: [quotesLabel, providerLabel, issuesLabel].filter(Boolean).join(" · ")
     } as const;
   }
 
   if (refresh === "error") {
     return {
       tone: "warning",
-      title: "Refresh did not finish.",
-      body: message ?? "The dashboard kept its last cached snapshot."
+      title: "รีเฟรชไม่สำเร็จ",
+      body: message ?? "แดชบอร์ดยังใช้ข้อมูลแคชล่าสุดอยู่"
     } as const;
   }
 
@@ -100,59 +168,60 @@ function buildRefreshMessage({
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const { summary, holdingsSnapshot, marketData, timeline } = await getDashboardSnapshot();
   const resolvedSearchParams = (await searchParams) ?? {};
-  const leadingHoldings = holdingsSnapshot.holdings.slice(0, 3);
   const refreshMessage = buildRefreshMessage(resolvedSearchParams);
-  const hasAnyMarketData = marketData.latestMarketDataAsOf != null;
-  const freshnessLabel = hasAnyMarketData
+  const leadingHoldings = holdingsSnapshot.holdings.slice(0, 5);
+  const marketCurrency = summary.openPositionCurrency ?? "USD";
+  const marketValueLabel = formatDashboardMoney(summary.totalMarketValue, marketCurrency, "$0.00");
+  const latestPriceLabel = formatDateLabel(marketData.latestMarketDataAsOf);
+  const priceFreshnessLabel = marketData.latestMarketDataAsOf
     ? marketData.isPriceDataStale
-      ? `Dashboard comparison data is cached ${formatAgeLabel(marketData.priceAgeMinutes)}. A manual refresh can check for newer benchmark and chart inputs when the provider has them.`
-      : `Dashboard comparison data is ${formatAgeLabel(marketData.priceAgeMinutes)} for the current portfolio timeline and benchmark view.`
-    : "No cached dashboard comparison data yet. The dashboard still shows ledger-derived totals while chart and benchmark inputs catch up.";
+      ? `แคชเก่า ${formatAgeLabel(marketData.priceAgeMinutes)}`
+      : formatAgeLabel(marketData.priceAgeMinutes)
+    : "รอข้อมูลราคา";
+
+  const metrics = [
+    {
+      label: "ต้นทุน",
+      value: formatSummaryMoney(summary, "totalCostBasis"),
+      detail: summary.openPositionCount === 0 ? "ยังไม่มี position" : "เฉพาะสถานะที่ยังเปิด"
+    },
+    {
+      label: "Unrealized P&L",
+      value: formatSummaryMoney(summary, "totalUnrealizedPnl"),
+      detail: "เทียบกับต้นทุน",
+      tone: getValueTone(summary.totalUnrealizedPnl)
+    },
+    {
+      label: "Realized P&L",
+      value: formatRealizedMoney(summary),
+      detail: "จากรายการขาย",
+      tone: getValueTone(summary.totalRealizedPnl)
+    },
+    {
+      label: "ค่าธรรมเนียม",
+      value: formatDashboardMoney(holdingsSnapshot.totalFees, marketCurrency, "$0.00"),
+      detail: "รวมทุก transaction"
+    }
+  ];
 
   return (
-    <section className="dashboard-grid">
-      <article className="hero-card">
-        <div className="hero-copy">
-          <p className="eyebrow">Portfolio dashboard</p>
-          <h1>Portfolio clarity from the transactions you already trust.</h1>
+    <section className="workstation-page">
+      <div className="workstation-topbar">
+        <div>
+          <p className="eyebrow">Portfolio workspace</p>
+          <h1>ภาพรวมพอร์ต</h1>
           <p>
-            The dashboard now rolls up open positions, cost basis, realized P&amp;L, and timeline
-            context from the same transaction-derived holdings model used by the holdings view.
+            อ่านสถานะหลักในจอเดียว: มูลค่า, P&amp;L, ความสดของราคา, benchmark และหุ้นที่ถือ
           </p>
-          <span className="feature-accent">Read models live, charts included</span>
-          <div className="dashboard-refresh-card">
-            <div>
-              <p className="eyebrow">Market data freshness</p>
-              <p className="surface-copy">{freshnessLabel}</p>
-            </div>
-            <form action="/api/market-data/refresh" method="post" className="refresh-form">
-              <input type="hidden" name="redirectTo" value="/" />
-              <button type="submit" className="secondary-button">
-                Refresh prices
-              </button>
-            </form>
-          </div>
         </div>
 
-        <div className="hero-stats">
-          <article className="metric-card">
-            <p className="metric-value">{summary.openPositionCount}</p>
-            <p className="metric-label">Open positions</p>
-          </article>
-          <article className="metric-card">
-            <p className="metric-value">{holdingsSnapshot.closedPositionCount}</p>
-            <p className="metric-label">Fully exited positions</p>
-          </article>
-          <article className="metric-card">
-            <p className="metric-value">{summary.pricedPositionCount}</p>
-            <p className="metric-label">Positions with cached prices</p>
-          </article>
-          <article className="metric-card">
-            <p className="metric-value">{summary.latestPriceAsOf ?? "No cache yet"}</p>
-            <p className="metric-label">Latest price snapshot</p>
-          </article>
-        </div>
-      </article>
+        <form action="/api/market-data/refresh" method="post" className="refresh-form">
+          <input type="hidden" name="redirectTo" value="/" />
+          <button type="submit" className="primary-button">
+            รีเฟรชราคา
+          </button>
+        </form>
+      </div>
 
       {refreshMessage ? (
         <article className={`status-banner status-banner-${refreshMessage.tone}`}>
@@ -163,116 +232,160 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </article>
       ) : null}
 
-      <SummaryCards summary={summary} />
-
-      <div className="chart-grid">
-        <PortfolioChart
-          currency={timeline.portfolioCurrency}
-          series={timeline.portfolio}
-          status={timeline.status}
-        />
-        <BenchmarkChart
-          benchmarkSymbol={timeline.benchmarkSymbol}
-          portfolioCurrency={timeline.portfolioCurrency}
-          series={timeline.comparison}
-          status={timeline.status}
-        />
-      </div>
-
-      <div className="section-grid">
-        <article className="surface-card">
-          <h2 className="section-title">Portfolio pulse</h2>
-          <p className="surface-copy">
-            {holdingsSnapshot.holdings.length === 0
-              ? "No holdings yet. Add transactions to start building live portfolio summaries."
-              : "A currency-safe preview of current positions from the same snapshot that powers the holdings page."}
-          </p>
-
-          {leadingHoldings.length === 0 ? (
-            <div className="transaction-empty-state">
-              <p>
-                When you record your first buy, this panel will surface a quick preview of current
-                positions here.
-              </p>
-            </div>
-          ) : (
-            <ul className="surface-list">
-              {leadingHoldings.map((holding) => (
-                <li key={holding.instrumentId}>
-                  <div>
-                    <strong>
-                      <Link
-                        href={`/assets/${encodeURIComponent(holding.symbol)}`}
-                        className="route-link"
-                      >
-                        {holding.symbol}
-                      </Link>
-                    </strong>
-                    <p className="route-caption">
-                      {holding.displayName} - {formatQuantity(holding.quantity)} units
-                    </p>
-                  </div>
-                  <div className="portfolio-pulse-metric">
-                    <strong>
-                      {holding.marketValue == null
-                        ? "Awaiting price"
-                        : formatCurrency(holding.marketValue, { currency: holding.currency })}
-                    </strong>
-                    <span className="route-caption">
-                      {holding.lastPrice == null
-                        ? "Quote still missing from cache"
-                        : `Avg ${formatCurrency(holding.averageCost, {
-                            currency: holding.currency,
-                            maximumFractionDigits: 4
-                          })}`}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+      <section className="workstation-metrics" aria-label="Portfolio summary">
+        <article className="metric-card metric-card-hero">
+          <div>
+            <p className="metric-label">Portfolio value</p>
+            <p className="metric-value metric-value-xl">{marketValueLabel}</p>
+          </div>
+          <span className="state-pill">
+            {summary.openPositionCount === 0
+              ? "ยังไม่มี position"
+              : `${summary.openPositionCount} positions`}
+          </span>
         </article>
 
-        <aside className="feature-stack">
-          <article className="feature-card">
-            <p className="eyebrow">Price coverage</p>
-            <h3>Readable before market data arrives</h3>
-            <p>
-              Missing quotes no longer block the experience. Open cost basis and realized P&amp;L
-              stay available, while market-value fields clearly wait for cached prices.
+        {metrics.map((metric) => (
+          <article key={metric.label} className="metric-card">
+            <p className="metric-label">{metric.label}</p>
+            <p
+              className={`metric-value ${
+                metric.tone === "positive"
+                  ? "value-positive"
+                  : metric.tone === "negative"
+                    ? "value-negative"
+                    : ""
+              }`}
+            >
+              {metric.value}
             </p>
+            <p className="metric-detail">{metric.detail}</p>
+          </article>
+        ))}
+      </section>
+
+      <section className="workstation-grid">
+        <div className="workstation-main-stack">
+          <BenchmarkChart
+            benchmarkSymbol={timeline.benchmarkSymbol}
+            portfolioCurrency={timeline.portfolioCurrency}
+            series={timeline.comparison}
+            status={timeline.status}
+          />
+
+          <PortfolioChart
+            currency={timeline.portfolioCurrency}
+            series={timeline.portfolio}
+            status={timeline.status}
+          />
+        </div>
+
+        <aside className="workstation-side-stack">
+          <article className="surface-card price-health-card">
+            <div className="side-card-header">
+              <div>
+                <p className="eyebrow">ข้อมูลราคา</p>
+                <h2 className="side-card-title">Price coverage</h2>
+              </div>
+              <span className="state-pill state-pill-muted">{priceFreshnessLabel}</span>
+            </div>
+
+            <div className="compact-stat-grid">
+              <div>
+                <span>มีราคา</span>
+                <strong>{summary.pricedPositionCount}</strong>
+              </div>
+              <div>
+                <span>ขาดราคา</span>
+                <strong>{summary.missingPricePositionCount}</strong>
+              </div>
+              <div>
+                <span>ปิดแล้ว</span>
+                <strong>{holdingsSnapshot.closedPositionCount}</strong>
+              </div>
+              <div>
+                <span>แคชล่าสุด</span>
+                <strong>{latestPriceLabel}</strong>
+              </div>
+            </div>
+
+            <form action="/api/market-data/refresh" method="post" className="refresh-form">
+              <input type="hidden" name="redirectTo" value="/" />
+              <button type="submit" className="secondary-button">
+                อัปเดตราคาตลาด
+              </button>
+            </form>
           </article>
 
-          <article className="feature-card">
-            <p className="eyebrow">Consistency</p>
-            <h3>One aggregation path for both views</h3>
-            <p>
-              Dashboard totals and charts are derived from the same holdings snapshot and historical
-              cache that render the table, which keeps open-position math and chart baselines in
-              sync by construction.
-            </p>
+          <article className="surface-card holdings-preview-card">
+            <div className="side-card-header">
+              <div>
+                <p className="eyebrow">หุ้นที่ถือ</p>
+                <h2 className="side-card-title">Open positions</h2>
+              </div>
+              <Link href="/holdings" className="route-link">
+                ดูทั้งหมด
+              </Link>
+            </div>
+
+            {leadingHoldings.length === 0 ? (
+              <div className="empty-panel">
+                <strong>ยังไม่มีหุ้นในพอร์ต</strong>
+                <p>เพิ่มรายการซื้อขายแรกเพื่อเริ่ม tracking position, DR และต้นทุน</p>
+              </div>
+            ) : (
+              <ul className="holding-bars">
+                {leadingHoldings.map((holding) => (
+                  <li key={holding.instrumentId}>
+                    <div className="holding-bar-row">
+                      <div>
+                        <Link
+                          href={`/assets/${encodeURIComponent(holding.symbol)}`}
+                          className="holding-symbol"
+                        >
+                          {holding.symbol}
+                        </Link>
+                        <span>{holding.displayName}</span>
+                      </div>
+                      <strong>
+                        {holding.portfolioWeight == null
+                          ? formatQuantity(holding.quantity)
+                          : formatPercentRatio(holding.portfolioWeight, {
+                              maximumFractionDigits: 0,
+                              minimumFractionDigits: 0
+                            })}
+                      </strong>
+                    </div>
+                    <div className="holding-bar-track">
+                      <span
+                        style={{
+                          width:
+                            holding.portfolioWeight == null
+                              ? "18%"
+                              : `${Math.min(100, Math.max(3, holding.portfolioWeight * 100))}%`
+                        }}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </article>
 
-          <article className="feature-card">
-            <p className="eyebrow">Market data</p>
-            <h3>Charts stay honest about freshness</h3>
-            <p>
-              {marketData.latestMarketDataAsOf == null
-                ? "No cached market data exists yet, so the dashboard keeps the ledger visible and leaves quote-driven views clearly pending."
-                : marketData.isPriceDataStale
-                  ? `Latest market data is older than the ${marketData.marketRefreshMinutes}-minute target. Values shown here come from the last successful cache while a manual refresh checks for newer prices.`
-                  : `Latest market data as of ${marketData.latestMarketDataAsOf} is feeding the dashboard charts and benchmark comparison.`}
-            </p>
-            <p className="route-caption">
-              {summary.missingPricePositionCount > 0
-                ? `${summary.missingPricePositionCount} holding${summary.missingPricePositionCount === 1 ? " is" : "s are"} still waiting for cached prices.`
-                : summary.openPositionCount > 0
-                  ? "All open holdings currently have cached prices."
-                  : "No open holdings yet."}
-            </p>
+          <article className="surface-card action-card">
+            <p className="eyebrow">Next step</p>
+            <h2 className="side-card-title">อยากอัปเดตอะไรต่อ?</h2>
+            <div className="action-list">
+              <Link href="/transactions" className="action-link">
+                เพิ่มรายการซื้อขาย
+              </Link>
+              <Link href="/holdings" className="action-link">
+                ดูต้นทุนและ P&amp;L รายหุ้น
+              </Link>
+            </div>
           </article>
         </aside>
-      </div>
+      </section>
     </section>
   );
 }
