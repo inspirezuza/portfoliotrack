@@ -4,6 +4,27 @@ import { getDashboardSnapshot } from "@/server/dashboard";
 
 export const dynamic = "force-dynamic";
 
+function formatCacheDateLabel(value: string | null) {
+  if (value == null) {
+    return "No cache";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "short",
+    timeZone: "Asia/Bangkok",
+    year: "numeric"
+  }).format(date);
+}
+
 export default async function HoldingsPage() {
   const { summary, holdingsSnapshot } = await getDashboardSnapshot();
 
@@ -30,7 +51,9 @@ export default async function HoldingsPage() {
           <p className="metric-label">Missing</p>
         </article>
         <article className="metric-card">
-          <p className="metric-value">{holdingsSnapshot.latestPriceAsOf ?? "No cache"}</p>
+          <p className="metric-value metric-value-compact">
+            {formatCacheDateLabel(holdingsSnapshot.latestPriceAsOf)}
+          </p>
           <p className="metric-label">Latest cache</p>
         </article>
       </section>

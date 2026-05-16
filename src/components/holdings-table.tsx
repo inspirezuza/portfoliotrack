@@ -71,6 +71,23 @@ function formatHoldingPercent(value: number | null, emptyLabel = "Waiting") {
   return formatPercentRatio(value);
 }
 
+function formatHoldingDateTime(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "short",
+    timeZone: "Asia/Bangkok",
+    year: "numeric"
+  }).format(date);
+}
+
 function compareNullableNumber(left: number | null, right: number | null) {
   if (left == null && right == null) {
     return 0;
@@ -150,18 +167,24 @@ function SortableHeader({
   label,
   sortKey,
   sort,
-  onSort
+  onSort,
+  align = "left"
 }: {
   label: string;
   sortKey: HoldingSortKey;
   sort: SortState;
   onSort: (key: HoldingSortKey) => void;
+  align?: "left" | "right";
 }) {
   const isActive = sort.key === sortKey;
   const nextDirection = isActive && sort.direction === "asc" ? "descending" : "ascending";
 
   return (
-    <th scope="col" aria-sort={isActive ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}>
+    <th
+      scope="col"
+      className={align === "right" ? "table-heading-number" : undefined}
+      aria-sort={isActive ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}
+    >
       <button
         type="button"
         className="table-sort-button"
@@ -338,16 +361,26 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
 
           <div className="transaction-table-wrap">
             <table className="transaction-table holdings-table">
+              <colgroup>
+                <col className="holdings-col-symbol" />
+                <col className="holdings-col-quantity" />
+                <col className="holdings-col-average" />
+                <col className="holdings-col-total" />
+                <col className="holdings-col-price" />
+                <col className="holdings-col-market" />
+                <col className="holdings-col-pnl" />
+                <col className="holdings-col-weight" />
+              </colgroup>
               <thead>
                 <tr>
                   <SortableHeader label="Symbol" sortKey="symbol" sort={sort} onSort={handleSort} />
-                  <SortableHeader label="Quantity" sortKey="quantity" sort={sort} onSort={handleSort} />
-                  <SortableHeader label="Average cost" sortKey="averageCost" sort={sort} onSort={handleSort} />
-                  <SortableHeader label="Total cost" sortKey="totalCost" sort={sort} onSort={handleSort} />
-                  <SortableHeader label="Last price" sortKey="lastPrice" sort={sort} onSort={handleSort} />
-                  <SortableHeader label="Market value" sortKey="marketValue" sort={sort} onSort={handleSort} />
-                  <SortableHeader label="Unrealized P&L" sortKey="unrealizedPnl" sort={sort} onSort={handleSort} />
-                  <SortableHeader label="Weight" sortKey="portfolioWeight" sort={sort} onSort={handleSort} />
+                  <SortableHeader label="Quantity" sortKey="quantity" sort={sort} onSort={handleSort} align="right" />
+                  <SortableHeader label="Average cost" sortKey="averageCost" sort={sort} onSort={handleSort} align="right" />
+                  <SortableHeader label="Total cost" sortKey="totalCost" sort={sort} onSort={handleSort} align="right" />
+                  <SortableHeader label="Last price" sortKey="lastPrice" sort={sort} onSort={handleSort} align="right" />
+                  <SortableHeader label="Market value" sortKey="marketValue" sort={sort} onSort={handleSort} align="right" />
+                  <SortableHeader label="Unrealized P&L" sortKey="unrealizedPnl" sort={sort} onSort={handleSort} align="right" />
+                  <SortableHeader label="Weight" sortKey="portfolioWeight" sort={sort} onSort={handleSort} align="right" />
                 </tr>
               </thead>
               <tbody>
@@ -396,7 +429,7 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
                         <div className="holdings-value-stack">
                           <span>{formatHoldingPrice(holding.lastPrice, holding.currency)}</span>
                           {holding.lastPriceAsOf ? (
-                            <span className="table-subtext">as of {holding.lastPriceAsOf}</span>
+                            <span className="table-subtext">as of {formatHoldingDateTime(holding.lastPriceAsOf)}</span>
                           ) : null}
                         </div>
                       </td>
