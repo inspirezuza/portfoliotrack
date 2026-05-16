@@ -3,6 +3,7 @@ import "server-only";
 import { asc, desc, eq } from "drizzle-orm";
 import { normalizeMoney } from "@/lib/db/precision";
 import { db } from "@/lib/db/runtime";
+import { getKnownDrMetadata } from "@/lib/instruments/dr-metadata";
 import {
   instruments,
   transactions,
@@ -257,6 +258,7 @@ async function getJoinedTransactionById(id: number) {
 
 export async function createInstrument(input: unknown) {
   const parsedInput = parseInstrumentInput(input);
+  const knownDrMetadata = getKnownDrMetadata(parsedInput);
 
   try {
     const instrument = db
@@ -265,15 +267,15 @@ export async function createInstrument(input: unknown) {
         symbol: parsedInput.symbol,
         displayName: parsedInput.displayName,
         market: parsedInput.market,
-        instrumentType: parsedInput.instrumentType,
+        instrumentType: knownDrMetadata?.instrumentType ?? parsedInput.instrumentType,
         currency: parsedInput.currency,
         providerSymbol: parsedInput.providerSymbol,
-        underlyingSymbol: null,
-        underlyingDisplayName: null,
-        underlyingCurrency: null,
-        underlyingProviderSymbol: null,
-        drRatio: null,
-        fxProviderSymbol: null,
+        underlyingSymbol: knownDrMetadata?.underlyingSymbol ?? null,
+        underlyingDisplayName: knownDrMetadata?.underlyingDisplayName ?? null,
+        underlyingCurrency: knownDrMetadata?.underlyingCurrency ?? null,
+        underlyingProviderSymbol: knownDrMetadata?.underlyingProviderSymbol ?? null,
+        drRatio: knownDrMetadata?.drRatio ?? null,
+        fxProviderSymbol: knownDrMetadata?.fxProviderSymbol ?? null,
         isActive: true
       })
       .returning()
