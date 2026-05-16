@@ -85,11 +85,6 @@ export function BenchmarkChart({
               : `Performance vs ${benchmarkSymbol}`}
           </h2>
         </div>
-        <p className="surface-copy">
-          {hasSeries
-            ? "Indexed to 100; cash flows are excluded."
-            : getUnavailableMessage({ benchmarkSymbol, portfolioCurrency, status })}
-        </p>
       </div>
 
       {hasSeries ? (

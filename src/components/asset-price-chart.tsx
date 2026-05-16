@@ -18,7 +18,7 @@ type AssetPriceChartProps = {
 };
 
 function formatChartDate(value: string) {
-  return new Intl.DateTimeFormat("th-TH", {
+  return new Intl.DateTimeFormat("en-GB", {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -34,7 +34,7 @@ function formatPrice(value: number, currency: string) {
 }
 
 function getUnavailableMessage(asset: AssetDetail) {
-  return asset.marketData.historyUnavailableReason ?? "ยังไม่มีประวัติราคาสำหรับกราฟนี้";
+  return asset.marketData.historyUnavailableReason ?? "No price history is available for this chart yet.";
 }
 
 export function AssetPriceChart({ asset }: AssetPriceChartProps) {
@@ -48,17 +48,10 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
           <p className="eyebrow">Performance</p>
           <h2 className="section-title">
             {asset.dr == null
-              ? "ราคาหุ้นเทียบต้นทุนเฉลี่ย"
-              : `${asset.instrument.symbol} และราคาเทียบหุ้นแม่`}
+              ? "Price versus average cost"
+              : `${asset.instrument.symbol} and parent-share equivalent`}
           </h2>
         </div>
-        <p className="surface-copy">
-          {hasHistory
-            ? hasAverageCostLine
-              ? "เส้นประคือ average cost ของ position ปัจจุบัน เพื่อให้เห็นว่าราคาอยู่เหนือหรือต่ำกว่าต้นทุนแค่ไหน"
-              : "กราฟราคาจาก provider พร้อมดูแนวโน้ม แม้ยังไม่มี position เปิดอยู่"
-            : getUnavailableMessage(asset)}
-        </p>
       </div>
 
       {hasHistory ? (
@@ -99,13 +92,13 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
                   boxShadow: "var(--shadow)",
                   color: "var(--ink)"
                 }}
-                formatter={(value: number) => [formatPrice(value, asset.instrument.currency), "ราคาปิด"]}
+                formatter={(value: number) => [formatPrice(value, asset.instrument.currency), "Close"]}
                 labelFormatter={(value: string) => formatChartDate(value)}
               />
               {hasAverageCostLine ? (
                 <ReferenceLine
                   y={asset.position.averageCost ?? undefined}
-                  stroke="var(--warning)"
+                  stroke="var(--warm)"
                   strokeDasharray="6 6"
                   ifOverflow="extendDomain"
                   label={{
@@ -113,7 +106,7 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
                       asset.position.averageCost ?? 0,
                       asset.instrument.currency
                     )}`,
-                    fill: "var(--warning)",
+                    fill: "var(--warm)",
                     fontSize: 12,
                     position: "insideTopLeft"
                   }}

@@ -3,6 +3,7 @@
 PortfolioTrack is a local-first personal portfolio tracker built with Next.js, SQLite, Drizzle ORM, and Yahoo Finance market data. It tracks manual stock and DR transactions, calculates fee-aware positions and P&L, caches market prices locally, and shows dashboard, holdings, transactions, and per-asset detail views.
 
 For deeper repository context aimed at AI coding agents, read [docs/AI_CONTEXT.md](docs/AI_CONTEXT.md).
+For the latest layout and visual-design review, read [docs/UX_REVIEW.md](docs/UX_REVIEW.md).
 
 ## Current Capabilities
 
@@ -88,6 +89,7 @@ The database schema is declared in `src/lib/db/schema.ts`, with migrations in `d
 
 - This repo currently does not have a test suite. Do not add or update tests unless explicitly requested.
 - Market data comes from Yahoo Finance and can fail or return missing/currency-mismatched data. UI code should preserve clear missing-data states.
-- The shell and dashboard are English-first. Some deeper page-level copy is still legacy Thai until it is fully internationalized.
+- The main app surface is English-first in `EN` mode. Thai remains only in the explicit `TH` shell labels and should be added back to pages through a deliberate bilingual copy layer if needed.
 - Theme and language preferences are stored in browser `localStorage`, not the database.
 - The development server may print a Windows SWC DLL warning while still compiling and building successfully.
+- The latest UX polish pass removed page-level hero blocks and repetitive explanatory copy, tightened operational headers, prioritized task surfaces, improved dark-mode separation, added icon-backed shell navigation, and made the main routes English-first in `EN` mode.

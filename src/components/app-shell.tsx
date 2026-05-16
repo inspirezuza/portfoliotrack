@@ -9,17 +9,22 @@ import { useUiPreferences } from "@/lib/ui/preferences";
 type NavItem = {
   href: "/" | "/holdings" | "/transactions";
   label: keyof typeof shellCopy.TH.nav;
+  icon: "dashboard" | "holdings" | "transactions";
 };
 
 const navItems: NavItem[] = [
-  { href: "/", label: "dashboard" },
-  { href: "/holdings", label: "holdings" },
-  { href: "/transactions", label: "transactions" }
+  { href: "/", label: "dashboard", icon: "dashboard" },
+  { href: "/holdings", label: "holdings", icon: "holdings" },
+  { href: "/transactions", label: "transactions", icon: "transactions" }
 ];
 
 function isActivePath(pathname: string, href: NavItem["href"]) {
   if (href === "/") {
     return pathname === "/";
+  }
+
+  if (href === "/holdings" && pathname.startsWith("/assets/")) {
+    return true;
   }
 
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -50,6 +55,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   aria-label={copy.nav[item.label]}
                   title={copy.nav[item.label]}
                 >
+                  <span className="nav-icon" data-nav-icon={item.icon} aria-hidden="true" />
                   <span className="nav-short">{copy.navShort[item.label]}</span>
                   <span className="nav-full">{copy.nav[item.label]}</span>
                 </Link>

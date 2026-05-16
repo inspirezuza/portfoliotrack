@@ -52,18 +52,18 @@ function createInitialValues(instruments: TransactionInstrumentOption[]): Transa
 
 function getErrorMessage(error: ApiErrorResponse["error"]) {
   if (!error) {
-    return "บันทึกรายการไม่สำเร็จ";
+    return "Transaction could not be saved.";
   }
 
   if (error.code === "INSUFFICIENT_QUANTITY") {
     const availableQuantity = error.details?.availableQuantity;
 
     if (typeof availableQuantity === "number") {
-      return `จำนวนขายมากกว่าที่ถืออยู่ ขายได้สูงสุด ${formatQuantity(availableQuantity)}`;
+      return `Sell quantity is greater than current holdings. Maximum sellable quantity is ${formatQuantity(availableQuantity)}.`;
     }
   }
 
-  return error.message ?? "บันทึกรายการไม่สำเร็จ";
+  return error.message ?? "Transaction could not be saved.";
 }
 
 function getSynchronizedInstrumentId(
@@ -140,12 +140,12 @@ export function TransactionForm({ instruments }: TransactionFormProps) {
       }
 
       setValues(createInitialValues(instruments));
-      setSuccessMessage("บันทึกรายการแล้ว");
+      setSuccessMessage("Transaction saved.");
       startTransition(() => {
         router.refresh();
       });
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "บันทึกรายการไม่สำเร็จ");
+      setErrorMessage(error instanceof Error ? error.message : "Transaction could not be saved.");
     } finally {
       setIsSubmitting(false);
     }
@@ -165,22 +165,19 @@ export function TransactionForm({ instruments }: TransactionFormProps) {
     <article className="surface-card transaction-panel">
       <div className="transaction-panel-header">
         <div>
-          <p className="eyebrow">รายการใหม่</p>
-          <h2 className="section-title">บันทึกซื้อหรือขาย</h2>
+          <p className="eyebrow">New transaction</p>
+          <h2 className="section-title">Record a buy or sell</h2>
         </div>
-        <p className="surface-copy">
-          ตรวจสอบฝั่ง server เป็นหลัก รวมถึงการขายที่เกินจำนวนคงเหลือ
-        </p>
       </div>
 
       {instruments.length === 0 ? (
         <div className="transaction-empty-state">
-          <p>ยังไม่มีสินทรัพย์ให้เลือก เพิ่มข้อมูลสินทรัพย์ก่อนบันทึกรายการซื้อขาย</p>
+          <p>No instruments are available. Add an instrument before recording trades.</p>
         </div>
       ) : (
         <form className="transaction-form" onSubmit={handleSubmit}>
           <label className="field-group field-group-wide">
-            <span className="field-label">สินทรัพย์</span>
+            <span className="field-label">Instrument</span>
             <select
               name="instrumentId"
               value={values.instrumentId}
@@ -196,13 +193,13 @@ export function TransactionForm({ instruments }: TransactionFormProps) {
             </select>
             {selectedInstrument ? (
               <span className="field-hint">
-                จำนวนคงเหลือ: {formatQuantity(selectedInstrument.currentQuantity)} หน่วย
+                Current quantity: {formatQuantity(selectedInstrument.currentQuantity)} units
               </span>
             ) : null}
           </label>
 
           <label className="field-group">
-            <span className="field-label">วันที่ซื้อขาย</span>
+            <span className="field-label">Trade date</span>
             <input
               type="date"
               name="tradeDate"
@@ -214,20 +211,20 @@ export function TransactionForm({ instruments }: TransactionFormProps) {
           </label>
 
           <label className="field-group">
-            <span className="field-label">ประเภท</span>
+            <span className="field-label">Side</span>
             <select
               name="side"
               value={values.side}
               onChange={(event) => updateValue("side", event.target.value as "BUY" | "SELL")}
               disabled={isDisabled}
             >
-              <option value="BUY">ซื้อ</option>
-              <option value="SELL">ขาย</option>
+              <option value="BUY">Buy</option>
+              <option value="SELL">Sell</option>
             </select>
           </label>
 
           <label className="field-group">
-            <span className="field-label">จำนวน</span>
+            <span className="field-label">Quantity</span>
             <input
               type="number"
               name="quantity"
@@ -243,7 +240,7 @@ export function TransactionForm({ instruments }: TransactionFormProps) {
           </label>
 
           <label className="field-group">
-            <span className="field-label">ราคา</span>
+            <span className="field-label">Price</span>
             <input
               type="number"
               name="price"
@@ -259,7 +256,7 @@ export function TransactionForm({ instruments }: TransactionFormProps) {
           </label>
 
           <label className="field-group">
-            <span className="field-label">ค่าธรรมเนียม</span>
+            <span className="field-label">Fee</span>
             <input
               type="number"
               name="fee"
@@ -275,14 +272,14 @@ export function TransactionForm({ instruments }: TransactionFormProps) {
           </label>
 
           <label className="field-group field-group-wide">
-            <span className="field-label">บันทึกเพิ่มเติม</span>
+            <span className="field-label">Notes</span>
             <textarea
               name="notes"
               value={values.notes}
               onChange={(event) => updateValue("notes", event.target.value)}
               rows={4}
               maxLength={500}
-              placeholder="หมายเหตุเพิ่มเติม เช่น broker ราคา fill หรือเหตุผลการซื้อขาย"
+              placeholder="Optional note, such as broker, fill context, or trade reason"
               disabled={isDisabled}
             />
           </label>
@@ -291,13 +288,8 @@ export function TransactionForm({ instruments }: TransactionFormProps) {
           {successMessage ? <p className="form-banner form-banner-success">{successMessage}</p> : null}
 
           <div className="transaction-form-footer">
-            <p className="surface-copy">
-              {values.side === "SELL"
-                ? "รายการขายจะถูกปฏิเสธถ้าทำให้จำนวนถือครองติดลบ"
-                : "รายการซื้อจะบันทึกจำนวน ราคา และค่าธรรมเนียมด้วยความละเอียดที่กำหนด"}
-            </p>
             <button type="submit" className="primary-button" disabled={isDisabled}>
-              {isSubmitting ? "กำลังบันทึก..." : isRefreshing ? "กำลังรีเฟรช..." : "บันทึกรายการ"}
+              {isSubmitting ? "Saving..." : isRefreshing ? "Refreshing..." : "Save transaction"}
             </button>
           </div>
         </form>

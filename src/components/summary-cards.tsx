@@ -24,22 +24,22 @@ function getPnlTone(value: number | null): SummaryCardConfig["tone"] {
 
 function getPriceCoverageDetail(summary: DashboardSummary) {
   if (summary.openPositionCount === 0) {
-    return "ยังไม่มีสถานะเปิด";
+    return "No open positions yet";
   }
 
   if (summary.missingPricePositionCount === 0) {
     return summary.latestPriceAsOf
-      ? `มีราคาในแคชครบ ${summary.pricedPositionCount} สถานะ ณ ${summary.latestPriceAsOf}`
-      : `มีราคาในแคชครบ ${summary.pricedPositionCount} สถานะ`;
+      ? `Cached prices cover all ${summary.pricedPositionCount} positions as of ${summary.latestPriceAsOf}`
+      : `Cached prices cover all ${summary.pricedPositionCount} positions`;
   }
 
   const awaitingList = summary.awaitingPriceSymbols.slice(0, 3).join(", ");
   const suffix =
     summary.awaitingPriceSymbols.length > 3
-      ? ` +อีก ${summary.awaitingPriceSymbols.length - 3}`
+      ? ` +${summary.awaitingPriceSymbols.length - 3} more`
       : "";
 
-  return `มีราคาแล้ว ${summary.pricedPositionCount} จาก ${summary.openPositionCount} สถานะ รอ ${awaitingList}${suffix}`;
+  return `${summary.pricedPositionCount} of ${summary.openPositionCount} positions priced; waiting for ${awaitingList}${suffix}`;
 }
 
 function formatCurrencyBreakdown(
@@ -51,7 +51,7 @@ function formatCurrencyBreakdown(
       const value = entry[key];
 
       if (value == null) {
-        return `${entry.currency}: รอราคา`;
+        return `${entry.currency}: waiting for price`;
       }
 
       return `${entry.currency}: ${formatCurrency(value, { currency: entry.currency })}`;
@@ -81,33 +81,33 @@ function buildCards(summary: DashboardSummary): SummaryCardConfig[] {
 
   return [
     {
-      label: "สถานะเปิด",
+      label: "Open positions",
       value: summary.openPositionCount.toString(),
       detail:
         summary.openPositionCount === 0
-          ? "ยังไม่มีรายการถือครองที่เปิดอยู่"
-          : `มี ${summary.openPositionCount} สถานะที่ยังเปิดจากรายการซื้อขาย`
+          ? "No open holdings yet"
+          : `${summary.openPositionCount} positions are still open from the trade ledger`
     },
     {
-      label: "ต้นทุนสถานะเปิด",
+      label: "Open cost basis",
       value:
         summary.totalCostBasis == null
-          ? "หลายสกุลเงิน"
+          ? "Mixed currency"
           : formatCurrency(summary.totalCostBasis, {
               currency: summary.openPositionCurrency ?? DEFAULT_DISPLAY_CURRENCY
             }),
       detail:
         summary.totalCostBasis == null
           ? formatCurrencyBreakdown(summary, "totalCostBasis")
-          : "คิดจากสถานะที่ยังเปิดอยู่เท่านั้น"
+          : "Calculated from open positions only"
     },
     {
-      label: "มูลค่าตลาด",
+      label: "Market value",
       value:
         summary.totalMarketValue == null
           ? marketValueIsMixedCurrency
-            ? "หลายสกุลเงิน"
-            : "รอราคา"
+            ? "Mixed currency"
+            : "Waiting"
           : formatCurrency(summary.totalMarketValue, {
               currency: summary.openPositionCurrency ?? DEFAULT_DISPLAY_CURRENCY
             }),
@@ -117,16 +117,16 @@ function buildCards(summary: DashboardSummary): SummaryCardConfig[] {
             ? formatCurrencyBreakdown(summary, "totalMarketValue")
             : `${getPriceCoverageDetail(summary)} ${formatCurrencyBreakdown(summary, "totalMarketValue")}`
           : summary.latestPriceAsOf
-            ? `อ้างอิงราคาที่แคชไว้ ณ ${summary.latestPriceAsOf}`
-            : "อ้างอิงราคาที่แคชไว้"
+            ? `Using cached prices as of ${summary.latestPriceAsOf}`
+            : "Using cached prices"
     },
     {
       label: "Unrealized P&L",
       value:
         summary.totalUnrealizedPnl == null
           ? unrealizedPnlIsMixedCurrency
-            ? "หลายสกุลเงิน"
-            : "รอราคา"
+            ? "Mixed currency"
+            : "Waiting"
           : formatCurrency(summary.totalUnrealizedPnl, {
               currency: summary.openPositionCurrency ?? DEFAULT_DISPLAY_CURRENCY
             }),
@@ -136,13 +136,13 @@ function buildCards(summary: DashboardSummary): SummaryCardConfig[] {
           ? unrealizedPnlIsMixedCurrency
             ? formatCurrencyBreakdown(summary, "totalUnrealizedPnl")
             : `${getPriceCoverageDetail(summary)} ${formatCurrencyBreakdown(summary, "totalUnrealizedPnl")}`
-          : "กำไรหรือขาดทุนของสถานะเปิดเทียบกับต้นทุน"
+          : "Open-position gain or loss versus cost"
     },
     {
       label: "Realized P&L",
       value:
         summary.totalRealizedPnl == null
-          ? "หลายสกุลเงิน"
+          ? "Mixed currency"
           : formatCurrency(summary.totalRealizedPnl, {
               currency: summary.realizedBreakdown[0]?.currency ?? DEFAULT_DISPLAY_CURRENCY
             }),
@@ -150,7 +150,7 @@ function buildCards(summary: DashboardSummary): SummaryCardConfig[] {
       detail:
         summary.totalRealizedPnl == null
           ? formatRealizedBreakdown(summary)
-          : "รวมส่วนที่ปิดจากรายการขายทั้งหมดจนถึงตอนนี้"
+          : "Closed-trade result through now"
     }
   ];
 }

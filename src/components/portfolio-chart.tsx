@@ -65,11 +65,6 @@ export function PortfolioChart({ currency, series, status }: PortfolioChartProps
           <p className="eyebrow">Portfolio value</p>
           <h2 className="section-title">Portfolio value history</h2>
         </div>
-        <p className="surface-copy">
-          {hasSeries
-            ? "Uses cached prices and ledger positions."
-            : getUnavailableMessage(status)}
-        </p>
       </div>
 
       {hasSeries ? (

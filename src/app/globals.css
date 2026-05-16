@@ -1,11 +1,11 @@
-:root {
+﻿:root {
   --page: #eef1e9;
   --page-warm: #fbfaf4;
   --surface: rgba(255, 255, 255, 0.86);
   --surface-strong: #fffef8;
   --surface-muted: #f3f5ee;
   --ink: #07110d;
-  --muted: #627069;
+  --muted: #4d5a53;
   --line: rgba(18, 31, 25, 0.11);
   --line-strong: rgba(18, 31, 25, 0.18);
   --accent: #08745d;
@@ -18,7 +18,7 @@
   --tooltip-bg: rgba(255, 254, 248, 0.98);
   --tooltip-shadow: 0 22px 70px rgba(38, 43, 35, 0.16);
   --sidebar: #0d241c;
-  --sidebar-muted: rgba(255, 255, 255, 0.66);
+  --sidebar-muted: rgba(255, 255, 255, 0.78);
   --shadow: 0 28px 90px rgba(33, 49, 41, 0.16);
   --radius-xl: 30px;
   --radius-lg: 22px;
@@ -26,11 +26,11 @@
 }
 
 html[data-theme="dark"] {
-  --page: #0c110f;
-  --page-warm: #151914;
-  --surface: rgba(17, 24, 21, 0.9);
-  --surface-strong: #151d19;
-  --surface-muted: #101713;
+  --page: #0b0f0d;
+  --page-warm: #151714;
+  --surface: rgba(16, 20, 18, 0.92);
+  --surface-strong: #121714;
+  --surface-muted: #1b211d;
   --ink: #f7fff8;
   --muted: #b8c8bf;
   --line: rgba(255, 255, 255, 0.13);
@@ -44,7 +44,7 @@ html[data-theme="dark"] {
   --chart-axis: rgba(205, 220, 210, 0.82);
   --tooltip-bg: rgba(18, 28, 24, 0.98);
   --tooltip-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
-  --sidebar: #07110d;
+  --sidebar: #080d0b;
   --sidebar-muted: rgba(255, 255, 255, 0.72);
   --shadow: 0 30px 100px rgba(0, 0, 0, 0.42);
   color-scheme: dark;
@@ -123,7 +123,7 @@ button {
   gap: 18px;
   padding: 18px 12px;
   border-right: 1px solid var(--line);
-  background: linear-gradient(180deg, var(--sidebar), #123226);
+  background: linear-gradient(180deg, var(--sidebar), #0b2119);
 }
 
 .brand-mark {
@@ -149,11 +149,14 @@ button {
 
 .nav-link {
   display: grid;
-  min-height: 44px;
+  min-height: 58px;
+  align-content: center;
+  justify-items: center;
+  gap: 5px;
   place-items: center;
   border-radius: 15px;
   color: var(--sidebar-muted);
-  font-size: 0.78rem;
+  font-size: 0.7rem;
   font-weight: 900;
   text-decoration: none;
   transition:
@@ -170,6 +173,79 @@ button {
 .nav-link-active {
   color: var(--accent-strong);
   background: #f0fff6;
+}
+
+html[data-theme="dark"] .nav-link-active {
+  color: #06100c;
+  background: var(--accent);
+}
+
+.nav-icon {
+  position: relative;
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
+.nav-icon::before,
+.nav-icon::after {
+  position: absolute;
+  display: block;
+  content: "";
+}
+
+.nav-icon[data-nav-icon="dashboard"]::before {
+  inset: 3px;
+  border: 2px solid currentColor;
+  border-radius: 5px;
+  box-shadow:
+    -7px -7px 0 -5px currentColor,
+    7px -7px 0 -5px currentColor,
+    -7px 7px 0 -5px currentColor,
+    7px 7px 0 -5px currentColor;
+}
+
+.nav-icon[data-nav-icon="holdings"]::before {
+  right: 3px;
+  bottom: 3px;
+  left: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow:
+    0 -5px 0 currentColor,
+    0 -10px 0 currentColor;
+}
+
+.nav-icon[data-nav-icon="holdings"]::after {
+  top: 3px;
+  bottom: 3px;
+  left: 8px;
+  width: 3px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 6px 4px 0 currentColor;
+}
+
+.nav-icon[data-nav-icon="transactions"]::before {
+  top: 5px;
+  right: 3px;
+  left: 3px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 8px 0 currentColor;
+}
+
+.nav-icon[data-nav-icon="transactions"]::after {
+  top: 2px;
+  right: 2px;
+  width: 7px;
+  height: 7px;
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  transform: rotate(45deg);
+  box-shadow: -9px 9px 0 -2px currentColor;
 }
 
 .nav-full {
@@ -221,7 +297,6 @@ html[data-theme="dark"] .shell-main {
 }
 
 .brand-subtitle,
-.surface-copy,
 .metric-label,
 .metric-detail,
 .route-caption,
@@ -357,7 +432,6 @@ html[data-theme="dark"] .preference-button[aria-pressed="true"] {
 
 .metric-card,
 .surface-card,
-.feature-card,
 .status-banner,
 .route-card,
 .dr-panel {
@@ -453,9 +527,15 @@ html[data-theme="dark"] .state-pill-muted {
 }
 
 .surface-card,
-.feature-card,
 .status-banner {
   padding: 16px;
+}
+
+html[data-theme="dark"] .surface-card,
+html[data-theme="dark"] .metric-card,
+html[data-theme="dark"] .status-banner,
+html[data-theme="dark"] .route-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0)), var(--surface-strong);
 }
 
 .chart-card {
@@ -471,16 +551,10 @@ html[data-theme="dark"] .state-pill-muted {
   gap: 16px;
 }
 
-.chart-card-header .surface-copy,
-.transaction-panel-header .surface-copy {
-  max-width: 40ch;
-}
-
 .section-title,
 .panel-title,
 .side-card-title,
-.brand-title,
-.feature-card h3 {
+.brand-title {
   margin: 0;
   color: var(--ink);
   font-weight: 950;
@@ -530,8 +604,13 @@ html[data-theme="dark"] .empty-panel {
 
 .price-health-card,
 .holdings-preview-card,
-.action-card {
+.action-card,
+.transaction-overview-card {
   gap: 16px;
+}
+
+.transactions-workspace .workstation-topbar {
+  align-items: flex-end;
 }
 
 .compact-stat-grid {
@@ -635,7 +714,7 @@ html[data-theme="dark"] .empty-panel {
 }
 
 .action-link::after {
-  content: "→";
+  content: ">";
   color: var(--accent);
 }
 
@@ -906,7 +985,7 @@ html[data-theme="dark"] .secondary-button {
 }
 
 .asset-title-muted {
-  color: rgba(255, 255, 255, 0.76);
+  color: var(--muted);
   font-size: 0.42em;
   font-weight: 850;
   letter-spacing: -0.035em;
@@ -914,8 +993,7 @@ html[data-theme="dark"] .secondary-button {
 
 .asset-performance-grid,
 .dr-formula-grid,
-.summary-card-grid,
-.hero-stats {
+.summary-card-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
@@ -923,37 +1001,6 @@ html[data-theme="dark"] .secondary-button {
 
 .summary-card-grid {
   grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
-.hero-card {
-  display: grid;
-  gap: 18px;
-  padding: 24px;
-  border-radius: var(--radius-xl);
-  background: var(--surface-strong);
-}
-
-.hero-copy h1 {
-  margin: 0;
-  font-size: clamp(2rem, 1.5rem + 2vw, 3.5rem);
-  line-height: 0.98;
-}
-
-.hero-copy p {
-  max-width: 68ch;
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.55;
-}
-
-.feature-accent {
-  width: fit-content;
-  border-radius: 999px;
-  padding: 9px 11px;
-  color: var(--accent-strong);
-  background: var(--accent-soft);
-  font-size: 0.78rem;
-  font-weight: 950;
 }
 
 .dr-step {
@@ -1061,7 +1108,8 @@ html[data-theme="dark"] .subtabs .active {
   .shell-sidebar {
     flex-direction: row;
     justify-content: space-between;
-    padding: 12px;
+    gap: 10px;
+    padding: 10px 12px;
     border-right: 0;
     border-bottom: 1px solid var(--line);
   }
@@ -1078,8 +1126,16 @@ html[data-theme="dark"] .subtabs .active {
   }
 
   .nav-link {
-    min-height: 38px;
-    padding: 0 10px;
+    min-height: 44px;
+    gap: 2px;
+    padding: 5px 10px;
+    border-radius: 14px;
+    font-size: 0.68rem;
+  }
+
+  .nav-icon {
+    width: 16px;
+    height: 16px;
   }
 
   .shell-header,
@@ -1093,7 +1149,7 @@ html[data-theme="dark"] .subtabs .active {
   }
 
   .shell-content {
-    padding: 14px;
+    padding: 12px;
   }
 
   .workstation-metrics,
@@ -1102,8 +1158,7 @@ html[data-theme="dark"] .subtabs .active {
   .dr-formula-grid,
   .route-grid,
   .transaction-form,
-  .compact-stat-grid,
-  .hero-stats {
+  .compact-stat-grid {
     grid-template-columns: 1fr;
   }
 

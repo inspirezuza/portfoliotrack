@@ -8,7 +8,7 @@ type HoldingsTableProps = {
 
 function formatHoldingPrice(value: number | null, currency: string) {
   if (value == null) {
-    return <span className="data-pending">ยังไม่มีราคา</span>;
+    return <span className="data-pending">No price yet</span>;
   }
 
   return formatCurrency(value, {
@@ -17,7 +17,7 @@ function formatHoldingPrice(value: number | null, currency: string) {
   });
 }
 
-function formatHoldingMoney(value: number | null, currency: string, emptyLabel = "รอราคา") {
+function formatHoldingMoney(value: number | null, currency: string, emptyLabel = "Waiting") {
   if (value == null) {
     return <span className="data-pending">{emptyLabel}</span>;
   }
@@ -25,7 +25,7 @@ function formatHoldingMoney(value: number | null, currency: string, emptyLabel =
   return formatCurrency(value, { currency });
 }
 
-function formatHoldingPercent(value: number | null, emptyLabel = "รอราคา") {
+function formatHoldingPercent(value: number | null, emptyLabel = "Waiting") {
   if (value == null) {
     return <span className="data-pending">{emptyLabel}</span>;
   }
@@ -38,31 +38,28 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
     <article className="surface-card holdings-table-card">
       <div className="transaction-panel-header">
         <div>
-          <p className="eyebrow">ถือครอง</p>
-          <h2 className="section-title">สถานะปัจจุบัน</h2>
+          <p className="eyebrow">Holdings</p>
+          <h2 className="section-title">Current positions</h2>
         </div>
-        <p className="surface-copy">
-          สร้างจากรายการซื้อขายที่บันทึกไว้ และเติมราคาในแคชเฉพาะเมื่อมีข้อมูลจริง
-        </p>
       </div>
 
       {holdings.length === 0 ? (
         <div className="transaction-empty-state">
-          <p>ยังไม่มีสถานะเปิด เพิ่มรายการซื้อ แล้วตารางถือครองจะแสดงข้อมูลที่นี่</p>
+          <p>No open positions yet. Add a buy transaction and holdings will appear here.</p>
         </div>
       ) : (
         <div className="transaction-table-wrap">
           <table className="transaction-table holdings-table">
             <thead>
               <tr>
-                <th scope="col">สัญลักษณ์</th>
-                <th scope="col">จำนวน</th>
-                <th scope="col">ต้นทุนเฉลี่ย</th>
-                <th scope="col">ต้นทุนรวม</th>
-                <th scope="col">ราคาล่าสุด</th>
-                <th scope="col">มูลค่าตลาด</th>
+                <th scope="col">Symbol</th>
+                <th scope="col">Quantity</th>
+                <th scope="col">Average cost</th>
+                <th scope="col">Total cost</th>
+                <th scope="col">Last price</th>
+                <th scope="col">Market value</th>
                 <th scope="col">Unrealized P&amp;L</th>
-                <th scope="col">สัดส่วน</th>
+                <th scope="col">Weight</th>
               </tr>
             </thead>
             <tbody>
@@ -95,7 +92,7 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
                     <div className="holdings-value-stack">
                       <span>{formatHoldingPrice(holding.lastPrice, holding.currency)}</span>
                       {holding.lastPriceAsOf ? (
-                        <span className="table-subtext">ณ {holding.lastPriceAsOf}</span>
+                        <span className="table-subtext">as of {holding.lastPriceAsOf}</span>
                       ) : null}
                     </div>
                   </td>
@@ -120,7 +117,7 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
                       </span>
                     </div>
                   </td>
-                  <td>{formatHoldingPercent(holding.portfolioWeight, "ยังไม่มีข้อมูล")}</td>
+                  <td>{formatHoldingPercent(holding.portfolioWeight, "No data")}</td>
                 </tr>
               ))}
             </tbody>

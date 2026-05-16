@@ -14,18 +14,18 @@ type AssetDetailPageProps = {
 
 function formatPriceAgeLabel(minutes: number | null) {
   if (minutes == null) {
-    return "ยังไม่มีข้อมูลอายุราคา";
+    return "No price age data";
   }
 
   if (minutes < 1) {
-    return "เพิ่งอัปเดต";
+    return "Just updated";
   }
 
   if (minutes < 60) {
-    return `${minutes} นาทีที่แล้ว`;
+    return `${minutes} min ago`;
   }
 
-  return `${Math.floor(minutes / 60)} ชั่วโมงที่แล้ว`;
+  return `${Math.floor(minutes / 60)}h ago`;
 }
 
 function formatOptionalMoney(value: number | null, currency: string, emptyLabel: string) {
@@ -38,33 +38,13 @@ function formatOptionalMoney(value: number | null, currency: string, emptyLabel:
 
 function formatOptionalPercent(value: number | null) {
   if (value == null) {
-    return "ยังคำนวณไม่ได้";
+    return "Not available";
   }
 
   return formatPercentRatio(value, {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1
   });
-}
-
-function getDrIssueMessage(issue: string | null) {
-  if (issue == null) {
-    return "ข้อมูล DR พร้อมใช้สำหรับเทียบกับหุ้นแม่";
-  }
-
-  if (issue.includes("FX")) {
-    return "ยังไม่มีอัตราแลกเปลี่ยนสำหรับคำนวณราคาเทียบหุ้นแม่";
-  }
-
-  if (issue.includes("parent")) {
-    return "ยังไม่มีราคาหุ้นแม่สำหรับเทียบ premium/discount";
-  }
-
-  if (issue.includes("metadata")) {
-    return "ข้อมูล DR ยังไม่ครบสำหรับคำนวณราคาเทียบหุ้นแม่";
-  }
-
-  return "ข้อมูล DR บางส่วนยังไม่พร้อม ระบบจะแสดงเท่าที่คำนวณได้";
 }
 
 export default async function AssetDetailPage({ params }: AssetDetailPageProps) {
@@ -83,15 +63,26 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
 
       <div className="asset-performance-grid">
         <article className="metric-card">
-          <p className="metric-label">ต้นทุนเฉลี่ย</p>
+          <p className="metric-label">Last price</p>
           <p className="metric-value">
-            {formatOptionalMoney(asset.position.averageCost, asset.instrument.currency, "ไม่มี position")}
+            {asset.marketData.lastPrice == null
+              ? "Waiting"
+              : formatCurrency(asset.marketData.lastPrice, {
+                  currency: asset.instrument.currency,
+                  maximumFractionDigits: 4
+                })}
           </p>
         </article>
         <article className="metric-card">
-          <p className="metric-label">ต้นทุนรวม</p>
+          <p className="metric-label">Average cost</p>
           <p className="metric-value">
-            {formatOptionalMoney(asset.position.totalCost, asset.instrument.currency, "ไม่มี position")}
+            {formatOptionalMoney(asset.position.averageCost, asset.instrument.currency, "No position")}
+          </p>
+        </article>
+        <article className="metric-card">
+          <p className="metric-label">Total cost</p>
+          <p className="metric-value">
+            {formatOptionalMoney(asset.position.totalCost, asset.instrument.currency, "No position")}
           </p>
         </article>
         <article className="metric-card">
@@ -109,7 +100,7 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
           </p>
         </article>
         <article className="metric-card">
-          <p className="metric-label">ค่าธรรมเนียมรวม</p>
+          <p className="metric-label">Total fees</p>
           <p className="metric-value">
             {formatCurrency(asset.position.totalFees, { currency: asset.instrument.currency })}
           </p>
@@ -120,32 +111,31 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
         <article className="surface-card">
           <div className="chart-card-header">
             <div>
-              <p className="panel-title">DR เทียบหุ้นแม่</p>
+              <p className="panel-title">DR parent comparison</p>
               <h2 className="section-title">
                 {asset.dr.underlyingSymbol
-                  ? `${asset.instrument.symbol} เหมือนซื้อ ${asset.dr.underlyingSymbol} ที่ราคาเท่าไร`
-                  : "คำนวณราคาเทียบหุ้นแม่"}
+                  ? `${asset.instrument.symbol} implied ${asset.dr.underlyingSymbol} price`
+                  : "Parent-share equivalent price"}
               </h2>
             </div>
-            <p className="surface-copy">{getDrIssueMessage(asset.dr.analyticsIssue)}</p>
           </div>
 
           <div className="asset-performance-grid">
             <article className="metric-card">
-              <p className="metric-label">เหมือนซื้อหุ้นแม่ที่</p>
+              <p className="metric-label">Implied parent price</p>
               <p className="metric-value">
                 {asset.dr.impliedParentPrice == null || asset.dr.underlyingCurrency == null
-                  ? "ยังคำนวณไม่ได้"
+                  ? "Not available"
                   : formatCurrency(asset.dr.impliedParentPrice, {
                       currency: asset.dr.underlyingCurrency
                     })}
               </p>
             </article>
             <article className="metric-card">
-              <p className="metric-label">ต้นทุนเทียบหุ้นแม่</p>
+              <p className="metric-label">Average parent-equivalent cost</p>
               <p className="metric-value">
                 {asset.dr.averageImpliedParentCost == null || asset.dr.underlyingCurrency == null
-                  ? "ยังคำนวณไม่ได้"
+                  ? "Not available"
                   : formatCurrency(asset.dr.averageImpliedParentCost, {
                       currency: asset.dr.underlyingCurrency
                     })}
@@ -168,10 +158,10 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
               </p>
             </article>
             <article className="metric-card">
-              <p className="metric-label">ราคาหุ้นแม่</p>
+              <p className="metric-label">Parent market price</p>
               <p className="metric-value">
                 {asset.dr.parentMarketPrice == null || asset.dr.underlyingCurrency == null
-                  ? "รอราคา"
+                  ? "Waiting"
                   : formatCurrency(asset.dr.parentMarketPrice, {
                       currency: asset.dr.underlyingCurrency
                     })}
@@ -181,24 +171,24 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
 
           <div className="dr-formula-grid">
             <div className="dr-step">
-              <span className="route-caption">ราคา DR</span>
+              <span className="route-caption">DR price</span>
               <strong>
-                {formatOptionalMoney(asset.marketData.lastPrice, asset.instrument.currency, "รอราคา")}
+                {formatOptionalMoney(asset.marketData.lastPrice, asset.instrument.currency, "Waiting")}
               </strong>
             </div>
             <div className="dr-step">
-              <span className="route-caption">x DR ต่อหุ้นแม่</span>
-              <strong>{asset.dr.drRatio == null ? "ไม่ระบุ" : formatQuantity(asset.dr.drRatio)}</strong>
+              <span className="route-caption">x DR per parent share</span>
+              <strong>{asset.dr.drRatio == null ? "Not set" : formatQuantity(asset.dr.drRatio)}</strong>
             </div>
             <div className="dr-step">
               <span className="route-caption">÷ FX</span>
-              <strong>{asset.dr.fxRate == null ? "รอ FX" : formatQuantity(asset.dr.fxRate)}</strong>
+              <strong>{asset.dr.fxRate == null ? "Waiting for FX" : formatQuantity(asset.dr.fxRate)}</strong>
             </div>
             <div className="dr-step">
               <span className="route-caption">= implied parent</span>
               <strong>
                 {asset.dr.impliedParentPrice == null || asset.dr.underlyingCurrency == null
-                  ? "ยังคำนวณไม่ได้"
+                  ? "Not available"
                   : formatCurrency(asset.dr.impliedParentPrice, {
                       currency: asset.dr.underlyingCurrency
                     })}
@@ -213,30 +203,28 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
 
         <aside className="feature-stack">
           <article className="surface-card asset-sidebar-card">
-            <p className="panel-title">ข้อมูล position</p>
+            <p className="panel-title">Position data</p>
             <dl className="detail-list">
               <div>
-                <dt>จำนวนคงเหลือ</dt>
+                <dt>Quantity held</dt>
                 <dd>
-                  {asset.position.hasOpenPosition
-                    ? formatQuantity(asset.position.quantity)
-                    : "ไม่มี position"}
+                  {asset.position.hasOpenPosition ? formatQuantity(asset.position.quantity) : "No position"}
                 </dd>
               </div>
               <div>
-                <dt>จำนวนรายการ</dt>
+                <dt>Trade count</dt>
                 <dd>{asset.position.tradeCount}</dd>
               </div>
               <div>
-                <dt>ซื้อครั้งแรก</dt>
-                <dd>{asset.position.firstTradeDate ?? "ยังไม่มีรายการ"}</dd>
+                <dt>First trade</dt>
+                <dd>{asset.position.firstTradeDate ?? "No trades yet"}</dd>
               </div>
               <div>
-                <dt>รายการล่าสุด</dt>
-                <dd>{asset.position.lastTradeDate ?? "ยังไม่มีรายการ"}</dd>
+                <dt>Latest trade</dt>
+                <dd>{asset.position.lastTradeDate ?? "No trades yet"}</dd>
               </div>
               <div>
-                <dt>ราคาอัปเดต</dt>
+                <dt>Price updated</dt>
                 <dd>{formatPriceAgeLabel(asset.marketData.priceAgeMinutes)}</dd>
               </div>
               <div>
@@ -252,63 +240,63 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
               <dl className="detail-list">
                 <div>
                   <dt>Underlying</dt>
-                  <dd>{asset.dr.underlyingSymbol ?? "ไม่ระบุ"}</dd>
+                  <dd>{asset.dr.underlyingSymbol ?? "Not set"}</dd>
                 </div>
                 <div>
                   <dt>DR ratio</dt>
                   <dd>
                     {asset.dr.drRatio == null
-                      ? "ไม่ระบุ"
+                      ? "Not set"
                       : `${formatQuantity(asset.dr.drRatio)} DR = 1 ${
-                          asset.dr.underlyingSymbol ?? "หุ้นแม่"
+                          asset.dr.underlyingSymbol ?? "parent share"
                         }`}
                   </dd>
                 </div>
                 <div>
-                  <dt>สกุลเงิน DR</dt>
+                  <dt>DR currency</dt>
                   <dd>{asset.instrument.currency}</dd>
                 </div>
                 <div>
-                  <dt>สกุลเงินหุ้นแม่</dt>
-                  <dd>{asset.dr.underlyingCurrency ?? "ไม่ระบุ"}</dd>
+                  <dt>Parent currency</dt>
+                  <dd>{asset.dr.underlyingCurrency ?? "Not set"}</dd>
                 </div>
                 <div>
                   <dt>FX source</dt>
-                  <dd>{asset.dr.fxProviderSymbol ?? "ไม่ระบุ"}</dd>
+                  <dd>{asset.dr.fxProviderSymbol ?? "Not set"}</dd>
                 </div>
               </dl>
             </article>
           ) : null}
 
           <article className="surface-card asset-sidebar-card">
-            <p className="insight-title">เช็กความคุ้มของ DR</p>
+            <p className="insight-title">DR value check</p>
             {asset.dr ? (
               <dl className="detail-list">
                 <div>
-                  <dt>ซื้อแพงกว่าหุ้นแม่ไหม</dt>
+                  <dt>Premium to parent share</dt>
                   <dd>{formatOptionalPercent(asset.dr.premiumDiscount)}</dd>
                 </div>
                 <div>
-                  <dt>ต้นทุนเทียบหุ้นแม่</dt>
+                  <dt>Parent-equivalent cost</dt>
                   <dd>
                     {asset.dr.averageImpliedParentCost == null || asset.dr.underlyingCurrency == null
-                      ? "ยังคำนวณไม่ได้"
+                      ? "Not available"
                       : formatCurrency(asset.dr.averageImpliedParentCost, {
                           currency: asset.dr.underlyingCurrency
                         })}
                   </dd>
                 </div>
                 <div>
-                  <dt>DR ตามหุ้นแม่ทันไหม</dt>
+                  <dt>Comparison state</dt>
                   <dd>
                     {asset.dr.parentMarketPrice == null || asset.dr.impliedParentPrice == null
-                      ? "รอข้อมูล"
-                      : "เทียบได้แล้ว"}
+                      ? "Waiting for data"
+                      : "Ready"}
                   </dd>
                 </div>
               </dl>
             ) : (
-              <p className="surface-copy">หุ้นนี้ไม่ใช่ DR จึงไม่ต้องคำนวณราคาเทียบหุ้นแม่</p>
+              <p className="data-pending">Not a DR</p>
             )}
           </article>
         </aside>
@@ -317,26 +305,25 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
       <article className="surface-card">
         <div className="transaction-panel-header">
           <div>
-            <p className="panel-title">ประวัติรายการของหุ้นนี้</p>
-            <p className="surface-copy">รายการล่าสุดที่ใช้คำนวณ position และต้นทุนเฉลี่ย</p>
+            <p className="panel-title">Asset transaction history</p>
           </div>
         </div>
 
         {recentTransactions.length === 0 ? (
           <div className="transaction-empty-state">
-            <p>ยังไม่มี transaction สำหรับหุ้นนี้</p>
+            <p>No transactions for this asset yet.</p>
           </div>
         ) : (
           <div className="transaction-table-wrap">
             <table className="transaction-table">
               <thead>
                 <tr>
-                  <th scope="col">วันที่</th>
-                  <th scope="col">ประเภท</th>
-                  <th scope="col">จำนวน</th>
-                  <th scope="col">ราคา</th>
-                  <th scope="col">ค่าธรรมเนียม</th>
-                  <th scope="col">หมายเหตุ</th>
+                  <th scope="col">Date</th>
+                  <th scope="col">Side</th>
+                  <th scope="col">Quantity</th>
+                  <th scope="col">Price</th>
+                  <th scope="col">Fee</th>
+                  <th scope="col">Notes</th>
                 </tr>
               </thead>
               <tbody>

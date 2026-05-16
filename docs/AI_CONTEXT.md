@@ -28,7 +28,7 @@ Routes:
   - Reads dashboard/holdings data and renders `SummaryCards` plus `HoldingsTable`.
 - `/transactions`
   - Implemented by `src/app/transactions/page.tsx`.
-  - Renders `TransactionForm`, transaction readiness/status copy, and `TransactionTable`.
+  - Renders `TransactionForm`, compact ledger/instrument metrics, and `TransactionTable`.
 - `/assets/[symbol]`
   - Implemented by `src/app/assets/[symbol]/page.tsx`.
   - Reads `getAssetDetail(symbol)` from `src/server/assets.ts`.
@@ -76,6 +76,8 @@ Important directories:
   - Local SQLite runtime files. These are not source-of-truth code.
 - `docs/superpowers/`
   - Previous design specs and implementation plans.
+- `docs/UX_REVIEW.md`
+  - Current browser-reviewed UX/layout findings and recommended polish priorities.
 
 ## Database
 
@@ -255,7 +257,7 @@ Translations:
 
 - `src/lib/ui/translations.ts`
 - Currently covers shell copy and nav labels.
-- The shell and dashboard are English-first. Some deeper page-level copy is still legacy Thai until it is fully internationalized.
+- The main app surface is English-first in `EN` mode. Thai remains only in the explicit `TH` shell labels and should be added back to pages through a deliberate bilingual copy layer if needed.
 
 Styling:
 
@@ -301,6 +303,9 @@ Formatting:
 - Tables use horizontal scrolling for wide data.
 - Cards are used for repeated panels and metrics, not nested decorative sections.
 - Missing data should be explicit and calm, especially for market quotes and DR analytics.
+- Dashboard, holdings, transactions, and asset detail use compact task-first page headers instead of page-level hero blocks.
+- Page-level copy was converted to English-first, and repetitive explanatory copy was removed so the current `EN` preference no longer shows Thai on the main routes.
+- Keep operational pages task-first: holdings should surface the table/current positions quickly, transactions should surface the entry form quickly, and asset detail should surface position performance quickly.
 
 ## Validation And Error Handling
 
