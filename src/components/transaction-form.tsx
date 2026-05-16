@@ -159,7 +159,7 @@ function getSynchronizedInstrumentId(
     (instrument) => String(instrument.id) === instrumentId
   );
 
-  return hasMatchingInstrument ? instrumentId : String(instruments[0].id);
+  return hasMatchingInstrument ? instrumentId : "";
 }
 
 export function TransactionForm({ instruments, editingTransaction = null }: TransactionFormProps) {
@@ -571,7 +571,7 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
         <div>
           <p className="eyebrow">{isEditing ? "Edit transaction" : "New transaction"}</p>
           <h2 className="section-title">
-            {isEditing ? "Update a recorded trade" : "Record a buy or sell"}
+            {isEditing ? "Update trade" : "Record trade"}
           </h2>
         </div>
       </div>
@@ -579,8 +579,8 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
       <div className="instrument-manager">
         <div className="instrument-manager-header">
           <div>
-            <span className="field-label">Instruments</span>
-            <p className="field-hint">Search, click one result, and it will be added to the trade selector.</p>
+            <span className="field-label">Instrument</span>
+            <p className="field-hint">Search a saved instrument or add a new one.</p>
           </div>
           <button
             type="button"
@@ -714,7 +714,7 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
                   highlightedInstrumentId ? `instrument-option-${highlightedInstrumentId}` : undefined
                 }
                 autoComplete="off"
-                placeholder="Search by symbol, name, or Yahoo symbol"
+                placeholder="Choose an instrument"
                 disabled={isDisabled}
                 required
               />
