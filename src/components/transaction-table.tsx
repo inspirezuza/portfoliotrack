@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { formatCurrency, formatQuantity } from "@/lib/format";
 import type { TransactionListItem } from "@/server/transactions";
+import { InstrumentLogo } from "@/components/instrument-logo";
 
 type TransactionTableProps = {
   transactions: TransactionListItem[];
@@ -107,11 +108,21 @@ export function TransactionTable({ transactions, editingTransactionId = null }: 
                 <tr key={transaction.id} data-editing={transaction.id === editingTransactionId}>
                   <td>{transaction.tradeDate}</td>
                   <td>
-                    <div className="instrument-cell">
-                      <strong>{transaction.instrument.symbol}</strong>
-                      <span>
-                        {transaction.instrument.displayName} - {transaction.instrument.market}
-                      </span>
+                    <div className="instrument-cell instrument-cell-with-logo">
+                      <InstrumentLogo
+                        symbol={transaction.instrument.symbol}
+                        displayName={transaction.instrument.displayName}
+                        instrumentType={transaction.instrument.instrumentType}
+                        providerSymbol={transaction.instrument.providerSymbol}
+                        underlyingProviderSymbol={transaction.instrument.underlyingProviderSymbol}
+                        size="sm"
+                      />
+                      <div className="instrument-cell-copy">
+                        <strong>{transaction.instrument.symbol}</strong>
+                        <span>
+                          {transaction.instrument.displayName} - {transaction.instrument.market}
+                        </span>
+                      </div>
                     </div>
                   </td>
                   <td>

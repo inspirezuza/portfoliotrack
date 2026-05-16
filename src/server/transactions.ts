@@ -39,6 +39,8 @@ export type TransactionListItem = {
     market: string;
     instrumentType: string;
     currency: string;
+    providerSymbol: string;
+    underlyingProviderSymbol: string | null;
   };
   grossAmount: number;
   netAmount: number;
@@ -144,7 +146,9 @@ function mapTransactionListItem(row: {
       displayName: row.instrument.displayName,
       market: row.instrument.market,
       instrumentType: row.instrument.instrumentType,
-      currency: row.instrument.currency
+      currency: row.instrument.currency,
+      providerSymbol: row.instrument.providerSymbol,
+      underlyingProviderSymbol: row.instrument.underlyingProviderSymbol
     },
     grossAmount,
     netAmount,

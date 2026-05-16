@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { formatCurrency, formatPercentRatio, formatQuantity } from "@/lib/format";
 import type { HoldingRow } from "@/server/holdings";
+import { InstrumentLogo } from "@/components/instrument-logo";
 
 type HoldingsTableProps = {
   holdings: HoldingRow[];
@@ -66,18 +67,27 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
               {holdings.map((holding) => (
                 <tr key={holding.instrumentId}>
                   <td>
-                    <div className="instrument-cell">
-                      <strong>
-                        <Link
-                          href={`/assets/${encodeURIComponent(holding.symbol)}`}
-                          className="route-link"
-                        >
-                          {holding.symbol}
-                        </Link>
-                      </strong>
-                      <span>
-                        {holding.displayName} - {holding.market}
-                      </span>
+                    <div className="instrument-cell instrument-cell-with-logo">
+                      <InstrumentLogo
+                        symbol={holding.symbol}
+                        displayName={holding.displayName}
+                        instrumentType={holding.instrumentType}
+                        providerSymbol={holding.providerSymbol}
+                        underlyingProviderSymbol={holding.underlyingProviderSymbol}
+                      />
+                      <div className="instrument-cell-copy">
+                        <strong>
+                          <Link
+                            href={`/assets/${encodeURIComponent(holding.symbol)}`}
+                            className="route-link"
+                          >
+                            {holding.symbol}
+                          </Link>
+                        </strong>
+                        <span>
+                          {holding.displayName} - {holding.market}
+                        </span>
+                      </div>
                     </div>
                   </td>
                   <td>{formatQuantity(holding.quantity)}</td>

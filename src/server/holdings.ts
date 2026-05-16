@@ -21,6 +21,8 @@ export type HoldingRow = {
   market: string;
   instrumentType: string;
   currency: string;
+  providerSymbol: string;
+  underlyingProviderSymbol: string | null;
   quantity: number;
   averageCost: number;
   totalCost: number;
@@ -134,6 +136,8 @@ function buildHoldingRow({
     market: instrument.market,
     instrumentType: instrument.instrumentType,
     currency: instrument.currency,
+    providerSymbol: instrument.providerSymbol,
+    underlyingProviderSymbol: instrument.underlyingProviderSymbol,
     quantity: position.quantity,
     averageCost: position.averageCost,
     totalCost: position.totalCost,
