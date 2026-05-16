@@ -1,8 +1,15 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/app-shell";
 import { UiPreferencesProvider } from "@/lib/ui/preferences";
 import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap"
+});
 
 export const metadata: Metadata = {
   title: "PortfolioTrack",
@@ -78,7 +85,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           }}
         />
       </head>
-      <body>
+      <body className={inter.variable}>
         <UiPreferencesProvider>
           <AppShell>{children}</AppShell>
         </UiPreferencesProvider>

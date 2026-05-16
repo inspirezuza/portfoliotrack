@@ -68,6 +68,10 @@ Important directories:
   - Pure-ish portfolio math for positions and timeline comparison.
 - `src/lib/ui/`
   - Browser local UI preferences and shell translation helpers.
+- `src/lib/async/`
+  - Small async utilities such as operation timeouts for external provider calls.
+- `src/lib/transactions/`
+  - Pure transaction UI/domain helpers, including instrument search and exact selection matching.
 - `src/lib/validation/`
   - Zod schemas for incoming transaction payloads.
 - `drizzle/`
@@ -221,6 +225,7 @@ Cache refresh behavior:
 - Writes valid daily bars to `historicalPrices`.
 - Ignores invalid/mismatched currency data and records issues in the refresh result.
 - Deduplicates overlapping in-flight refreshes.
+- Automatic page-triggered refresh is best-effort and timeout-bound. Pages should keep rendering cached local data if Yahoo is slow; explicit refresh requests still return structured refresh results.
 
 Known external dependency:
 
@@ -341,6 +346,8 @@ Common commands:
 
 ```powershell
 npm run dev
+npm run test
+npm run verify
 npm run lint
 npm run build
 npm run db:migrate
@@ -350,7 +357,7 @@ npm run db:seed
 Notes:
 
 - `npm run build` also performs Next.js type/lint checks.
-- This repo currently has no dedicated test suite.
+- `npm run test` uses Node's built-in test runner with `tsx`.
 - The user has requested that tests not be added or updated unless explicitly asked.
 - The development server may print a Windows SWC DLL warning and still work.
 

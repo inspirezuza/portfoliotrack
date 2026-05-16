@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import {
   createTransaction,
+  deleteTransaction,
   listSelectableTransactionInstrumentOptions,
   listTransactions,
-  TransactionServiceError
+  TransactionServiceError,
+  updateTransaction
 } from "@/server/transactions";
 
 function getStatusCode(error: TransactionServiceError) {
@@ -11,6 +13,7 @@ function getStatusCode(error: TransactionServiceError) {
     case "VALIDATION_ERROR":
       return 400;
     case "INSTRUMENT_NOT_FOUND":
+    case "TRANSACTION_NOT_FOUND":
       return 404;
     case "INSUFFICIENT_QUANTITY":
       return 409;
@@ -80,5 +83,64 @@ export async function POST(request: Request) {
     console.error("Unexpected transaction API failure", error);
 
     return jsonErrorResponse("INTERNAL_ERROR", "Transaction could not be saved.", 500);
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const payload = await request.json();
+
+    if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
+      throw new TransactionServiceError(
+        "VALIDATION_ERROR",
+        "Transaction update payload must be an object."
+      );
+    }
+
+    const { id, ...transactionPayload } = payload as Record<string, unknown>;
+    const transaction = await updateTransaction(id, transactionPayload);
+
+    return NextResponse.json({ transaction });
+  } catch (error) {
+    if (error instanceof TransactionServiceError) {
+      return jsonErrorResponse(error.code, error.message, getStatusCode(error), error.details);
+    }
+
+    if (error instanceof SyntaxError) {
+      return jsonErrorResponse("INVALID_JSON", "Request body must be valid JSON.", 400);
+    }
+
+    console.error("Unexpected transaction update failure", error);
+
+    return jsonErrorResponse("INTERNAL_ERROR", "Transaction could not be updated.", 500);
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const payload = await request.json();
+
+    if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
+      throw new TransactionServiceError(
+        "VALIDATION_ERROR",
+        "Transaction delete payload must be an object."
+      );
+    }
+
+    const deletedTransaction = await deleteTransaction((payload as Record<string, unknown>).id);
+
+    return NextResponse.json({ transaction: deletedTransaction });
+  } catch (error) {
+    if (error instanceof TransactionServiceError) {
+      return jsonErrorResponse(error.code, error.message, getStatusCode(error), error.details);
+    }
+
+    if (error instanceof SyntaxError) {
+      return jsonErrorResponse("INVALID_JSON", "Request body must be valid JSON.", 400);
+    }
+
+    console.error("Unexpected transaction delete failure", error);
+
+    return jsonErrorResponse("INTERNAL_ERROR", "Transaction could not be deleted.", 500);
   }
 }

@@ -1,5 +1,6 @@
 import { TransactionForm } from "@/components/transaction-form";
 import { TransactionTable } from "@/components/transaction-table";
+import { sortInstrumentOptions } from "@/lib/transactions/instrument-selection";
 import {
   listSelectableTransactionInstrumentOptions,
   listTransactionInstrumentOptions,
@@ -8,12 +9,38 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default async function TransactionsPage() {
+type TransactionsPageProps = {
+  searchParams?: Promise<{
+    edit?: string | string[];
+  }>;
+};
+
+function parseEditTransactionId(edit: string | string[] | undefined) {
+  const value = Array.isArray(edit) ? edit[0] : edit;
+  const id = Number(value);
+
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+export default async function TransactionsPage({ searchParams }: TransactionsPageProps) {
+  const resolvedSearchParams = await searchParams;
+  const editTransactionId = parseEditTransactionId(resolvedSearchParams?.edit);
   const [transactions, allInstruments, instruments] = await Promise.all([
     listTransactions({ order: "desc" }),
     listTransactionInstrumentOptions({ activeOnly: false }),
     listSelectableTransactionInstrumentOptions()
   ]);
+  const editingTransaction =
+    editTransactionId == null
+      ? null
+      : transactions.find((transaction) => transaction.id === editTransactionId) ?? null;
+  const formInstruments =
+    editingTransaction && !instruments.some((instrument) => instrument.id === editingTransaction.instrumentId)
+      ? sortInstrumentOptions([
+          ...instruments,
+          ...allInstruments.filter((instrument) => instrument.id === editingTransaction.instrumentId)
+        ])
+      : instruments;
 
   const transactionCount = transactions.length;
   const uniqueInstrumentCount = new Set(transactions.map((transaction) => transaction.instrumentId))
@@ -33,7 +60,7 @@ export default async function TransactionsPage() {
       </div>
 
       <div className="transactions-layout">
-        <TransactionForm instruments={instruments} />
+        <TransactionForm instruments={formInstruments} editingTransaction={editingTransaction} />
         <aside className="feature-stack">
           <article className="surface-card transaction-overview-card">
             <p className="eyebrow">State</p>
@@ -74,7 +101,7 @@ export default async function TransactionsPage() {
         </aside>
       </div>
 
-      <TransactionTable transactions={transactions} />
+      <TransactionTable transactions={transactions} editingTransactionId={editingTransaction?.id ?? null} />
     </section>
   );
 }

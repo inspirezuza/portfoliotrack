@@ -79,7 +79,7 @@ body {
   min-height: 100dvh;
   color: var(--ink);
   background: inherit;
-  font-family: "Noto Sans Thai", "Aptos", "Segoe UI", sans-serif;
+  font-family: var(--font-inter), "Noto Sans Thai", "Aptos", "Segoe UI", sans-serif;
 }
 
 a {
@@ -135,7 +135,7 @@ button {
   color: #fff;
   background: linear-gradient(135deg, #0a7b62, #054937);
   font-size: 1rem;
-  font-weight: 950;
+  font-weight: 800;
   text-decoration: none;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
@@ -157,7 +157,7 @@ button {
   border-radius: 14px;
   color: var(--sidebar-muted);
   font-size: 0.67rem;
-  font-weight: 900;
+  font-weight: 700;
   text-decoration: none;
   transition:
     background 160ms ease,
@@ -292,8 +292,8 @@ html[data-theme="dark"] .shell-main {
 .brand-name {
   margin: 0;
   font-size: 0.96rem;
-  font-weight: 950;
-  letter-spacing: -0.035em;
+  font-weight: 750;
+  letter-spacing: 0;
 }
 
 .brand-subtitle,
@@ -308,6 +308,10 @@ html[data-theme="dark"] .shell-main {
   margin: 0;
   color: var(--muted);
   line-height: 1.55;
+}
+
+.field-hint-warning {
+  color: var(--danger);
 }
 
 .brand-subtitle {
@@ -335,7 +339,7 @@ html[data-theme="dark"] .shell-main {
   color: var(--muted);
   background: transparent;
   font-size: 0.78rem;
-  font-weight: 900;
+  font-weight: 700;
   line-height: 1;
   transition: transform 120ms ease;
 }
@@ -404,8 +408,9 @@ html[data-theme="dark"] .preference-button[aria-pressed="true"] {
 .workstation-topbar h1 {
   margin: 0;
   font-size: clamp(1.45rem, 1.15rem + 0.85vw, 2rem);
+  font-weight: 750;
   line-height: 1.02;
-  letter-spacing: -0.035em;
+  letter-spacing: 0;
 }
 
 .workstation-topbar p:not(.eyebrow) {
@@ -419,8 +424,8 @@ html[data-theme="dark"] .preference-button[aria-pressed="true"] {
   margin: 0;
   color: var(--accent);
   font-size: 0.68rem;
-  font-weight: 950;
-  letter-spacing: 0.1em;
+  font-weight: 750;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -462,9 +467,9 @@ html[data-theme="dark"] .metric-card-hero {
   margin: 6px 0 0;
   color: var(--ink);
   font-size: clamp(1.22rem, 1rem + 0.55vw, 1.7rem);
-  font-weight: 950;
+  font-weight: 750;
   line-height: 1.08;
-  letter-spacing: -0.045em;
+  letter-spacing: 0;
 }
 
 .metric-value-xl {
@@ -473,7 +478,7 @@ html[data-theme="dark"] .metric-card-hero {
 
 .metric-label {
   font-size: 0.8rem;
-  font-weight: 850;
+  font-weight: 650;
 }
 
 .metric-detail {
@@ -498,7 +503,7 @@ html[data-theme="dark"] .metric-card-hero {
   color: var(--accent-strong);
   background: var(--accent-soft);
   font-size: 0.73rem;
-  font-weight: 950;
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -561,8 +566,8 @@ html[data-theme="dark"] .route-card {
 .brand-title {
   margin: 0;
   color: var(--ink);
-  font-weight: 950;
-  letter-spacing: -0.045em;
+  font-weight: 750;
+  letter-spacing: 0;
 }
 
 .section-title {
@@ -782,7 +787,7 @@ html[data-theme="dark"] .empty-panel {
 .compact-stat-grid span {
   color: var(--muted);
   font-size: 0.76rem;
-  font-weight: 800;
+  font-weight: 650;
 }
 
 .compact-stat-grid strong {
@@ -790,8 +795,8 @@ html[data-theme="dark"] .empty-panel {
   color: var(--ink);
   overflow-wrap: anywhere;
   font-size: clamp(0.98rem, 0.86rem + 0.5vw, 1.22rem);
-  font-weight: 950;
-  letter-spacing: -0.05em;
+  font-weight: 750;
+  letter-spacing: 0;
 }
 
 .holding-bars {
@@ -821,7 +826,7 @@ html[data-theme="dark"] .empty-panel {
 
 .holding-symbol {
   color: var(--ink);
-  font-weight: 950;
+  font-weight: 700;
   text-decoration: none;
 }
 
@@ -858,7 +863,7 @@ html[data-theme="dark"] .empty-panel {
   padding: 13px 14px;
   color: var(--ink);
   background: var(--surface-muted);
-  font-weight: 900;
+  font-weight: 700;
   text-decoration: none;
 }
 
@@ -880,7 +885,7 @@ html[data-theme="dark"] .empty-panel {
 
 .status-banner-title {
   color: var(--ink);
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .status-banner-copy {
@@ -905,7 +910,17 @@ html[data-theme="dark"] .empty-panel {
   border-radius: 999px;
   padding: 10px 14px;
   font-size: 0.9rem;
-  font-weight: 950;
+  font-weight: 700;
+}
+
+.compact-button {
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 8px 12px;
+  color: var(--accent);
+  background: var(--surface-strong);
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
 .primary-button {
@@ -936,7 +951,7 @@ html[data-theme="dark"] .secondary-button {
 
 .route-link {
   color: var(--accent);
-  font-weight: 900;
+  font-weight: 700;
   text-decoration: none;
 }
 
@@ -980,6 +995,36 @@ html[data-theme="dark"] .secondary-button {
   gap: 12px;
 }
 
+.instrument-manager {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 15px;
+  margin-bottom: 15px;
+  border-bottom: 1px solid var(--line);
+}
+
+.instrument-manager-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.instrument-lookup {
+  display: grid;
+  gap: 10px;
+}
+
+.instrument-lookup-menu {
+  display: grid;
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--surface-strong);
+  box-shadow: 0 18px 50px rgba(33, 49, 41, 0.12);
+}
+
 .field-group {
   display: grid;
   gap: 6px;
@@ -994,7 +1039,7 @@ html[data-theme="dark"] .secondary-button {
 .field-label {
   color: var(--ink);
   font-size: 0.8rem;
-  font-weight: 900;
+  font-weight: 650;
 }
 
 .field-group input,
@@ -1006,6 +1051,7 @@ html[data-theme="dark"] .secondary-button {
   padding: 11px 12px;
   color: var(--ink);
   background: var(--surface-strong);
+  font-weight: 400;
   transition:
     border-color 160ms ease,
     box-shadow 160ms ease;
@@ -1024,11 +1070,102 @@ html[data-theme="dark"] .secondary-button {
   box-shadow: 0 0 0 4px var(--accent-soft);
 }
 
+.instrument-combobox {
+  position: relative;
+}
+
+.instrument-combobox input {
+  padding-right: 42px;
+}
+
+.instrument-combobox::after {
+  position: absolute;
+  top: 17px;
+  right: 15px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  content: "";
+  pointer-events: none;
+  transform: rotate(45deg);
+}
+
+.instrument-combobox-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  display: grid;
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--surface-strong);
+  box-shadow: var(--tooltip-shadow);
+}
+
+.instrument-combobox-option {
+  display: grid;
+  grid-template-columns: minmax(84px, 0.32fr) minmax(0, 1fr) max-content;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 11px 12px;
+  color: var(--ink);
+  background: transparent;
+  font-weight: 400;
+  text-align: left;
+}
+
+.instrument-combobox-option:last-child {
+  border-bottom: 0;
+}
+
+.instrument-combobox-option:hover,
+.instrument-combobox-option[data-highlighted="true"] {
+  background: var(--accent-soft);
+}
+
+.instrument-combobox-option[data-selected="true"] .instrument-combobox-symbol {
+  color: var(--accent);
+}
+
+.instrument-combobox-symbol {
+  font-weight: 700;
+}
+
+.instrument-combobox-name,
+.instrument-combobox-meta,
+.instrument-combobox-empty {
+  color: var(--muted);
+}
+
+.instrument-combobox-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.instrument-combobox-meta {
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.instrument-combobox-empty {
+  padding: 13px 12px;
+  font-weight: 600;
+}
+
 .form-banner {
   margin: 0;
   padding: 11px 12px;
   border-radius: 14px;
-  font-weight: 800;
+  font-weight: 650;
 }
 
 .form-banner-error {
@@ -1057,7 +1194,7 @@ html[data-theme="dark"] .secondary-button {
 
 .transaction-table {
   width: 100%;
-  min-width: 760px;
+  min-width: 860px;
   border-collapse: collapse;
 }
 
@@ -1076,11 +1213,60 @@ html[data-theme="dark"] .secondary-button {
 .transaction-table th {
   color: var(--muted);
   font-size: 0.72rem;
-  font-weight: 950;
+  font-weight: 700;
 }
 
 .transaction-table tbody tr:last-child td {
   border-bottom: 0;
+}
+
+.transaction-table tbody tr[data-editing="true"] td {
+  background: var(--accent-soft);
+}
+
+.table-action-link {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 6px 9px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-size: 0.74rem;
+  font-weight: 750;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.table-action-link:hover {
+  color: var(--accent-strong);
+  text-decoration: underline;
+}
+
+.table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.table-action-button {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 9px;
+  font-size: 0.74rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.table-action-button-danger {
+  color: var(--danger);
+  background: rgba(184, 75, 67, 0.1);
+}
+
+.table-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .instrument-cell {
@@ -1104,7 +1290,7 @@ html[data-theme="dark"] .secondary-button {
   border-radius: 999px;
   padding: 5px 7px;
   font-size: 0.7rem;
-  font-weight: 950;
+  font-weight: 700;
 }
 
 .side-pill-buy {
@@ -1125,7 +1311,7 @@ html[data-theme="dark"] .secondary-button {
 
 .detail-list dt {
   color: var(--ink);
-  font-weight: 850;
+  font-weight: 650;
 }
 
 .detail-list dd {
@@ -1137,8 +1323,8 @@ html[data-theme="dark"] .secondary-button {
 .asset-title-muted {
   color: var(--muted);
   font-size: 0.42em;
-  font-weight: 850;
-  letter-spacing: -0.035em;
+  font-weight: 600;
+  letter-spacing: 0;
 }
 
 .asset-performance-grid,
@@ -1168,7 +1354,8 @@ html[data-theme="dark"] .dr-step {
   margin-top: 6px;
   color: var(--ink);
   font-size: 1rem;
-  letter-spacing: -0.04em;
+  font-weight: 700;
+  letter-spacing: 0;
 }
 
 .panel-title,
@@ -1194,7 +1381,7 @@ html[data-theme="dark"] .dr-step {
 
 .insight-title {
   font-size: 0.95rem;
-  letter-spacing: -0.015em;
+  letter-spacing: 0;
 }
 
 .subtabs {
@@ -1208,7 +1395,7 @@ html[data-theme="dark"] .dr-step {
   color: var(--muted);
   background: rgba(18, 31, 25, 0.06);
   font-size: 0.73rem;
-  font-weight: 900;
+  font-weight: 650;
 }
 
 .subtabs .active {
@@ -1364,6 +1551,21 @@ html[data-theme="dark"] .subtabs .active {
     flex-direction: column;
   }
 
+  .instrument-manager-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .instrument-combobox-option {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+
+  .instrument-combobox-name,
+  .instrument-combobox-meta {
+    white-space: normal;
+  }
+
   .chart-stat-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1409,7 +1611,7 @@ html[data-theme="dark"] .subtabs .active {
   }
 
   .transaction-table {
-    min-width: 700px;
+    min-width: 820px;
   }
 
   .holdings-table {

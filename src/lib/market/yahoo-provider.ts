@@ -1,6 +1,7 @@
 import "server-only";
 
 import YahooFinance from "yahoo-finance2";
+import { withOperationTimeout } from "@/lib/async/timeout";
 import type {
   MarketDataProvider,
   MarketHistoricalBar,
@@ -10,6 +11,8 @@ import type {
 } from "@/lib/market/types";
 
 const SOURCE = "yahoo-finance2";
+const YAHOO_QUOTE_TIMEOUT_MS = 5000;
+const YAHOO_HISTORY_TIMEOUT_MS = 8000;
 
 const yahooFinance = new YahooFinance({
   suppressNotices: ["yahooSurvey"]
@@ -27,9 +30,15 @@ function uniqueProviderSymbols(providerSymbols: string[]) {
 
 async function fetchLatestQuote(providerSymbol: string): Promise<MarketQuoteSnapshot | null> {
   try {
-    const quote = await yahooFinance.quote(providerSymbol, {
-      fields: ["symbol", "currency", "regularMarketPrice", "regularMarketTime"]
-    });
+    const quote = await withOperationTimeout(
+      yahooFinance.quote(providerSymbol, {
+        fields: ["symbol", "currency", "regularMarketPrice", "regularMarketTime"]
+      }),
+      {
+        label: `Yahoo quote ${providerSymbol}`,
+        timeoutMs: YAHOO_QUOTE_TIMEOUT_MS
+      }
+    );
     const price = quote.regularMarketPrice;
     const currency = quote.currency;
     const asOf =
@@ -58,12 +67,18 @@ async function fetchHistoricalPrices(
 ): Promise<MarketHistoricalSeries | null> {
   try {
     const endDate = request.endDate ?? new Date().toISOString().slice(0, 10);
-    const chart = await yahooFinance.chart(providerSymbol, {
-      period1: request.startDate,
-      period2: endDate,
-      interval: "1d",
-      return: "array"
-    });
+    const chart = await withOperationTimeout(
+      yahooFinance.chart(providerSymbol, {
+        period1: request.startDate,
+        period2: endDate,
+        interval: "1d",
+        return: "array"
+      }),
+      {
+        label: `Yahoo history ${providerSymbol}`,
+        timeoutMs: YAHOO_HISTORY_TIMEOUT_MS
+      }
+    );
 
     const bars = chart.quotes
       .map<MarketHistoricalBar | null>((row) => {

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { asc, eq } from "drizzle-orm";
+import { OperationTimeoutError, withOperationTimeout } from "@/lib/async/timeout";
 import { normalizeMoney } from "@/lib/db/precision";
 import { db } from "@/lib/db/runtime";
 import {
@@ -34,6 +35,7 @@ type AssetHistoryCooldownState = {
 };
 
 const HISTORY_REFRESH_FAILURE_COOLDOWN_MS = 30 * 60 * 1000;
+const ASSET_MARKET_REFRESH_TIMEOUT_MS = 3500;
 const historyRefreshCooldownByInstrumentId = new Map<number, AssetHistoryCooldownState>();
 
 export type AssetPricePoint = {
@@ -175,6 +177,31 @@ function divideIfAvailable(numerator: number | null, denominator: number | null)
 
 function getQuoteByProviderSymbol(quotes: MarketQuoteSnapshot[], providerSymbol: string) {
   return quotes.find((quote) => quote.providerSymbol === providerSymbol) ?? null;
+}
+
+async function runAssetMarketRefreshBestEffort<T>({
+  operation,
+  fallback,
+  label
+}: {
+  operation: Promise<T>;
+  fallback: T;
+  label: string;
+}) {
+  try {
+    return await withOperationTimeout(operation, {
+      label,
+      timeoutMs: ASSET_MARKET_REFRESH_TIMEOUT_MS
+    });
+  } catch (error) {
+    if (error instanceof OperationTimeoutError) {
+      console.warn(error.message, "Using cached asset market data while refresh continues.");
+      return fallback;
+    }
+
+    console.error(`${label} failed`, error);
+    return fallback;
+  }
 }
 
 async function getDrProviderQuotes(instrument: Instrument) {
@@ -525,17 +552,31 @@ export async function getAssetDetail(symbol: string): Promise<AssetDetail | null
 
   const [quoteRefreshResult, historyRefreshResult] = await Promise.all([
     shouldRefreshQuote
-      ? refreshAssetQuote({
-          instrument
+      ? runAssetMarketRefreshBestEffort({
+          operation: refreshAssetQuote({
+            instrument
+          }),
+          fallback: {
+            attempted: true,
+            quoteIssue: `Latest quote refresh timed out for ${instrument.providerSymbol}; cached data is shown.`
+          } satisfies AssetQuoteRefreshResult,
+          label: `Asset quote refresh for ${instrument.providerSymbol}`
         })
       : Promise.resolve({
           attempted: false,
           quoteIssue: null
         } satisfies AssetQuoteRefreshResult),
     shouldRefreshHistory
-      ? refreshAssetHistory({
-          instrument,
-          historyStartDate: requestedHistoryStartDate
+      ? runAssetMarketRefreshBestEffort({
+          operation: refreshAssetHistory({
+            instrument,
+            historyStartDate: requestedHistoryStartDate
+          }),
+          fallback: {
+            attempted: true,
+            historyIssue: `Historical price refresh timed out for ${instrument.providerSymbol}; cached data is shown.`
+          } satisfies AssetHistoryRefreshResult,
+          label: `Asset history refresh for ${instrument.providerSymbol}`
         })
       : Promise.resolve({
           attempted: false,

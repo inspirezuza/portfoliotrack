@@ -59,6 +59,8 @@ Open `http://localhost:3000`.
 ## Scripts
 
 - `npm run dev` starts the development server.
+- `npm run test` runs the Node test suite through `tsx`.
+- `npm run verify` runs lint, tests, and production build in sequence.
 - `npm run build` builds the production app and runs type/lint checks through Next.
 - `npm run start` serves the production build.
 - `npm run lint` runs ESLint.
@@ -87,8 +89,9 @@ The database schema is declared in `src/lib/db/schema.ts`, with migrations in `d
 
 ## Notes For Future Work
 
-- This repo currently does not have a test suite. Do not add or update tests unless explicitly requested.
+- The test suite covers the transaction selection helper, position math, validation, and timeout utility. Run `npm run test` before changing those flows.
 - Market data comes from Yahoo Finance and can fail or return missing/currency-mismatched data. UI code should preserve clear missing-data states.
+- Automatic market-data refreshes are best-effort with short timeouts so pages can keep showing cached local data when Yahoo is slow.
 - The main app surface is English-first in `EN` mode. Thai remains only in the explicit `TH` shell labels and should be added back to pages through a deliberate bilingual copy layer if needed.
 - Theme and language preferences are stored in browser `localStorage`, not the database.
 - The development server may print a Windows SWC DLL warning while still compiling and building successfully.

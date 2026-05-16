@@ -1,6 +1,7 @@
 import "server-only";
 
 import { asc } from "drizzle-orm";
+import { OperationTimeoutError, withOperationTimeout } from "@/lib/async/timeout";
 import { db } from "@/lib/db/runtime";
 import { appSettings, historicalPrices, instruments, priceSnapshots, transactions } from "@/lib/db/schema";
 import type {
@@ -12,6 +13,7 @@ import { yahooProvider } from "@/lib/market/yahoo-provider";
 
 const DEFAULT_BENCHMARK_SYMBOL = "SPY";
 const DEFAULT_MARKET_REFRESH_MINUTES = 30;
+const DEFAULT_AUTO_REFRESH_TIMEOUT_MS = 3500;
 
 export type MarketSettings = {
   benchmarkSymbol: string | null;
@@ -248,6 +250,32 @@ async function runRefreshWithDedup(context: RefreshContext) {
   }
 }
 
+async function runAutoRefreshBestEffort(context: RefreshContext, timeoutMs: number | null) {
+  const refreshPromise = runRefreshWithDedup(context);
+
+  if (timeoutMs == null) {
+    return refreshPromise.catch((error) => {
+      console.error("Market data auto-refresh failed", error);
+      return null;
+    });
+  }
+
+  try {
+    return await withOperationTimeout(refreshPromise, {
+      label: "Market data auto-refresh",
+      timeoutMs
+    });
+  } catch (error) {
+    if (error instanceof OperationTimeoutError) {
+      console.warn(error.message, "Using cached market data while refresh continues.");
+      return null;
+    }
+
+    console.error("Market data auto-refresh failed", error);
+    return null;
+  }
+}
+
 async function buildRefreshContext({
   includeBenchmark = true
 }: {
@@ -345,9 +373,11 @@ async function hasIncompleteHistoricalData({
 }
 
 export async function ensureFreshMarketDataCache({
-  includeBenchmark = true
+  includeBenchmark = true,
+  timeoutMs = DEFAULT_AUTO_REFRESH_TIMEOUT_MS
 }: {
   includeBenchmark?: boolean;
+  timeoutMs?: number | null;
 } = {}) {
   const context = await buildRefreshContext({ includeBenchmark });
   const { marketRefreshMinutes, targets } = context;
@@ -373,7 +403,7 @@ export async function ensureFreshMarketDataCache({
     return null;
   }
 
-  return runRefreshWithDedup(context);
+  return runAutoRefreshBestEffort(context, timeoutMs);
 }
 
 export async function refreshMarketDataCache(

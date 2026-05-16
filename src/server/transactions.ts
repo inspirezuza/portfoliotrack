@@ -16,6 +16,7 @@ import {
   calculatePositions,
   type PositionTransaction
 } from "@/lib/portfolio/positions";
+import { instrumentInputSchema } from "@/lib/validation/instrument";
 import { transactionInputSchema, type TransactionInput } from "@/lib/validation/transaction";
 
 export type TransactionListOrder = "asc" | "desc";
@@ -51,6 +52,7 @@ export type TransactionInstrumentOption = {
   market: string;
   instrumentType: string;
   currency: string;
+  providerSymbol: string | null;
   isActive: boolean;
   currentQuantity: number;
   label: string;
@@ -60,10 +62,27 @@ export function isTransactionInstrumentSelectable(instrument: TransactionInstrum
   return instrument.isActive || instrument.currentQuantity > 0;
 }
 
+export class InstrumentServiceError extends Error {
+  readonly code: "VALIDATION_ERROR" | "DUPLICATE_INSTRUMENT" | "INTERNAL_ERROR";
+  readonly details?: Record<string, unknown>;
+
+  constructor(
+    code: InstrumentServiceError["code"],
+    message: string,
+    details?: Record<string, unknown>
+  ) {
+    super(message);
+    this.name = "InstrumentServiceError";
+    this.code = code;
+    this.details = details;
+  }
+}
+
 export class TransactionServiceError extends Error {
   readonly code:
     | "VALIDATION_ERROR"
     | "INSTRUMENT_NOT_FOUND"
+    | "TRANSACTION_NOT_FOUND"
     | "INSUFFICIENT_QUANTITY"
     | "INTERNAL_ERROR";
   readonly details?: Record<string, unknown>;
@@ -133,6 +152,37 @@ function mapTransactionListItem(row: {
   };
 }
 
+function parseInstrumentInput(input: unknown) {
+  const result = instrumentInputSchema.safeParse(input);
+
+  if (!result.success) {
+    throw new InstrumentServiceError("VALIDATION_ERROR", "Instrument input is invalid.", {
+      issues: result.error.flatten()
+    });
+  }
+
+  return result.data;
+}
+
+function mapInstrumentOption(instrument: Instrument, currentQuantity = 0): TransactionInstrumentOption {
+  return {
+    id: instrument.id,
+    symbol: instrument.symbol,
+    displayName: instrument.displayName,
+    market: instrument.market,
+    instrumentType: instrument.instrumentType,
+    currency: instrument.currency,
+    providerSymbol: instrument.providerSymbol,
+    isActive: instrument.isActive,
+    currentQuantity,
+    label: `${instrument.symbol} - ${instrument.displayName} - ${instrument.market} - ${instrument.currency}`
+  };
+}
+
+function isUniqueConstraintError(error: unknown) {
+  return error instanceof Error && "code" in error && error.code === "SQLITE_CONSTRAINT_UNIQUE";
+}
+
 function getTransactionOrder(order: TransactionListOrder) {
   if (order === "asc") {
     return [asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id)] as const;
@@ -153,6 +203,16 @@ function parseTransactionInput(input: unknown) {
   return result.data;
 }
 
+function parseTransactionId(input: unknown) {
+  const id = Number(input);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new TransactionServiceError("VALIDATION_ERROR", "Transaction id must be a positive integer.");
+  }
+
+  return id;
+}
+
 function buildInsertValues(input: TransactionInput): NewTransaction {
   return {
     instrumentId: input.instrumentId,
@@ -162,6 +222,14 @@ function buildInsertValues(input: TransactionInput): NewTransaction {
     price: input.price,
     fee: input.fee,
     notes: input.notes
+  };
+}
+
+function getInsufficientQuantityDetails(error: InsufficientQuantityError) {
+  return {
+    instrumentId: error.instrumentId,
+    availableQuantity: error.availableQuantity,
+    attemptedQuantity: error.attemptedQuantity
   };
 }
 
@@ -181,6 +249,47 @@ async function getJoinedTransactionById(id: number) {
     .get();
 
   return row ? mapTransactionListItem(row) : null;
+}
+
+export async function createInstrument(input: unknown) {
+  const parsedInput = parseInstrumentInput(input);
+
+  try {
+    const instrument = db
+      .insert(instruments)
+      .values({
+        symbol: parsedInput.symbol,
+        displayName: parsedInput.displayName,
+        market: parsedInput.market,
+        instrumentType: parsedInput.instrumentType,
+        currency: parsedInput.currency,
+        providerSymbol: parsedInput.providerSymbol,
+        underlyingSymbol: null,
+        underlyingDisplayName: null,
+        underlyingCurrency: null,
+        underlyingProviderSymbol: null,
+        drRatio: null,
+        fxProviderSymbol: null,
+        isActive: true
+      })
+      .returning()
+      .get();
+
+    return mapInstrumentOption(instrument);
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      throw new InstrumentServiceError(
+        "DUPLICATE_INSTRUMENT",
+        "An instrument with that app symbol or provider symbol already exists.",
+        {
+          symbol: parsedInput.symbol,
+          providerSymbol: parsedInput.providerSymbol
+        }
+      );
+    }
+
+    throw error;
+  }
 }
 
 export async function createTransaction(input: unknown) {
@@ -239,11 +348,7 @@ export async function createTransaction(input: unknown) {
           throw new TransactionServiceError(
             "INSUFFICIENT_QUANTITY",
             "Sell quantity exceeds current holdings.",
-            {
-              instrumentId: error.instrumentId,
-              availableQuantity: error.availableQuantity,
-              attemptedQuantity: error.attemptedQuantity
-            }
+            getInsufficientQuantityDetails(error)
           );
         }
 
@@ -270,6 +375,160 @@ export async function createTransaction(input: unknown) {
   }
 
   return insertedTransaction;
+}
+
+export async function updateTransaction(idInput: unknown, input: unknown) {
+  const id = parseTransactionId(idInput);
+  const parsedInput = parseTransactionInput(input);
+
+  db.transaction((tx) => {
+    const existingTransaction = tx
+      .select({
+        id: transactions.id
+      })
+      .from(transactions)
+      .where(eq(transactions.id, id))
+      .get();
+
+    if (!existingTransaction) {
+      throw new TransactionServiceError(
+        "TRANSACTION_NOT_FOUND",
+        `Transaction ${id} does not exist.`
+      );
+    }
+
+    const instrument = tx
+      .select({
+        id: instruments.id
+      })
+      .from(instruments)
+      .where(eq(instruments.id, parsedInput.instrumentId))
+      .get();
+
+    if (!instrument) {
+      throw new TransactionServiceError(
+        "INSTRUMENT_NOT_FOUND",
+        `Instrument ${parsedInput.instrumentId} does not exist.`
+      );
+    }
+
+    const transactionRows = tx
+      .select({
+        id: transactions.id,
+        instrumentId: transactions.instrumentId,
+        tradeDate: transactions.tradeDate,
+        side: transactions.side,
+        quantity: transactions.quantity,
+        price: transactions.price,
+        fee: transactions.fee,
+        createdAt: transactions.createdAt
+      })
+      .from(transactions)
+      .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id))
+      .all();
+
+    const editedTransactions = transactionRows.map((transaction) => {
+      if (transaction.id !== id) {
+        return toChronologicalPositionTransaction(transaction);
+      }
+
+      return {
+        instrumentId: parsedInput.instrumentId,
+        tradeDate: parsedInput.tradeDate,
+        side: parsedInput.side,
+        quantity: parsedInput.quantity,
+        price: parsedInput.price,
+        fee: parsedInput.fee,
+        createdAt: transaction.createdAt,
+        id
+      };
+    });
+
+    try {
+      calculatePositions(editedTransactions);
+    } catch (error) {
+      if (error instanceof InsufficientQuantityError) {
+        throw new TransactionServiceError(
+          "INSUFFICIENT_QUANTITY",
+          "Edited transaction would make holdings negative.",
+          getInsufficientQuantityDetails(error)
+        );
+      }
+
+      throw error;
+    }
+
+    tx.update(transactions)
+      .set({
+        ...buildInsertValues(parsedInput),
+        updatedAt: getPendingTransactionOrderMarker()
+      })
+      .where(eq(transactions.id, id))
+      .run();
+  });
+
+  const updatedTransaction = await getJoinedTransactionById(id);
+
+  if (!updatedTransaction) {
+    throw new TransactionServiceError(
+      "INTERNAL_ERROR",
+      "Transaction was updated but could not be reloaded."
+    );
+  }
+
+  return updatedTransaction;
+}
+
+export async function deleteTransaction(idInput: unknown) {
+  const id = parseTransactionId(idInput);
+
+  db.transaction((tx) => {
+    const transactionRows = tx
+      .select({
+        id: transactions.id,
+        instrumentId: transactions.instrumentId,
+        tradeDate: transactions.tradeDate,
+        side: transactions.side,
+        quantity: transactions.quantity,
+        price: transactions.price,
+        fee: transactions.fee,
+        createdAt: transactions.createdAt
+      })
+      .from(transactions)
+      .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id))
+      .all();
+
+    const hasMatchingTransaction = transactionRows.some((transaction) => transaction.id === id);
+
+    if (!hasMatchingTransaction) {
+      throw new TransactionServiceError(
+        "TRANSACTION_NOT_FOUND",
+        `Transaction ${id} does not exist.`
+      );
+    }
+
+    try {
+      calculatePositions(
+        transactionRows
+          .filter((transaction) => transaction.id !== id)
+          .map(toChronologicalPositionTransaction)
+      );
+    } catch (error) {
+      if (error instanceof InsufficientQuantityError) {
+        throw new TransactionServiceError(
+          "INSUFFICIENT_QUANTITY",
+          "Deleting this transaction would make holdings negative.",
+          getInsufficientQuantityDetails(error)
+        );
+      }
+
+      throw error;
+    }
+
+    tx.delete(transactions).where(eq(transactions.id, id)).run();
+  });
+
+  return { id };
 }
 
 export async function listTransactions({
@@ -331,17 +590,7 @@ export async function listTransactionInstrumentOptions({
   return instrumentRows.map((instrument) => {
     const currentQuantity = positions.get(instrument.id)?.quantity ?? 0;
 
-    return {
-      id: instrument.id,
-      symbol: instrument.symbol,
-      displayName: instrument.displayName,
-      market: instrument.market,
-      instrumentType: instrument.instrumentType,
-      currency: instrument.currency,
-      isActive: instrument.isActive,
-      currentQuantity,
-      label: `${instrument.symbol} - ${instrument.displayName} - ${instrument.market} - ${instrument.currency}`
-    };
+    return mapInstrumentOption(instrument, currentQuantity);
   });
 }
 
