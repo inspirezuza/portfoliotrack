@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAdminAuthenticated } from "@/lib/auth/admin";
 import YahooFinance from "yahoo-finance2";
 import { withOperationTimeout } from "@/lib/async/timeout";
 import { getKnownDrMetadata } from "@/lib/instruments/dr-metadata";
@@ -67,6 +68,19 @@ function getInstrumentType(quoteType?: string) {
 }
 
 export async function GET(request: Request) {
+  if (!(await isAdminAuthenticated())) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "ADMIN_REQUIRED",
+          message: "Admin login is required to search instruments."
+        },
+        results: []
+      },
+      { status: 401 }
+    );
+  }
+
   const { searchParams } = new URL(request.url);
   const query = normalizeSearchQuery(searchParams.get("query") ?? "");
 

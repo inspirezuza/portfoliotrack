@@ -12,6 +12,7 @@ import type { HoldingRow } from "@/server/holdings";
 type HoldingsTableProps = {
   holdings: HoldingRow[];
   language: UiLanguage;
+  canRefresh?: boolean;
 };
 
 type HoldingSortKey =
@@ -210,7 +211,11 @@ function SortableHeader({
   );
 }
 
-export function HoldingsTable({ holdings, language }: HoldingsTableProps) {
+export function HoldingsTable({
+  holdings,
+  language,
+  canRefresh = false
+}: HoldingsTableProps) {
   const copy = getUiCopy(language);
   const locale = getUiLocale(language);
   const router = useRouter();
@@ -327,14 +332,16 @@ export function HoldingsTable({ holdings, language }: HoldingsTableProps) {
           <p className="eyebrow">{copy.holdings.table.eyebrow}</p>
           <h2 className="section-title">{copy.holdings.table.title}</h2>
         </div>
-        <button
-          type="button"
-          className="secondary-button table-refresh-button"
-          onClick={() => void handleRefresh()}
-          disabled={isRefreshBusy}
-        >
-          {isRefreshBusy ? copy.holdings.table.refreshing : copy.holdings.table.refreshPrices}
-        </button>
+        {canRefresh ? (
+          <button
+            type="button"
+            className="secondary-button table-refresh-button"
+            onClick={() => void handleRefresh()}
+            disabled={isRefreshBusy}
+          >
+            {isRefreshBusy ? copy.holdings.table.refreshing : copy.holdings.table.refreshPrices}
+          </button>
+        ) : null}
       </div>
 
       {holdings.length === 0 ? (

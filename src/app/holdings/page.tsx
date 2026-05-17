@@ -1,5 +1,6 @@
 import { HoldingsTable } from "@/components/holdings-table";
 import { SummaryCards } from "@/components/summary-cards";
+import { isAdminAuthenticated } from "@/lib/auth/admin";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getServerUiLanguage } from "@/lib/ui/server";
 import { getUiLocale } from "@/lib/ui/translations";
@@ -32,7 +33,10 @@ export default async function HoldingsPage() {
   const language = await getServerUiLanguage();
   const copy = getUiCopy(language);
   const locale = getUiLocale(language);
-  const { summary, holdingsSnapshot } = await getDashboardSnapshot();
+  const isAdmin = await isAdminAuthenticated();
+  const { summary, holdingsSnapshot } = await getDashboardSnapshot({
+    ensureFresh: isAdmin
+  });
 
   return (
     <section className="workstation-page">
@@ -64,7 +68,11 @@ export default async function HoldingsPage() {
         </article>
       </section>
 
-      <HoldingsTable holdings={holdingsSnapshot.holdings} language={language} />
+      <HoldingsTable
+        holdings={holdingsSnapshot.holdings}
+        language={language}
+        canRefresh={isAdmin}
+      />
 
       <SummaryCards language={language} summary={summary} />
     </section>

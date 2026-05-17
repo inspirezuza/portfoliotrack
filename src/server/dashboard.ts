@@ -53,8 +53,14 @@ function isTimelineIntradayInterval(value: string): value is TimelineIntradayPri
   return value === "5m" || value === "15m" || value === "1h";
 }
 
-export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
-  await ensureFreshMarketDataCache({ includeBenchmark: true });
+export async function getDashboardSnapshot({
+  ensureFresh = true
+}: {
+  ensureFresh?: boolean;
+} = {}): Promise<DashboardSnapshot> {
+  if (ensureFresh) {
+    await ensureFreshMarketDataCache({ includeBenchmark: true });
+  }
 
   const [holdingsSnapshot, marketSettings, transactionRows, instrumentRows, historicalPriceRows, intradayPriceRows] =
     await Promise.all([
@@ -72,26 +78,24 @@ export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
           id: transactions.id
         })
         .from(transactions)
-        .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id))
-        .all(),
-      db.select().from(instruments).all(),
-      db.select().from(historicalPrices).all(),
-      db.select().from(intradayPrices).all()
+        .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id)),
+      db.select().from(instruments),
+      db.select().from(historicalPrices),
+      db.select().from(intradayPrices)
     ]);
   const benchmarkInstrument =
     marketSettings.benchmarkSymbol == null
       ? null
       : instrumentRows.find((instrument) => instrument.symbol === marketSettings.benchmarkSymbol) ?? null;
-  const benchmarkSnapshot =
+  const [benchmarkSnapshot] =
     benchmarkInstrument == null
-      ? null
+      ? [null]
       : await db
           .select({
             asOf: priceSnapshots.asOf
           })
           .from(priceSnapshots)
-          .where(eq(priceSnapshots.instrumentId, benchmarkInstrument.id))
-          .get();
+          .where(eq(priceSnapshots.instrumentId, benchmarkInstrument.id));
   const latestMarketDataAsOf =
     [holdingsSnapshot.latestPriceAsOf, benchmarkSnapshot?.asOf ?? null]
       .filter((value): value is string => value != null)

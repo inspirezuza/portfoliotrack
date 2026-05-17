@@ -102,7 +102,7 @@ function ThemeIcon({ name }: { name: ThemeIconName }) {
   );
 }
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ children, isAdmin }: { children: ReactNode; isAdmin: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const { language, theme, setLanguage, setTheme } = useUiPreferences();
@@ -181,6 +181,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </button>
                 ))}
               </div>
+
+              {isAdmin ? (
+                <form action="/api/auth/logout" method="post">
+                  <button type="submit" className="auth-button">
+                    Logout
+                  </button>
+                </form>
+              ) : null}
             </div>
           </header>
 

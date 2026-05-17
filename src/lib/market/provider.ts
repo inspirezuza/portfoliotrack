@@ -87,7 +87,7 @@ function parseRefreshMinutes(value: string | undefined) {
 }
 
 export async function getMarketSettings(): Promise<MarketSettings> {
-  const settings = await db.select().from(appSettings).all();
+  const settings = await db.select().from(appSettings);
   const settingsMap = new Map(settings.map((setting) => [setting.key, setting.value]));
   const benchmarkSymbol = settingsMap.get("benchmarkSymbol")?.trim() || DEFAULT_BENCHMARK_SYMBOL;
 
@@ -169,7 +169,7 @@ async function getHistoryCoverageByInstrument(targets: RefreshTarget[]) {
     return new Map<number, { earliestPriceDate: string | null; latestPriceDate: string | null }>();
   }
 
-  const historicalRows = await db.select().from(historicalPrices).all();
+  const historicalRows = await db.select().from(historicalPrices);
   const coverageByInstrument = new Map<number, { earliestPriceDate: string | null; latestPriceDate: string | null }>();
   const targetByInstrumentId = new Map(
     historyTargets.map((target) => [target.instrument.id, target] as const)
@@ -207,7 +207,7 @@ async function hasMissingIntradayData(targets: RefreshTarget[]) {
     return false;
   }
 
-  const rows = await db.select().from(intradayPrices).all();
+  const rows = await db.select().from(intradayPrices);
   const intervalsByInstrumentId = new Map<number, Set<string>>();
 
   for (const row of rows) {
@@ -317,7 +317,7 @@ async function buildRefreshContext({
 } = {}): Promise<RefreshContext> {
   const [{ benchmarkSymbol, marketRefreshMinutes }, instrumentRows, transactionRows] = await Promise.all([
     getMarketSettings(),
-    db.select().from(instruments).all(),
+    db.select().from(instruments),
     db
       .select({
         instrumentId: transactions.instrumentId,
@@ -325,7 +325,6 @@ async function buildRefreshContext({
       })
       .from(transactions)
       .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id))
-      .all()
   ]);
   const today = getCurrentLocalIsoDate();
   const currentTransactionRows = transactionRows.filter((row) => row.tradeDate <= today);
@@ -420,7 +419,7 @@ export async function ensureFreshMarketDataCache({
     return null;
   }
 
-  const snapshotRows = await db.select().from(priceSnapshots).all();
+  const snapshotRows = await db.select().from(priceSnapshots);
   const snapshotByInstrumentId = new Map(
     snapshotRows.map((snapshot) => [snapshot.instrumentId, snapshot] as const)
   );
@@ -582,9 +581,9 @@ async function performRefreshMarketDataCache(
   let historicalBarCount = 0;
   let intradayBarCount = 0;
 
-  db.transaction((tx) => {
+  await db.transaction(async (tx) => {
     for (const [instrumentId, quote] of validQuotes) {
-      tx.insert(priceSnapshots)
+      await tx.insert(priceSnapshots)
         .values({
           instrumentId,
           price: quote.price,
@@ -600,13 +599,12 @@ async function performRefreshMarketDataCache(
             asOf: quote.asOf,
             source: quote.source
           }
-        })
-        .run();
+        });
     }
 
     for (const [instrumentId, series] of validHistories) {
       for (const bar of series.bars) {
-        tx.insert(historicalPrices)
+        await tx.insert(historicalPrices)
           .values({
             instrumentId,
             priceDate: bar.date,
@@ -621,8 +619,7 @@ async function performRefreshMarketDataCache(
               currency: series.currency,
               source: series.source
             }
-          })
-          .run();
+          });
 
         historicalBarCount += 1;
       }
@@ -630,7 +627,7 @@ async function performRefreshMarketDataCache(
 
     for (const { instrumentId, series } of validIntradaySeries.values()) {
       for (const bar of series.bars) {
-        tx.insert(intradayPrices)
+        await tx.insert(intradayPrices)
           .values({
             instrumentId,
             interval: series.interval,
@@ -646,8 +643,7 @@ async function performRefreshMarketDataCache(
               currency: series.currency,
               source: series.source
             }
-          })
-          .run();
+          });
 
         intradayBarCount += 1;
       }

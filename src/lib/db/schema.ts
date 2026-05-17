@@ -1,27 +1,30 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
+  doublePrecision,
   index,
   integer,
-  real,
-  sqliteTable,
+  pgTable,
+  serial,
+  timestamp,
   text,
   uniqueIndex
-} from "drizzle-orm/sqlite-core";
+} from "drizzle-orm/pg-core";
 
 const timestamps = {
-  createdAt: text("created_at")
+  createdAt: timestamp("created_at", { mode: "string" })
     .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: text("updated_at")
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { mode: "string" })
     .notNull()
-    .default(sql`CURRENT_TIMESTAMP`)
+    .defaultNow()
 };
 
-export const instruments = sqliteTable(
+export const instruments = pgTable(
   "instruments",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     symbol: text("symbol").notNull(),
     displayName: text("display_name").notNull(),
     market: text("market").notNull(),
@@ -32,9 +35,9 @@ export const instruments = sqliteTable(
     underlyingDisplayName: text("underlying_display_name"),
     underlyingCurrency: text("underlying_currency"),
     underlyingProviderSymbol: text("underlying_provider_symbol"),
-    drRatio: real("dr_ratio"),
+    drRatio: doublePrecision("dr_ratio"),
     fxProviderSymbol: text("fx_provider_symbol"),
-    isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+    isActive: boolean("is_active").notNull().default(true),
     ...timestamps
   },
   (table) => ({
@@ -43,18 +46,18 @@ export const instruments = sqliteTable(
   })
 );
 
-export const transactions = sqliteTable(
+export const transactions = pgTable(
   "transactions",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     instrumentId: integer("instrument_id")
       .notNull()
       .references(() => instruments.id, { onDelete: "restrict", onUpdate: "cascade" }),
     tradeDate: text("trade_date").notNull(),
     side: text("side").notNull(),
-    quantity: real("quantity").notNull(),
-    price: real("price").notNull(),
-    fee: real("fee").notNull().default(0),
+    quantity: doublePrecision("quantity").notNull(),
+    price: doublePrecision("price").notNull(),
+    fee: doublePrecision("fee").notNull().default(0),
     notes: text("notes"),
     ...timestamps
   },
@@ -73,14 +76,14 @@ export const transactions = sqliteTable(
   })
 );
 
-export const priceSnapshots = sqliteTable(
+export const priceSnapshots = pgTable(
   "price_snapshots",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     instrumentId: integer("instrument_id")
       .notNull()
       .references(() => instruments.id, { onDelete: "cascade", onUpdate: "cascade" }),
-    price: real("price").notNull(),
+    price: doublePrecision("price").notNull(),
     currency: text("currency").notNull(),
     asOf: text("as_of").notNull(),
     source: text("source").notNull(),
@@ -93,15 +96,15 @@ export const priceSnapshots = sqliteTable(
   })
 );
 
-export const historicalPrices = sqliteTable(
+export const historicalPrices = pgTable(
   "historical_prices",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     instrumentId: integer("instrument_id")
       .notNull()
       .references(() => instruments.id, { onDelete: "cascade", onUpdate: "cascade" }),
     priceDate: text("price_date").notNull(),
-    close: real("close").notNull(),
+    close: doublePrecision("close").notNull(),
     currency: text("currency").notNull(),
     source: text("source").notNull(),
     createdAt: timestamps.createdAt
@@ -116,16 +119,16 @@ export const historicalPrices = sqliteTable(
   })
 );
 
-export const intradayPrices = sqliteTable(
+export const intradayPrices = pgTable(
   "intraday_prices",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     instrumentId: integer("instrument_id")
       .notNull()
       .references(() => instruments.id, { onDelete: "cascade", onUpdate: "cascade" }),
     interval: text("interval").notNull(),
     observedAt: text("observed_at").notNull(),
-    close: real("close").notNull(),
+    close: doublePrecision("close").notNull(),
     currency: text("currency").notNull(),
     source: text("source").notNull(),
     createdAt: timestamps.createdAt
@@ -147,15 +150,15 @@ export const intradayPrices = sqliteTable(
   })
 );
 
-export const appSettings = sqliteTable(
+export const appSettings = pgTable(
   "app_settings",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     key: text("key").notNull(),
     value: text("value").notNull(),
-    updatedAt: text("updated_at")
+    updatedAt: timestamp("updated_at", { mode: "string" })
       .notNull()
-      .default(sql`CURRENT_TIMESTAMP`)
+      .defaultNow()
   },
   (table) => ({
     keyUniqueIdx: uniqueIndex("app_settings_key_unique").on(table.key)

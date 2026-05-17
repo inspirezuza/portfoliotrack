@@ -3,6 +3,7 @@ import { BenchmarkChart } from "@/components/benchmark-chart";
 import { HoldingsAllocationChart } from "@/components/holdings-allocation-chart";
 import { PortfolioChart } from "@/components/portfolio-chart";
 import { formatCurrency, formatPercentRatio, formatQuantity } from "@/lib/format";
+import { isAdminAuthenticated } from "@/lib/auth/admin";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getServerUiLanguage } from "@/lib/ui/server";
 import { getUiLocale } from "@/lib/ui/translations";
@@ -183,7 +184,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const language = await getServerUiLanguage();
   const copy = getUiCopy(language);
   const locale = getUiLocale(language);
-  const { summary, holdingsSnapshot, marketData, timeline } = await getDashboardSnapshot();
+  const isAdmin = await isAdminAuthenticated();
+  const { summary, holdingsSnapshot, marketData, timeline } = await getDashboardSnapshot({
+    ensureFresh: isAdmin
+  });
   const resolvedSearchParams = (await searchParams) ?? {};
   const refreshMessage = buildRefreshMessage(resolvedSearchParams, copy.dashboard);
   const leadingHoldings = holdingsSnapshot.holdings.slice(0, 5);
@@ -234,12 +238,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <h1>{copy.dashboard.title}</h1>
         </div>
 
-        <form action="/api/market-data/refresh" method="post" className="refresh-form">
-          <input type="hidden" name="redirectTo" value="/" />
-          <button type="submit" className="primary-button">
-            {copy.dashboard.refreshPrices}
-          </button>
-        </form>
+        {isAdmin ? (
+          <form action="/api/market-data/refresh" method="post" className="refresh-form">
+            <input type="hidden" name="redirectTo" value="/" />
+            <button type="submit" className="primary-button">
+              {copy.dashboard.refreshPrices}
+            </button>
+          </form>
+        ) : null}
       </div>
 
       {refreshMessage ? (
@@ -332,12 +338,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
             </div>
 
-            <form action="/api/market-data/refresh" method="post" className="refresh-form">
-              <input type="hidden" name="redirectTo" value="/" />
-              <button type="submit" className="secondary-button">
-                {copy.dashboard.updateMarketData}
-              </button>
-            </form>
+            {isAdmin ? (
+              <form action="/api/market-data/refresh" method="post" className="refresh-form">
+                <input type="hidden" name="redirectTo" value="/" />
+                <button type="submit" className="secondary-button">
+                  {copy.dashboard.updateMarketData}
+                </button>
+              </form>
+            ) : null}
           </article>
 
           <article className="surface-card holdings-preview-card">

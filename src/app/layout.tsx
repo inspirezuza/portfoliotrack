@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/app-shell";
+import { getAdminSession } from "@/lib/auth/admin";
 import { UiPreferencesProvider } from "@/lib/ui/preferences";
 import { getServerUiLanguage } from "@/lib/ui/server";
 import { getHtmlLanguage } from "@/lib/ui/translations";
@@ -15,12 +16,13 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "PortfolioTrack",
-  description: "A local-first portfolio tracker for focused personal investing."
+  description: "A public read-only portfolio tracker with admin editing for focused personal investing."
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const language = await getServerUiLanguage();
   const htmlLanguage = getHtmlLanguage(language);
+  const session = await getAdminSession();
 
   return (
     <html
@@ -45,7 +47,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       </head>
       <body className={inter.variable}>
         <UiPreferencesProvider initialLanguage={language}>
-          <AppShell>{children}</AppShell>
+          <AppShell isAdmin={session != null}>{children}</AppShell>
         </UiPreferencesProvider>
       </body>
     </html>

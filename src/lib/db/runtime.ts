@@ -17,4 +17,11 @@ export function getDb() {
   return getRuntimeDatabase().db;
 }
 
-export const db = getDb();
+export const db = new Proxy({} as ReturnType<typeof getDb>, {
+  get(_target, property) {
+    const runtimeDb = getDb();
+    const value = Reflect.get(runtimeDb, property);
+
+    return typeof value === "function" ? value.bind(runtimeDb) : value;
+  }
+});

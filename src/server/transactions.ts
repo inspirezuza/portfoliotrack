@@ -185,7 +185,7 @@ function mapInstrumentOption(instrument: Instrument, currentQuantity = 0): Trans
 }
 
 function isUniqueConstraintError(error: unknown) {
-  return error instanceof Error && "code" in error && error.code === "SQLITE_CONSTRAINT_UNIQUE";
+  return error instanceof Error && "code" in error && error.code === "23505";
 }
 
 function getTransactionOrder(order: TransactionListOrder) {
@@ -243,15 +243,14 @@ function getPendingTransactionOrderMarker() {
 }
 
 async function getJoinedTransactionById(id: number) {
-  const row = await db
+  const [row] = await db
     .select({
       transaction: transactions,
       instrument: instruments
     })
     .from(transactions)
     .innerJoin(instruments, eq(transactions.instrumentId, instruments.id))
-    .where(eq(transactions.id, id))
-    .get();
+    .where(eq(transactions.id, id));
 
   return row ? mapTransactionListItem(row) : null;
 }
@@ -261,7 +260,7 @@ export async function createInstrument(input: unknown) {
   const knownDrMetadata = getKnownDrMetadata(parsedInput);
 
   try {
-    const instrument = db
+    const [instrument] = await db
       .insert(instruments)
       .values({
         symbol: parsedInput.symbol,
@@ -278,8 +277,7 @@ export async function createInstrument(input: unknown) {
         fxProviderSymbol: knownDrMetadata?.fxProviderSymbol ?? null,
         isActive: true
       })
-      .returning()
-      .get();
+      .returning();
 
     return mapInstrumentOption(instrument);
   } catch (error) {
@@ -301,14 +299,13 @@ export async function createInstrument(input: unknown) {
 export async function createTransaction(input: unknown) {
   const parsedInput = parseTransactionInput(input);
 
-  const insertedTransactionId = db.transaction((tx) => {
-    const instrument = tx
+  const insertedTransactionId = await db.transaction(async (tx) => {
+    const [instrument] = await tx
       .select({
         id: instruments.id
       })
       .from(instruments)
-      .where(eq(instruments.id, parsedInput.instrumentId))
-      .get();
+      .where(eq(instruments.id, parsedInput.instrumentId));
 
     if (!instrument) {
       throw new TransactionServiceError(
@@ -318,7 +315,7 @@ export async function createTransaction(input: unknown) {
     }
 
     if (parsedInput.side === "SELL") {
-      const existingTransactions = tx
+      const existingTransactionRows = await tx
         .select({
           id: transactions.id,
           instrumentId: transactions.instrumentId,
@@ -331,9 +328,8 @@ export async function createTransaction(input: unknown) {
         })
         .from(transactions)
         .where(eq(transactions.instrumentId, parsedInput.instrumentId))
-        .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id))
-        .all()
-        .map(toChronologicalPositionTransaction);
+        .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id));
+      const existingTransactions = existingTransactionRows.map(toChronologicalPositionTransaction);
 
       try {
         calculatePositionForInstrument([
@@ -362,11 +358,10 @@ export async function createTransaction(input: unknown) {
       }
     }
 
-    const insertedRow = tx
+    const [insertedRow] = await tx
       .insert(transactions)
       .values(buildInsertValues(parsedInput))
-      .returning({ id: transactions.id })
-      .get();
+      .returning({ id: transactions.id });
 
     return insertedRow.id;
   });
@@ -387,14 +382,13 @@ export async function updateTransaction(idInput: unknown, input: unknown) {
   const id = parseTransactionId(idInput);
   const parsedInput = parseTransactionInput(input);
 
-  db.transaction((tx) => {
-    const existingTransaction = tx
+  await db.transaction(async (tx) => {
+    const [existingTransaction] = await tx
       .select({
         id: transactions.id
       })
       .from(transactions)
-      .where(eq(transactions.id, id))
-      .get();
+      .where(eq(transactions.id, id));
 
     if (!existingTransaction) {
       throw new TransactionServiceError(
@@ -403,13 +397,12 @@ export async function updateTransaction(idInput: unknown, input: unknown) {
       );
     }
 
-    const instrument = tx
+    const [instrument] = await tx
       .select({
         id: instruments.id
       })
       .from(instruments)
-      .where(eq(instruments.id, parsedInput.instrumentId))
-      .get();
+      .where(eq(instruments.id, parsedInput.instrumentId));
 
     if (!instrument) {
       throw new TransactionServiceError(
@@ -418,7 +411,7 @@ export async function updateTransaction(idInput: unknown, input: unknown) {
       );
     }
 
-    const transactionRows = tx
+    const transactionRows = await tx
       .select({
         id: transactions.id,
         instrumentId: transactions.instrumentId,
@@ -430,8 +423,7 @@ export async function updateTransaction(idInput: unknown, input: unknown) {
         createdAt: transactions.createdAt
       })
       .from(transactions)
-      .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id))
-      .all();
+      .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id));
 
     const editedTransactions = transactionRows.map((transaction) => {
       if (transaction.id !== id) {
@@ -464,13 +456,12 @@ export async function updateTransaction(idInput: unknown, input: unknown) {
       throw error;
     }
 
-    tx.update(transactions)
+    await tx.update(transactions)
       .set({
         ...buildInsertValues(parsedInput),
         updatedAt: getPendingTransactionOrderMarker()
       })
-      .where(eq(transactions.id, id))
-      .run();
+      .where(eq(transactions.id, id));
   });
 
   const updatedTransaction = await getJoinedTransactionById(id);
@@ -488,8 +479,8 @@ export async function updateTransaction(idInput: unknown, input: unknown) {
 export async function deleteTransaction(idInput: unknown) {
   const id = parseTransactionId(idInput);
 
-  db.transaction((tx) => {
-    const transactionRows = tx
+  await db.transaction(async (tx) => {
+    const transactionRows = await tx
       .select({
         id: transactions.id,
         instrumentId: transactions.instrumentId,
@@ -501,8 +492,7 @@ export async function deleteTransaction(idInput: unknown) {
         createdAt: transactions.createdAt
       })
       .from(transactions)
-      .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id))
-      .all();
+      .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id));
 
     const hasMatchingTransaction = transactionRows.some((transaction) => transaction.id === id);
 
@@ -531,7 +521,7 @@ export async function deleteTransaction(idInput: unknown) {
       throw error;
     }
 
-    tx.delete(transactions).where(eq(transactions.id, id)).run();
+    await tx.delete(transactions).where(eq(transactions.id, id));
   });
 
   return { id };
@@ -552,12 +542,12 @@ export async function listTransactions({
     .from(transactions)
     .innerJoin(instruments, eq(transactions.instrumentId, instruments.id));
 
-  const rows = await (instrumentId == null
-    ? query.orderBy(...getTransactionOrder(order)).all()
-    : query
-        .where(eq(transactions.instrumentId, instrumentId))
-        .orderBy(...getTransactionOrder(order))
-        .all());
+  const rows =
+    instrumentId == null
+      ? await query.orderBy(...getTransactionOrder(order))
+      : await query
+          .where(eq(transactions.instrumentId, instrumentId))
+          .orderBy(...getTransactionOrder(order));
 
   return rows.map(mapTransactionListItem);
 }
@@ -567,14 +557,13 @@ export async function listTransactionInstrumentOptions({
 }: {
   activeOnly?: boolean;
 } = {}): Promise<TransactionInstrumentOption[]> {
-  const instrumentRows = await (activeOnly
-    ? db
+  const instrumentRows = activeOnly
+    ? await db
         .select()
         .from(instruments)
         .where(eq(instruments.isActive, true))
         .orderBy(asc(instruments.symbol))
-        .all()
-    : db.select().from(instruments).orderBy(asc(instruments.symbol)).all());
+    : await db.select().from(instruments).orderBy(asc(instruments.symbol));
 
   const positionRows = await db
     .select({
@@ -588,8 +577,7 @@ export async function listTransactionInstrumentOptions({
       createdAt: transactions.createdAt
     })
     .from(transactions)
-    .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id))
-    .all();
+    .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id));
 
   const positions = calculatePositions(positionRows.map(toChronologicalPositionTransaction));
 

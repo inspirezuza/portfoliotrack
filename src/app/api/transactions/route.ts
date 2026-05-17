@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAdminAuthenticated } from "@/lib/auth/admin";
 import {
   createTransaction,
   deleteTransaction,
@@ -67,6 +68,10 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    if (!(await isAdminAuthenticated())) {
+      return jsonErrorResponse("ADMIN_REQUIRED", "Admin login is required to change transactions.", 401);
+    }
+
     const payload = await request.json();
     const transaction = await createTransaction(payload);
 
@@ -88,6 +93,10 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
+    if (!(await isAdminAuthenticated())) {
+      return jsonErrorResponse("ADMIN_REQUIRED", "Admin login is required to change transactions.", 401);
+    }
+
     const payload = await request.json();
 
     if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
@@ -118,6 +127,10 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    if (!(await isAdminAuthenticated())) {
+      return jsonErrorResponse("ADMIN_REQUIRED", "Admin login is required to change transactions.", 401);
+    }
+
     const payload = await request.json();
 
     if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {

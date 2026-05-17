@@ -13,6 +13,7 @@ type TransactionTableProps = {
   transactions: TransactionListItem[];
   editingTransactionId?: number | null;
   language: UiLanguage;
+  canEdit?: boolean;
 };
 
 type ApiErrorResponse = {
@@ -119,7 +120,8 @@ function SortableHeader({
 export function TransactionTable({
   transactions,
   editingTransactionId = null,
-  language
+  language,
+  canEdit = false
 }: TransactionTableProps) {
   const copy = getUiCopy(language);
   const locale = getUiLocale(language);
@@ -254,13 +256,13 @@ export function TransactionTable({
                   <SortableHeader label={copy.transactions.table.columns.fee} language={language} sortKey="fee" sort={sort} onSort={handleSort} />
                   <SortableHeader label={copy.transactions.table.columns.net} language={language} sortKey="netAmount" sort={sort} onSort={handleSort} />
                   <th scope="col">{copy.transactions.table.columns.notes}</th>
-                  <th scope="col">{copy.transactions.table.columns.actions}</th>
+                  {canEdit ? <th scope="col">{copy.transactions.table.columns.actions}</th> : null}
                 </tr>
               </thead>
               <tbody>
                 {visibleTransactions.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="table-empty-cell">
+                    <td colSpan={canEdit ? 9 : 8} className="table-empty-cell">
                       {copy.transactions.table.noMatches}
                     </td>
                   </tr>
@@ -306,27 +308,29 @@ export function TransactionTable({
                       <td className="table-number">{formatCurrency(transaction.fee, { currency: transaction.instrument.currency, locale })}</td>
                       <td className="table-number">{formatCurrency(transaction.netAmount, { currency: transaction.instrument.currency, locale })}</td>
                       <td>{transaction.notes ?? "-"}</td>
-                      <td>
-                        <div className="table-actions">
-                          <Link className="table-action-link" href={`/transactions?edit=${transaction.id}`}>
-                            {copy.transactions.table.edit}
-                          </Link>
-                          <button
-                            type="button"
-                            className="table-action-button table-action-button-danger"
-                            onClick={() => void handleDelete(transaction)}
-                            disabled={
-                              deletingTransactionId === transaction.id ||
-                              isRefreshing ||
-                              deletingTransactionId !== null
-                            }
-                          >
-                            {deletingTransactionId === transaction.id
-                              ? copy.transactions.table.deleting
-                              : copy.transactions.table.delete}
-                          </button>
-                        </div>
-                      </td>
+                      {canEdit ? (
+                        <td>
+                          <div className="table-actions">
+                            <Link className="table-action-link" href={`/transactions?edit=${transaction.id}`}>
+                              {copy.transactions.table.edit}
+                            </Link>
+                            <button
+                              type="button"
+                              className="table-action-button table-action-button-danger"
+                              onClick={() => void handleDelete(transaction)}
+                              disabled={
+                                deletingTransactionId === transaction.id ||
+                                isRefreshing ||
+                                deletingTransactionId !== null
+                              }
+                            >
+                              {deletingTransactionId === transaction.id
+                                ? copy.transactions.table.deleting
+                                : copy.transactions.table.delete}
+                            </button>
+                          </div>
+                        </td>
+                      ) : null}
                     </tr>
                   ))
                 )}

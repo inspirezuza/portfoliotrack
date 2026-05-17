@@ -1,6 +1,6 @@
 # PortfolioTrack
 
-PortfolioTrack is a local-first personal portfolio tracker built with Next.js, SQLite, Drizzle ORM, and Yahoo Finance market data. It tracks manual stock and DR transactions, calculates fee-aware positions and P&L, caches market prices locally, and shows dashboard, holdings, transactions, and per-asset detail views.
+PortfolioTrack is a deployable personal portfolio tracker built with Next.js, Neon Postgres, Drizzle ORM, and Yahoo Finance market data. It tracks manual stock and DR transactions, calculates fee-aware positions and P&L, caches market prices in Postgres, and shows dashboard, holdings, transactions, and per-asset detail views.
 
 For deeper repository context aimed at AI coding agents, read [docs/AI_CONTEXT.md](docs/AI_CONTEXT.md).
 For the latest layout and visual-design review, read [docs/UX_REVIEW.md](docs/UX_REVIEW.md).
@@ -13,7 +13,7 @@ For the latest layout and visual-design review, read [docs/UX_REVIEW.md](docs/UX
 - Dashboard with portfolio summary cards, price coverage, top holdings, portfolio chart, and S&P 500 benchmark comparison.
 - Per-asset detail route at `/assets/[symbol]` with position metrics, price history, recent transactions, and DR analytics when metadata exists.
 - DR equivalent analytics for instruments with DR metadata, including parent-stock implied price, FX rate, parent quote, and premium/discount.
-- Yahoo Finance quote and historical-price refresh with local SQLite caching.
+- Yahoo Finance quote and historical-price refresh with Neon Postgres caching.
 - Local UI preferences for `EN / TH` shell language and `light / dark` theme.
 - Fullscreen application shell optimized for a dense personal finance workspace.
 
@@ -22,7 +22,7 @@ For the latest layout and visual-design review, read [docs/UX_REVIEW.md](docs/UX
 - Next.js App Router
 - React 19
 - TypeScript
-- SQLite through `better-sqlite3`
+- Neon Postgres through `@neondatabase/serverless` and `drizzle-orm/neon-serverless`
 - Drizzle ORM
 - Recharts
 - Yahoo Finance data through `yahoo-finance2`
@@ -36,7 +36,22 @@ Install dependencies:
 npm install
 ```
 
-Run database migrations:
+Create `.env.local` or set shell variables with:
+
+```powershell
+$env:DATABASE_URL="postgresql://..."
+$env:AUTH_SECRET="<long-random-secret>"
+$env:ADMIN_USERNAME="admin"
+$env:ADMIN_PASSWORD_HASH="<scrypt-hash>"
+```
+
+Generate an admin password hash:
+
+```powershell
+npm run auth:hash -- "your-admin-password"
+```
+
+Push the database schema to Neon:
 
 ```powershell
 npm run db:migrate
@@ -56,6 +71,8 @@ npm run dev
 
 Open `http://localhost:3000`.
 
+Public visitors can view the app read-only. Sign in at `/login` to unlock transaction editing, instrument search, and market-data refresh.
+
 ## Scripts
 
 - `npm run dev` starts the development server.
@@ -64,28 +81,30 @@ Open `http://localhost:3000`.
 - `npm run build` builds the production app and runs type/lint checks through Next.
 - `npm run start` serves the production build.
 - `npm run lint` runs ESLint.
-- `npm run db:migrate` applies SQL migrations to the local SQLite database.
-- `npm run db:seed` inserts sample instruments, settings, and transactions.
+- `npm run db:migrate` pushes the Drizzle schema to Neon Postgres.
+- `npm run db:seed` inserts sample instruments and settings.
+- `npm run auth:hash` prints a scrypt password hash for `ADMIN_PASSWORD_HASH`.
 
 ## Project Map
 
 - `src/app/` contains Next.js routes, layouts, pages, and API route handlers.
 - `src/components/` contains reusable UI components used by the app pages.
 - `src/server/` contains server-only query and application-service functions for dashboard, holdings, transactions, and assets.
-- `src/lib/db/` contains SQLite connection setup, Drizzle schema, migration runner, seed script, and number precision helpers.
+- `src/lib/auth/` contains the signed admin session and password verification helpers.
+- `src/lib/db/` contains Neon connection setup, Drizzle schema, seed script, and number precision helpers.
 - `src/lib/market/` contains the market-data provider abstraction and Yahoo Finance implementation.
 - `src/lib/portfolio/` contains portfolio position and timeline calculations.
 - `src/lib/ui/` contains local shell preference and translation helpers.
 - `src/lib/validation/` contains Zod schemas for incoming data.
 - `drizzle/` contains SQL migrations and Drizzle metadata snapshots.
-- `data/` contains the runtime SQLite database files. Runtime database files are intentionally ignored by git.
 - `docs/` contains design, plan, and AI-facing project context documents.
+- `docs/DEPLOYMENT.md` documents the Vercel + Neon deployment workflow.
 
-## Local Data
+## Deployment
 
-Runtime data lives in `data/portfolio.sqlite`. SQLite WAL sidecar files may appear beside it. These files are local machine state and are not source files.
+The production database lives in Neon Postgres. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full free-tier Vercel + Neon setup.
 
-The database schema is declared in `src/lib/db/schema.ts`, with migrations in `drizzle/`. Use `npm run db:migrate` after schema or migration changes.
+The database schema is declared in `src/lib/db/schema.ts`, with the initial SQL baseline in `drizzle/`. Use `npm run db:migrate` after schema changes.
 
 ## Notes For Future Work
 
