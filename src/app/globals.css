@@ -1230,6 +1230,152 @@ html[data-theme="dark"] .secondary-button {
   padding: 16px;
 }
 
+.transaction-excel-tools {
+  gap: 12px;
+  padding: 16px;
+}
+
+.transaction-excel-header {
+  align-items: center;
+}
+
+.transaction-excel-actions,
+.transaction-excel-import,
+.transaction-excel-import-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.transaction-excel-actions {
+  justify-content: flex-end;
+}
+
+.transaction-file-picker {
+  display: grid;
+  min-width: min(100%, 320px);
+  gap: 6px;
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.transaction-file-picker input {
+  width: 100%;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  padding: 10px 12px;
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.transaction-excel-import {
+  justify-content: space-between;
+}
+
+.transaction-excel-import-button {
+  width: auto;
+}
+
+.transaction-excel-file {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.transaction-excel-file strong {
+  min-width: 0;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.transaction-excel-preview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.transaction-excel-preview div {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: var(--surface-muted);
+}
+
+.transaction-excel-preview div[data-has-errors="true"] strong {
+  color: var(--danger);
+}
+
+.transaction-excel-preview span {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.transaction-excel-preview strong {
+  color: var(--ink);
+  font-size: 1.12rem;
+  font-weight: 780;
+}
+
+.transaction-excel-row-list {
+  display: grid;
+  gap: 7px;
+}
+
+.transaction-excel-row {
+  display: grid;
+  grid-template-columns: auto auto minmax(120px, 1fr) minmax(110px, auto) minmax(160px, 1.4fr);
+  gap: 8px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 9px 10px;
+  color: var(--muted);
+  background: rgba(18, 31, 25, 0.035);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.transaction-excel-row strong {
+  color: var(--ink);
+}
+
+.transaction-excel-row em {
+  color: var(--muted);
+  font-style: normal;
+  overflow-wrap: anywhere;
+}
+
+.transaction-excel-status {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 5px 7px;
+  font-size: 0.7rem;
+  font-weight: 750;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.transaction-excel-status-skipped_duplicate {
+  color: #8b5b19;
+  background: rgba(184, 120, 36, 0.1);
+}
+
+.transaction-excel-status-error {
+  color: var(--danger);
+  background: rgba(184, 75, 67, 0.1);
+}
+
 .transaction-panel-header {
   padding-bottom: 12px;
   border-bottom: 1px solid var(--line);
@@ -2287,6 +2433,29 @@ html[data-theme="dark"] .subtabs .active {
 
   .transactions-workspace .workstation-topbar {
     align-items: stretch;
+  }
+
+  .transaction-excel-header,
+  .transaction-excel-import,
+  .transaction-excel-actions,
+  .transaction-excel-import-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .transaction-excel-actions,
+  .transaction-excel-import-actions,
+  .transaction-file-picker {
+    width: 100%;
+  }
+
+  .transaction-excel-preview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .transaction-excel-row {
+    grid-template-columns: 1fr;
+    align-items: start;
   }
 
   .asset-topbar {

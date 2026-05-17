@@ -39,7 +39,7 @@ async function getFormSearchParams(request: Request) {
     const formData = await request.formData();
     return new URLSearchParams(
       Array.from(formData.entries()).flatMap(([key, value]) =>
-        typeof value === "string" ? [[key, value] as const] : []
+        typeof value === "string" ? [[key, value] as [string, string]] : []
       )
     );
   }
