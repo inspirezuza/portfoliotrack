@@ -4,13 +4,14 @@ This document is for AI coding agents or future maintainers who need to understa
 
 ## High-Level Summary
 
-PortfolioTrack is a deployable personal portfolio tracker. Public visitors can read the portfolio, while an admin session unlocks transaction editing, instrument search, and market-data refresh. Users manually enter stock and DR transactions, the server calculates positions from the ledger, and the app enriches holdings with cached Yahoo Finance market data.
+PortfolioTrack is a deployable personal portfolio tracker. Public visitors can read the portfolio, while an admin session unlocks transaction editing, Excel import/export, instrument search, and market-data refresh. Users manually enter or template-import stock and DR transactions, the server calculates positions from the ledger, and the app enriches holdings with cached Yahoo Finance market data.
 
 The app is intentionally simple:
 
 - Single admin login through environment variables and a signed HttpOnly cookie.
 - Public read-only dashboard, holdings, transactions, and asset detail pages.
-- No broker import, cash balance ledger, tax reporting, or multi-user account database.
+- Template-only Excel transaction import/export for the app ledger.
+- No broker-specific statement parser, cash balance ledger, tax reporting, or multi-user account database.
 - Neon Postgres stores portfolio and cached market data.
 
 ## Current Product Surface
@@ -19,7 +20,7 @@ Routes:
 
 - `/` dashboard: `src/app/page.tsx`, reads `getDashboardSnapshot()`.
 - `/holdings`: `src/app/holdings/page.tsx`, renders `SummaryCards` and `HoldingsTable`.
-- `/transactions`: `src/app/transactions/page.tsx`, shows ledger data to everyone and admin-only form/actions.
+- `/transactions`: `src/app/transactions/page.tsx`, shows ledger data to everyone and admin-only form/actions/Excel tools.
 - `/assets/[symbol]`: `src/app/assets/[symbol]/page.tsx`, reads `getAssetDetail(symbol)`.
 - `/login`: `src/app/login/page.tsx`, signs in the single admin account.
 
@@ -27,6 +28,9 @@ API routes:
 
 - `GET /api/transactions`: public read for transactions and selectable instruments.
 - `POST|PUT|DELETE /api/transactions`: admin-only transaction changes.
+- `GET /api/transactions/export?template=true`: public Excel template download.
+- `GET /api/transactions/export`: admin-only Excel ledger export.
+- `POST /api/transactions/import`: admin-only Excel import preview or commit.
 - `POST /api/instruments`: admin-only instrument creation.
 - `GET /api/instruments/search`: admin-only Yahoo instrument search.
 - `POST /api/market-data/refresh`: admin-only explicit market-data refresh.
@@ -43,6 +47,7 @@ Important directories:
 - `src/lib/db/`: Neon/Drizzle setup, schema, seed script, and precision helpers.
 - `src/lib/market/`: Market provider abstraction, Yahoo Finance implementation, and cache refresh orchestration.
 - `src/lib/portfolio/`: Portfolio math for positions and timeline comparison.
+- `src/lib/transactions/`: Transaction UI/search helpers and Excel workbook parsing/generation.
 - `src/lib/ui/`: Browser local UI preferences and shell translation helpers.
 - `src/lib/validation/`: Zod schemas for incoming payloads.
 - `drizzle/`: Postgres SQL baseline.
@@ -102,14 +107,25 @@ Generate the password hash with:
 npm run auth:hash -- "your-admin-password"
 ```
 
-Public users can read current app pages. Admin-only controls include transaction create/update/delete, add/search instrument, and market-data refresh. Protected API writes return `401` when the admin session cookie is missing or invalid.
+Public users can read current app pages. Admin-only controls include transaction create/update/delete, Excel ledger export/import, add/search instrument, and market-data refresh. Protected API writes and protected exports return `401` when the admin session cookie is missing or invalid.
 
 ## Server Modules
 
 - `src/server/dashboard.ts`: `getDashboardSnapshot({ ensureFresh })`; public pages pass `false`, admin pages pass `true`.
 - `src/server/holdings.ts`: builds open/closed position snapshots and currency breakdowns.
 - `src/server/transactions.ts`: validates transaction input, enforces sell quantity, and maps service errors.
+- `src/server/transaction-import-export.ts`: builds Excel exports and evaluates/imports template workbooks against existing instruments, duplicate keys, validation, and position constraints.
 - `src/server/assets.ts`: `getAssetDetail(symbol, { allowMarketRefresh })`; public pages render cached data only.
+
+## Transaction Excel Import/Export
+
+- Workbook support is server-side through `exceljs`; keep API routes using `runtime = "nodejs"`.
+- The supported import format is the app template sheet named `Transactions`; broker statement formats are intentionally out of scope.
+- Template columns include instrument identity, trade date, side, quantity, price, fee, and notes.
+- Instrument matching tries instrument id, provider symbol, then app symbol.
+- Preview returns row-level `ready`, `skipped_duplicate`, or `error` statuses.
+- Commit re-parses and re-validates the uploaded workbook, rejects files with errors, and inserts ready rows atomically.
+- Missing instruments are row errors; the import flow does not create instruments automatically.
 
 ## Market Data
 

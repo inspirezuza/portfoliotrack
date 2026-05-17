@@ -8,6 +8,7 @@ For the latest layout and visual-design review, read [docs/UX_REVIEW.md](docs/UX
 ## Current Capabilities
 
 - Manual `BUY` and `SELL` transaction entry with server-side validation.
+- Admin-only Excel transaction workflow: download the app template, export the ledger, preview imports, skip duplicates, and commit valid rows atomically.
 - Fee-aware average cost, total cost basis, realized P&L, unrealized P&L, and total fees.
 - Current holdings table with market value, price freshness, and asset detail links.
 - Dashboard with portfolio summary cards, price coverage, top holdings, portfolio chart, and S&P 500 benchmark comparison.
@@ -27,6 +28,7 @@ For the latest layout and visual-design review, read [docs/UX_REVIEW.md](docs/UX
 - Recharts
 - Yahoo Finance data through `yahoo-finance2`
 - Zod for transaction input validation
+- Excel workbook import/export through `exceljs`
 
 ## Getting Started
 
@@ -71,7 +73,7 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-Public visitors can view the app read-only. Sign in at `/login` to unlock transaction editing, instrument search, and market-data refresh.
+Public visitors can view the app read-only. Sign in at `/login` to unlock transaction editing, Excel import/export, instrument search, and market-data refresh.
 
 ## Scripts
 
@@ -94,6 +96,7 @@ Public visitors can view the app read-only. Sign in at `/login` to unlock transa
 - `src/lib/db/` contains Neon connection setup, Drizzle schema, seed script, and number precision helpers.
 - `src/lib/market/` contains the market-data provider abstraction and Yahoo Finance implementation.
 - `src/lib/portfolio/` contains portfolio position and timeline calculations.
+- `src/lib/transactions/` contains transaction-specific helpers, including Excel workbook parsing and generation.
 - `src/lib/ui/` contains local shell preference and translation helpers.
 - `src/lib/validation/` contains Zod schemas for incoming data.
 - `drizzle/` contains SQL migrations and Drizzle metadata snapshots.
@@ -109,6 +112,7 @@ The database schema is declared in `src/lib/db/schema.ts`, with the initial SQL 
 ## Notes For Future Work
 
 - The test suite covers the transaction selection helper, position math, validation, and timeout utility. Run `npm run test` before changing those flows.
+- Excel transaction import is template-only for now: unknown instruments are rejected, duplicate rows are skipped, and valid rows are inserted as one batch.
 - Market data comes from Yahoo Finance and can fail or return missing/currency-mismatched data. UI code should preserve clear missing-data states.
 - Automatic market-data refreshes are best-effort with short timeouts so pages can keep showing cached local data when Yahoo is slow.
 - The main app surface is English-first in `EN` mode. Thai remains only in the explicit `TH` shell labels and should be added back to pages through a deliberate bilingual copy layer if needed.

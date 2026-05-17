@@ -1,6 +1,6 @@
 # Deployment Guide
 
-PortfolioTrack is set up for Vercel Hobby plus Neon Postgres. Public visitors can read the portfolio, while the admin session unlocks transaction editing, instrument search, and market-data refresh.
+PortfolioTrack is set up for Vercel Hobby plus Neon Postgres. Public visitors can read the portfolio, while the admin session unlocks transaction editing, Excel import/export, instrument search, and market-data refresh.
 
 ## 1. Create Free Services
 
@@ -61,10 +61,12 @@ After deploy:
 
 - Visit the public URL while logged out and confirm dashboard, holdings, transactions, and asset detail pages load read-only.
 - Visit `/login`, sign in as admin, then confirm create/update/delete and refresh controls appear.
+- On `/transactions`, confirm the Excel template downloads, ledger export requires admin, and an uploaded template can be previewed.
 - Use `/api/auth/logout` through the header logout button to return to public read-only mode.
 
 ## Notes
 
 - Public users can view all current pages and portfolio data.
-- Public users cannot call protected write APIs; they return `401`.
+- Public users can download the blank transaction import template.
+- Public users cannot call protected write/import/export APIs; they return `401`.
 - Vercel and Neon are free within their published free-tier limits. Higher traffic, storage, or compute can require a paid plan.
