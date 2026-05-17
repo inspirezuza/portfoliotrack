@@ -192,8 +192,9 @@ export function TransactionForm({
   const [highlightedInstrumentId, setHighlightedInstrumentId] = useState<string | null>(null);
   const [instrumentLookupQuery, setInstrumentLookupQuery] = useState("");
   const [instrumentLookupResults, setInstrumentLookupResults] = useState<InstrumentSearchResult[]>([]);
+  const [selectedInstrumentLookupResult, setSelectedInstrumentLookupResult] =
+    useState<InstrumentSearchResult | null>(null);
   const [isSearchingInstruments, setIsSearchingInstruments] = useState(false);
-  const [isInstrumentFormOpen, setIsInstrumentFormOpen] = useState(instruments.length === 0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [instrumentErrorMessage, setInstrumentErrorMessage] = useState<string | null>(null);
@@ -305,10 +306,6 @@ export function TransactionForm({
   }, [instrumentSearch, isInstrumentComboboxOpen, values.instrumentId, visibleInstrumentOptions]);
 
   useEffect(() => {
-    if (!isInstrumentFormOpen) {
-      return;
-    }
-
     const query = instrumentLookupQuery.trim();
 
     if (query.length < 2) {
@@ -355,7 +352,6 @@ export function TransactionForm({
     copy.transactions.form.couldNotSave,
     copy.transactions.form.instrumentSearchUnavailable,
     instrumentLookupQuery,
-    isInstrumentFormOpen,
     language
   ]);
 
@@ -495,11 +491,11 @@ export function TransactionForm({
       setInstrumentSearch(createdInstrument.label);
       setInstrumentLookupQuery("");
       setInstrumentLookupResults([]);
+      setSelectedInstrumentLookupResult(null);
       setValues((currentValues) => ({
         ...currentValues,
         instrumentId: String(createdInstrument.id)
       }));
-      setIsInstrumentFormOpen(false);
       setInstrumentSuccessMessage(copy.transactions.form.addedAndSelected(createdInstrument.symbol));
       startTransition(() => {
         router.refresh();
@@ -513,25 +509,41 @@ export function TransactionForm({
     }
   }
 
-  function handleInstrumentLookupSelect(instrumentValues: NewInstrumentFormValues) {
-    const existingInstrument = instrumentOptions.find(
+  function findExistingInstrumentForLookup(instrumentValues: NewInstrumentFormValues) {
+    return instrumentOptions.find(
       (instrument) =>
         normalizeInstrumentSearchValue(instrument.symbol) ===
           normalizeInstrumentSearchValue(instrumentValues.symbol) ||
         normalizeInstrumentSearchValue(instrument.providerSymbol ?? "") ===
           normalizeInstrumentSearchValue(instrumentValues.providerSymbol)
     );
+  }
+
+  function handleInstrumentLookupSelect(instrumentValues: InstrumentSearchResult) {
+    setSelectedInstrumentLookupResult(instrumentValues);
+    setInstrumentErrorMessage(null);
+    setInstrumentSuccessMessage(null);
+  }
+
+  function handleInstrumentLookupSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedInstrumentLookupResult) {
+      return;
+    }
+
+    const existingInstrument = findExistingInstrumentForLookup(selectedInstrumentLookupResult);
 
     if (existingInstrument) {
       selectInstrument(existingInstrument);
       setInstrumentLookupQuery("");
       setInstrumentLookupResults([]);
-      setIsInstrumentFormOpen(false);
+      setSelectedInstrumentLookupResult(null);
       setInstrumentSuccessMessage(copy.transactions.form.selected(existingInstrument.symbol));
       return;
     }
 
-    void createAndSelectInstrument(instrumentValues);
+    void createAndSelectInstrument(selectedInstrumentLookupResult);
   }
 
   function selectInstrument(instrument: TransactionInstrumentOption) {
@@ -606,27 +618,18 @@ export function TransactionForm({
             <span className="field-label">{copy.transactions.form.instrument}</span>
             <p className="field-hint">{copy.transactions.form.instrumentHint}</p>
           </div>
-          <button
-            type="button"
-            className="compact-button"
-            onClick={() => {
-              setIsInstrumentFormOpen((isOpen) => !isOpen);
-              setInstrumentErrorMessage(null);
-              setInstrumentSuccessMessage(null);
-            }}
-          >
-            {isInstrumentFormOpen ? copy.transactions.form.close : copy.transactions.form.addInstrument}
-          </button>
         </div>
 
-        {isInstrumentFormOpen ? (
-          <div className="instrument-lookup">
+        <form className="instrument-lookup" onSubmit={handleInstrumentLookupSubmit}>
             <label className="field-group">
               <span className="field-label">{copy.transactions.form.searchInstrument}</span>
               <input
                 type="text"
                 value={instrumentLookupQuery}
-                onChange={(event) => setInstrumentLookupQuery(event.target.value)}
+                onChange={(event) => {
+                  setInstrumentLookupQuery(event.target.value);
+                  setSelectedInstrumentLookupResult(null);
+                }}
                 placeholder={copy.transactions.form.searchInstrumentPlaceholder}
                 autoComplete="off"
                 disabled={isCreatingInstrument}
@@ -648,12 +651,15 @@ export function TransactionForm({
                         normalizeInstrumentSearchValue(option.providerSymbol ?? "") ===
                           normalizeInstrumentSearchValue(instrument.providerSymbol)
                     );
+                    const isSelected =
+                      selectedInstrumentLookupResult?.providerSymbol === instrument.providerSymbol;
 
                     return (
                       <button
                         key={instrument.providerSymbol}
                         type="button"
                         className="instrument-combobox-option"
+                        data-selected={isSelected}
                         onClick={() => handleInstrumentLookupSelect(instrument)}
                         disabled={isCreatingInstrument}
                       >
@@ -679,16 +685,20 @@ export function TransactionForm({
               </div>
             ) : null}
 
+            <button
+              type="submit"
+              className="compact-button instrument-lookup-submit"
+              disabled={!selectedInstrumentLookupResult || isCreatingInstrument}
+            >
+              {copy.transactions.form.addInstrument}
+            </button>
             {instrumentErrorMessage ? (
               <p className="form-banner form-banner-error">{instrumentErrorMessage}</p>
             ) : null}
             {instrumentSuccessMessage ? (
               <p className="form-banner form-banner-success">{instrumentSuccessMessage}</p>
             ) : null}
-          </div>
-        ) : instrumentSuccessMessage ? (
-          <p className="form-banner form-banner-success">{instrumentSuccessMessage}</p>
-        ) : null}
+        </form>
       </div>
 
       {instrumentOptions.length === 0 ? (
