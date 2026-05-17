@@ -1,12 +1,15 @@
 import { HoldingsTable } from "@/components/holdings-table";
 import { SummaryCards } from "@/components/summary-cards";
+import { getUiCopy } from "@/lib/ui/copy";
+import { getServerUiLanguage } from "@/lib/ui/server";
+import { getUiLocale } from "@/lib/ui/translations";
 import { getDashboardSnapshot } from "@/server/dashboard";
 
 export const dynamic = "force-dynamic";
 
-function formatCacheDateLabel(value: string | null) {
+function formatCacheDateLabel(value: string | null, locale: string, emptyLabel: string) {
   if (value == null) {
-    return "No cache";
+    return emptyLabel;
   }
 
   const date = new Date(value);
@@ -15,7 +18,7 @@ function formatCacheDateLabel(value: string | null) {
     return value;
   }
 
-  return new Intl.DateTimeFormat("en-GB", {
+  return new Intl.DateTimeFormat(locale, {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
@@ -26,41 +29,44 @@ function formatCacheDateLabel(value: string | null) {
 }
 
 export default async function HoldingsPage() {
+  const language = await getServerUiLanguage();
+  const copy = getUiCopy(language);
+  const locale = getUiLocale(language);
   const { summary, holdingsSnapshot } = await getDashboardSnapshot();
 
   return (
     <section className="workstation-page">
       <div className="workstation-topbar">
         <div>
-          <p className="eyebrow">Holdings</p>
-          <h1>Positions</h1>
+          <p className="eyebrow">{copy.holdings.pageEyebrow}</p>
+          <h1>{copy.holdings.pageTitle}</h1>
         </div>
       </div>
 
-      <section className="asset-performance-grid" aria-label="Holdings status">
+      <section className="asset-performance-grid" aria-label={copy.holdings.statusLabel}>
         <article className="metric-card">
           <p className="metric-value">{holdingsSnapshot.openPositionCount}</p>
-          <p className="metric-label">Open</p>
+          <p className="metric-label">{copy.holdings.open}</p>
         </article>
         <article className="metric-card">
           <p className="metric-value">{holdingsSnapshot.pricedPositionCount}</p>
-          <p className="metric-label">Priced</p>
+          <p className="metric-label">{copy.holdings.priced}</p>
         </article>
         <article className="metric-card">
           <p className="metric-value">{holdingsSnapshot.missingPricePositionCount}</p>
-          <p className="metric-label">Missing</p>
+          <p className="metric-label">{copy.holdings.missing}</p>
         </article>
         <article className="metric-card">
           <p className="metric-value metric-value-compact">
-            {formatCacheDateLabel(holdingsSnapshot.latestPriceAsOf)}
+            {formatCacheDateLabel(holdingsSnapshot.latestPriceAsOf, locale, copy.shared.noCache)}
           </p>
-          <p className="metric-label">Latest cache</p>
+          <p className="metric-label">{copy.holdings.latestCache}</p>
         </article>
       </section>
 
-      <HoldingsTable holdings={holdingsSnapshot.holdings} />
+      <HoldingsTable holdings={holdingsSnapshot.holdings} language={language} />
 
-      <SummaryCards summary={summary} />
+      <SummaryCards language={language} summary={summary} />
     </section>
   );
 }

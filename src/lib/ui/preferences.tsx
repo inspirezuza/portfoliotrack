@@ -9,7 +9,16 @@ import {
   useState,
   type ReactNode
 } from "react";
-import type { UiLanguage, UiTheme } from "@/lib/ui/translations";
+import {
+  DEFAULT_THEME,
+  getHtmlLanguage,
+  isUiLanguage,
+  LANGUAGE_COOKIE_KEY,
+  LANGUAGE_STORAGE_KEY,
+  THEME_STORAGE_KEY,
+  type UiLanguage,
+  type UiTheme
+} from "@/lib/ui/translations";
 
 type UiPreferencesContextValue = {
   language: UiLanguage;
@@ -17,11 +26,6 @@ type UiPreferencesContextValue = {
   setLanguage: (language: UiLanguage) => void;
   setTheme: (theme: UiTheme) => void;
 };
-
-const DEFAULT_LANGUAGE: UiLanguage = "EN";
-const DEFAULT_THEME: UiTheme = "light";
-const LANGUAGE_STORAGE_KEY = "portfoliotrack.language";
-const THEME_STORAGE_KEY = "portfoliotrack.theme";
 
 const UiPreferencesContext = createContext<UiPreferencesContextValue | null>(null);
 
@@ -33,18 +37,11 @@ function readStoredTheme(): UiTheme {
   return window.localStorage.getItem(THEME_STORAGE_KEY) === "dark" ? "dark" : DEFAULT_THEME;
 }
 
-function readStoredLanguage(): UiLanguage {
-  if (typeof window === "undefined") {
-    return DEFAULT_LANGUAGE;
-  }
-
-  return window.localStorage.getItem(LANGUAGE_STORAGE_KEY) === "TH" ? "TH" : DEFAULT_LANGUAGE;
-}
-
 function applyLanguagePreference(language: UiLanguage) {
-  document.documentElement.dataset.language = language.toLowerCase();
-  document.documentElement.lang = language === "TH" ? "th" : "en";
+  document.documentElement.dataset.language = getHtmlLanguage(language);
+  document.documentElement.lang = getHtmlLanguage(language);
   window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+  document.cookie = `${LANGUAGE_COOKIE_KEY}=${language}; path=/; max-age=31536000; SameSite=Lax`;
 }
 
 function applyThemePreference(theme: UiTheme) {
@@ -52,21 +49,26 @@ function applyThemePreference(theme: UiTheme) {
   window.localStorage.setItem(THEME_STORAGE_KEY, theme);
 }
 
-export function UiPreferencesProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<UiLanguage>(DEFAULT_LANGUAGE);
+export function UiPreferencesProvider({
+  children,
+  initialLanguage
+}: {
+  children: ReactNode;
+  initialLanguage: UiLanguage;
+}) {
+  const [language, setLanguageState] = useState<UiLanguage>(initialLanguage);
   const [theme, setThemeState] = useState<UiTheme>(DEFAULT_THEME);
   const [hasHydrated, setHasHydrated] = useState(false);
 
   useEffect(() => {
-    const storedLanguage = readStoredLanguage();
     const storedTheme = readStoredTheme();
 
-    setLanguageState(storedLanguage);
+    setLanguageState(isUiLanguage(initialLanguage) ? initialLanguage : "TH");
     setThemeState(storedTheme);
-    applyLanguagePreference(storedLanguage);
+    applyLanguagePreference(isUiLanguage(initialLanguage) ? initialLanguage : "TH");
     applyThemePreference(storedTheme);
     setHasHydrated(true);
-  }, []);
+  }, [initialLanguage]);
 
   useEffect(() => {
     if (!hasHydrated) {

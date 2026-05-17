@@ -4,12 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { formatCurrency, formatQuantity } from "@/lib/format";
+import { getUiCopy } from "@/lib/ui/copy";
+import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
 import type { TransactionListItem } from "@/server/transactions";
 import { InstrumentLogo } from "@/components/instrument-logo";
 
 type TransactionTableProps = {
   transactions: TransactionListItem[];
   editingTransactionId?: number | null;
+  language: UiLanguage;
 };
 
 type ApiErrorResponse = {
@@ -34,8 +37,8 @@ type SortState = {
   direction: SortDirection;
 };
 
-function getDeleteErrorMessage(error: ApiErrorResponse["error"]) {
-  return error?.message ?? "Transaction could not be deleted.";
+function getDeleteErrorMessage(error: ApiErrorResponse["error"], fallback: string) {
+  return error?.message ?? fallback;
 }
 
 function getTransactionSortValue(transaction: TransactionListItem, key: TransactionSortKey) {
@@ -80,18 +83,22 @@ function getTransactionSearchText(transaction: TransactionListItem) {
 }
 
 function SortableHeader({
+  language,
   label,
   sortKey,
   sort,
   onSort
 }: {
+  language: UiLanguage;
   label: string;
   sortKey: TransactionSortKey;
   sort: SortState;
   onSort: (key: TransactionSortKey) => void;
 }) {
   const isActive = sort.key === sortKey;
-  const nextDirection = isActive && sort.direction === "asc" ? "descending" : "ascending";
+  const copy = getUiCopy(language).shared;
+  const nextDirection =
+    isActive && sort.direction === "asc" ? copy.sortDescending : copy.sortAscending;
 
   return (
     <th scope="col" aria-sort={isActive ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}>
@@ -100,7 +107,7 @@ function SortableHeader({
         className="table-sort-button"
         data-sort-state={isActive ? sort.direction : "none"}
         onClick={() => onSort(sortKey)}
-        aria-label={`Sort ${label} ${nextDirection}`}
+        aria-label={copy.sortLabel(label, nextDirection)}
       >
         <span className="table-sort-label">{label}</span>
         <span className="table-sort-icon" aria-hidden="true" />
@@ -109,7 +116,13 @@ function SortableHeader({
   );
 }
 
-export function TransactionTable({ transactions, editingTransactionId = null }: TransactionTableProps) {
+export function TransactionTable({
+  transactions,
+  editingTransactionId = null,
+  language
+}: TransactionTableProps) {
+  const copy = getUiCopy(language);
+  const locale = getUiLocale(language);
   const router = useRouter();
   const [isRefreshing, startTransition] = useTransition();
   const [deletingTransactionId, setDeletingTransactionId] = useState<number | null>(null);
@@ -145,7 +158,12 @@ export function TransactionTable({ transactions, editingTransactionId = null }: 
 
   async function handleDelete(transaction: TransactionListItem) {
     const isConfirmed = window.confirm(
-      `Delete ${transaction.side} ${formatQuantity(transaction.quantity)} ${transaction.instrument.symbol} from ${transaction.tradeDate}?`
+      copy.transactions.table.deleteConfirm(
+        transaction.side,
+        formatQuantity(transaction.quantity, { locale }),
+        transaction.instrument.symbol,
+        transaction.tradeDate
+      )
     );
 
     if (!isConfirmed) {
@@ -166,7 +184,7 @@ export function TransactionTable({ transactions, editingTransactionId = null }: 
       const payload = (await response.json()) as ApiErrorResponse;
 
       if (!response.ok) {
-        throw new Error(getDeleteErrorMessage(payload.error));
+        throw new Error(getDeleteErrorMessage(payload.error, copy.transactions.table.deleteCouldNot));
       }
 
       startTransition(() => {
@@ -178,7 +196,7 @@ export function TransactionTable({ transactions, editingTransactionId = null }: 
       });
     } catch (error) {
       setDeleteErrorMessage(
-        error instanceof Error ? error.message : "Transaction could not be deleted."
+        error instanceof Error ? error.message : copy.transactions.table.deleteCouldNot
       );
     } finally {
       setDeletingTransactionId(null);
@@ -189,8 +207,8 @@ export function TransactionTable({ transactions, editingTransactionId = null }: 
     <article className="surface-card transaction-table-card">
       <div className="transaction-panel-header">
         <div>
-          <p className="eyebrow">Ledger</p>
-          <h2 className="section-title">Latest transactions</h2>
+          <p className="eyebrow">{copy.transactions.table.eyebrow}</p>
+          <h2 className="section-title">{copy.transactions.table.title}</h2>
         </div>
       </div>
 
@@ -200,46 +218,50 @@ export function TransactionTable({ transactions, editingTransactionId = null }: 
 
       {transactions.length === 0 ? (
         <div className="transaction-empty-state">
-          <p>No transactions yet. The first recorded trade will appear here immediately.</p>
+          <p>{copy.transactions.table.noTransactions}</p>
         </div>
       ) : (
         <>
-          <div className="table-toolbar" aria-label="Transaction table tools">
+          <div className="table-toolbar" aria-label={copy.transactions.table.toolsLabel}>
             <label className="table-search">
-              <span>Search</span>
+              <span>{copy.shared.search}</span>
               <input
                 type="search"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Symbol, date, note"
+                placeholder={copy.transactions.table.searchPlaceholder}
               />
             </label>
           </div>
 
           <div className="table-count">
-            Showing {visibleTransactions.length} of {transactions.length} transactions
+            {copy.shared.countOf(
+              visibleTransactions.length,
+              transactions.length,
+              copy.transactions.table.transactionsUnit
+            )}
           </div>
 
           <div className="transaction-table-wrap">
             <table className="transaction-table">
               <thead>
                 <tr>
-                  <SortableHeader label="Date" sortKey="tradeDate" sort={sort} onSort={handleSort} />
-                  <SortableHeader label="Instrument" sortKey="instrument" sort={sort} onSort={handleSort} />
-                  <SortableHeader label="Side" sortKey="side" sort={sort} onSort={handleSort} />
-                  <SortableHeader label="Quantity" sortKey="quantity" sort={sort} onSort={handleSort} />
-                  <SortableHeader label="Price" sortKey="price" sort={sort} onSort={handleSort} />
-                  <SortableHeader label="Fee" sortKey="fee" sort={sort} onSort={handleSort} />
-                  <SortableHeader label="Net" sortKey="netAmount" sort={sort} onSort={handleSort} />
-                  <th scope="col">Notes</th>
-                  <th scope="col">Actions</th>
+                  <SortableHeader label={copy.transactions.table.columns.date} language={language} sortKey="tradeDate" sort={sort} onSort={handleSort} />
+                  <SortableHeader label={copy.transactions.table.columns.instrument} language={language} sortKey="instrument" sort={sort} onSort={handleSort} />
+                  <SortableHeader label={copy.transactions.table.columns.side} language={language} sortKey="side" sort={sort} onSort={handleSort} />
+                  <SortableHeader label={copy.transactions.table.columns.quantity} language={language} sortKey="quantity" sort={sort} onSort={handleSort} />
+                  <SortableHeader label={copy.transactions.table.columns.price} language={language} sortKey="price" sort={sort} onSort={handleSort} />
+                  <SortableHeader label={copy.transactions.table.columns.fee} language={language} sortKey="fee" sort={sort} onSort={handleSort} />
+                  <SortableHeader label={copy.transactions.table.columns.net} language={language} sortKey="netAmount" sort={sort} onSort={handleSort} />
+                  <th scope="col">{copy.transactions.table.columns.notes}</th>
+                  <th scope="col">{copy.transactions.table.columns.actions}</th>
                 </tr>
               </thead>
               <tbody>
                 {visibleTransactions.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="table-empty-cell">
-                      No transactions match the current search.
+                      {copy.transactions.table.noMatches}
                     </td>
                   </tr>
                 ) : (
@@ -273,20 +295,21 @@ export function TransactionTable({ transactions, editingTransactionId = null }: 
                           {transaction.side}
                         </span>
                       </td>
-                      <td className="table-number">{formatQuantity(transaction.quantity)}</td>
+                      <td className="table-number">{formatQuantity(transaction.quantity, { locale })}</td>
                       <td className="table-number">
                         {formatCurrency(transaction.price, {
                           currency: transaction.instrument.currency,
+                          locale,
                           maximumFractionDigits: 4
                         })}
                       </td>
-                      <td className="table-number">{formatCurrency(transaction.fee, { currency: transaction.instrument.currency })}</td>
-                      <td className="table-number">{formatCurrency(transaction.netAmount, { currency: transaction.instrument.currency })}</td>
+                      <td className="table-number">{formatCurrency(transaction.fee, { currency: transaction.instrument.currency, locale })}</td>
+                      <td className="table-number">{formatCurrency(transaction.netAmount, { currency: transaction.instrument.currency, locale })}</td>
                       <td>{transaction.notes ?? "-"}</td>
                       <td>
                         <div className="table-actions">
                           <Link className="table-action-link" href={`/transactions?edit=${transaction.id}`}>
-                            Edit
+                            {copy.transactions.table.edit}
                           </Link>
                           <button
                             type="button"
@@ -298,7 +321,9 @@ export function TransactionTable({ transactions, editingTransactionId = null }: 
                               deletingTransactionId !== null
                             }
                           >
-                            {deletingTransactionId === transaction.id ? "Deleting..." : "Delete"}
+                            {deletingTransactionId === transaction.id
+                              ? copy.transactions.table.deleting
+                              : copy.transactions.table.delete}
                           </button>
                         </div>
                       </td>

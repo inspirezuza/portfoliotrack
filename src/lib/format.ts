@@ -1,15 +1,18 @@
 type CurrencyFormatOptions = {
   currency?: string;
+  locale?: string;
   minimumFractionDigits?: number;
   maximumFractionDigits?: number;
 };
 
 type QuantityFormatOptions = {
+  locale?: string;
   minimumFractionDigits?: number;
   maximumFractionDigits?: number;
 };
 
 type PercentFormatOptions = {
+  locale?: string;
   maximumFractionDigits?: number;
   minimumFractionDigits?: number;
 };
@@ -20,9 +23,14 @@ function createNumberFormatter(locale: string | undefined, options: Intl.NumberF
 
 export function formatCurrency(
   value: number,
-  { currency = "THB", minimumFractionDigits = 2, maximumFractionDigits = 2 }: CurrencyFormatOptions = {}
+  {
+    currency = "THB",
+    locale,
+    minimumFractionDigits = 2,
+    maximumFractionDigits = 2
+  }: CurrencyFormatOptions = {}
 ) {
-  return createNumberFormatter(undefined, {
+  return createNumberFormatter(locale, {
     style: "currency",
     currency,
     minimumFractionDigits,
@@ -32,9 +40,9 @@ export function formatCurrency(
 
 export function formatQuantity(
   value: number,
-  { minimumFractionDigits = 0, maximumFractionDigits = 6 }: QuantityFormatOptions = {}
+  { locale, minimumFractionDigits = 0, maximumFractionDigits = 6 }: QuantityFormatOptions = {}
 ) {
-  return createNumberFormatter(undefined, {
+  return createNumberFormatter(locale, {
     minimumFractionDigits,
     maximumFractionDigits
   }).format(value);
@@ -42,11 +50,11 @@ export function formatQuantity(
 
 export function formatPercent(
   value: number,
-  { minimumFractionDigits = 2, maximumFractionDigits = 2 }: PercentFormatOptions = {}
+  { locale, minimumFractionDigits = 2, maximumFractionDigits = 2 }: PercentFormatOptions = {}
 ) {
   const normalizedValue = value / 100;
 
-  return createNumberFormatter(undefined, {
+  return createNumberFormatter(locale, {
     style: "percent",
     minimumFractionDigits,
     maximumFractionDigits
@@ -54,7 +62,7 @@ export function formatPercent(
 }
 
 export function formatPercentRatio(value: number, options?: PercentFormatOptions) {
-  return createNumberFormatter(undefined, {
+  return createNumberFormatter(options?.locale, {
     style: "percent",
     minimumFractionDigits: options?.minimumFractionDigits ?? 2,
     maximumFractionDigits: options?.maximumFractionDigits ?? 2

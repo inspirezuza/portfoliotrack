@@ -2,6 +2,8 @@
 
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { formatCurrency, formatPercentRatio } from "@/lib/format";
+import { getUiCopy } from "@/lib/ui/copy";
+import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
 
 type AllocationHolding = {
   instrumentId: number;
@@ -15,6 +17,7 @@ type AllocationHolding = {
 
 type HoldingsAllocationChartProps = {
   holdings: AllocationHolding[];
+  language: UiLanguage;
 };
 
 type AllocationSlice = {
@@ -29,6 +32,7 @@ type AllocationSlice = {
 
 type AllocationTooltipProps = {
   active?: boolean;
+  language: UiLanguage;
   payload?: Array<{
     payload?: AllocationSlice;
   }>;
@@ -48,7 +52,8 @@ function getHoldingValue(holding: AllocationHolding) {
   return holding.marketValue ?? holding.totalCost;
 }
 
-function buildAllocationSlices(holdings: AllocationHolding[]) {
+function buildAllocationSlices(holdings: AllocationHolding[], language: UiLanguage) {
+  const copy = getUiCopy(language).holdings.allocation;
   const chartHoldings = holdings
     .map((holding) => ({
       ...holding,
@@ -79,8 +84,8 @@ function buildAllocationSlices(holdings: AllocationHolding[]) {
 
     slices.push({
       id: "other",
-      symbol: "Other",
-      displayName: `${otherHoldings.length} positions`,
+      symbol: copy.other,
+      displayName: copy.positions(otherHoldings.length),
       currency: primaryHoldings[0]?.currency ?? otherHoldings[0].currency,
       value: otherValue,
       weight: otherValue / totalValue,
@@ -91,8 +96,10 @@ function buildAllocationSlices(holdings: AllocationHolding[]) {
   return slices;
 }
 
-function AllocationTooltip({ active, payload }: AllocationTooltipProps) {
+function AllocationTooltip({ active, language, payload }: AllocationTooltipProps) {
   const slice = payload?.[0]?.payload;
+  const copy = getUiCopy(language).holdings.allocation;
+  const locale = getUiLocale(language);
 
   if (!active || slice == null) {
     return null;
@@ -102,21 +109,25 @@ function AllocationTooltip({ active, payload }: AllocationTooltipProps) {
     <div className="chart-tooltip allocation-tooltip">
       <span>{slice.displayName}</span>
       <strong>{slice.symbol}</strong>
-      <em>{formatCurrency(slice.value, { currency: slice.currency })}</em>
-      <em>{formatPercentRatio(slice.weight)} of holdings</em>
+      <em>{formatCurrency(slice.value, { currency: slice.currency, locale })}</em>
+      <em>
+        {formatPercentRatio(slice.weight, { locale })} {copy.ofHoldings}
+      </em>
     </div>
   );
 }
 
-export function HoldingsAllocationChart({ holdings }: HoldingsAllocationChartProps) {
-  const slices = buildAllocationSlices(holdings);
+export function HoldingsAllocationChart({ holdings, language }: HoldingsAllocationChartProps) {
+  const copy = getUiCopy(language).holdings.allocation;
+  const locale = getUiLocale(language);
+  const slices = buildAllocationSlices(holdings, language);
 
   if (slices.length === 0) {
     return null;
   }
 
   return (
-    <div className="holdings-allocation" aria-label="Holdings allocation chart">
+    <div className="holdings-allocation" aria-label={copy.ariaLabel}>
       <div className="holdings-pie-shell">
         <ResponsiveContainer width="100%" height={190}>
           <PieChart>
@@ -137,7 +148,7 @@ export function HoldingsAllocationChart({ holdings }: HoldingsAllocationChartPro
                 <Cell key={slice.id} fill={slice.color} />
               ))}
             </Pie>
-            <Tooltip content={<AllocationTooltip />} />
+            <Tooltip content={<AllocationTooltip language={language} />} />
           </PieChart>
         </ResponsiveContainer>
       </div>
@@ -148,7 +159,7 @@ export function HoldingsAllocationChart({ holdings }: HoldingsAllocationChartPro
             <span style={{ background: slice.color }} aria-hidden="true" />
             <div>
               <strong>{slice.symbol}</strong>
-              <em>{formatPercentRatio(slice.weight)}</em>
+              <em>{formatPercentRatio(slice.weight, { locale })}</em>
             </div>
           </li>
         ))}

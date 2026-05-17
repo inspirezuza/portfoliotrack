@@ -3,12 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type CSSProperties, useMemo, useState, useTransition } from "react";
-import { formatCurrency, formatPercentRatio, formatQuantity } from "@/lib/format";
-import type { HoldingRow } from "@/server/holdings";
 import { InstrumentLogo } from "@/components/instrument-logo";
+import { formatCurrency, formatPercentRatio, formatQuantity } from "@/lib/format";
+import { getUiCopy } from "@/lib/ui/copy";
+import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
+import type { HoldingRow } from "@/server/holdings";
 
 type HoldingsTableProps = {
   holdings: HoldingRow[];
+  language: UiLanguage;
 };
 
 type HoldingSortKey =
@@ -37,48 +40,47 @@ type RefreshResponse = {
   };
 };
 
-const filterOptions: Array<{ value: HoldingFilter; label: string }> = [
-  { value: "all", label: "All" },
-  { value: "gain", label: "Gain" },
-  { value: "loss", label: "Loss" },
-  { value: "missing", label: "Missing price" }
-];
-
-function formatHoldingPrice(value: number | null, currency: string) {
+function formatHoldingPrice(
+  value: number | null,
+  currency: string,
+  locale: string,
+  emptyLabel: string
+) {
   if (value == null) {
-    return <span className="data-pending">No price yet</span>;
+    return <span className="data-pending">{emptyLabel}</span>;
   }
 
   return formatCurrency(value, {
     currency,
+    locale,
     maximumFractionDigits: 4
   });
 }
 
-function formatHoldingMoney(value: number | null, currency: string, emptyLabel = "Waiting") {
+function formatHoldingMoney(value: number | null, currency: string, locale: string, emptyLabel: string) {
   if (value == null) {
     return <span className="data-pending">{emptyLabel}</span>;
   }
 
-  return formatCurrency(value, { currency });
+  return formatCurrency(value, { currency, locale });
 }
 
-function formatHoldingPercent(value: number | null, emptyLabel = "Waiting") {
+function formatHoldingPercent(value: number | null, locale: string, emptyLabel: string) {
   if (value == null) {
     return <span className="data-pending">{emptyLabel}</span>;
   }
 
-  return formatPercentRatio(value);
+  return formatPercentRatio(value, { locale });
 }
 
-function formatHoldingDateTime(value: string) {
+function formatHoldingDateTime(value: string, locale: string) {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
     return value;
   }
 
-  return new Intl.DateTimeFormat("en-GB", {
+  return new Intl.DateTimeFormat(locale, {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
@@ -155,29 +157,38 @@ function getHoldingSearchText(holding: HoldingRow) {
     .toLowerCase();
 }
 
-function formatSummaryMoney(value: number | null, currency: string | null) {
+function formatSummaryMoney(
+  value: number | null,
+  currency: string | null,
+  locale: string,
+  mixedLabel: string
+) {
   if (value == null || currency == null) {
-    return <span className="data-pending">Mixed</span>;
+    return <span className="data-pending">{mixedLabel}</span>;
   }
 
-  return formatCurrency(value, { currency });
+  return formatCurrency(value, { currency, locale });
 }
 
 function SortableHeader({
+  align = "left",
   label,
-  sortKey,
-  sort,
+  language,
   onSort,
-  align = "left"
+  sort,
+  sortKey
 }: {
-  label: string;
-  sortKey: HoldingSortKey;
-  sort: SortState;
-  onSort: (key: HoldingSortKey) => void;
   align?: "left" | "right";
+  label: string;
+  language: UiLanguage;
+  onSort: (key: HoldingSortKey) => void;
+  sort: SortState;
+  sortKey: HoldingSortKey;
 }) {
+  const copy = getUiCopy(language).shared;
   const isActive = sort.key === sortKey;
-  const nextDirection = isActive && sort.direction === "asc" ? "descending" : "ascending";
+  const nextDirection =
+    isActive && sort.direction === "asc" ? copy.sortDescending : copy.sortAscending;
 
   return (
     <th
@@ -190,7 +201,7 @@ function SortableHeader({
         className="table-sort-button"
         data-sort-state={isActive ? sort.direction : "none"}
         onClick={() => onSort(sortKey)}
-        aria-label={`Sort ${label} ${nextDirection}`}
+        aria-label={copy.sortLabel(label, nextDirection)}
       >
         <span className="table-sort-label">{label}</span>
         <span className="table-sort-icon" aria-hidden="true" />
@@ -199,7 +210,9 @@ function SortableHeader({
   );
 }
 
-export function HoldingsTable({ holdings }: HoldingsTableProps) {
+export function HoldingsTable({ holdings, language }: HoldingsTableProps) {
+  const copy = getUiCopy(language);
+  const locale = getUiLocale(language);
   const router = useRouter();
   const [isRefreshing, startRefreshTransition] = useTransition();
   const [isRefreshRequestPending, setIsRefreshRequestPending] = useState(false);
@@ -208,6 +221,12 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
   const [filter, setFilter] = useState<HoldingFilter>("all");
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
   const [refreshTone, setRefreshTone] = useState<"success" | "warning">("success");
+  const filterOptions: Array<{ value: HoldingFilter; label: string }> = [
+    { value: "all", label: copy.holdings.table.filter.all },
+    { value: "gain", label: copy.holdings.table.filter.gain },
+    { value: "loss", label: copy.holdings.table.filter.loss },
+    { value: "missing", label: copy.holdings.table.filter.missing }
+  ];
 
   const visibleHoldings = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -277,15 +296,15 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
       const payload = (await response.json()) as RefreshResponse;
 
       if (!response.ok) {
-        throw new Error(payload.error?.message ?? "Market data refresh failed.");
+        throw new Error(payload.error?.message ?? copy.holdings.table.refreshFailed);
       }
 
       const issueCount = payload.issues?.length ?? 0;
       setRefreshTone(issueCount > 0 ? "warning" : "success");
       setRefreshMessage(
         issueCount > 0
-          ? `Updated prices with ${issueCount} symbols still needing review.`
-          : `Updated ${payload.quoteRefreshCount ?? 0} prices.`
+          ? copy.holdings.table.updatedWithIssues(issueCount)
+          : copy.holdings.table.updatedPrices(payload.quoteRefreshCount ?? 0)
       );
 
       startRefreshTransition(() => {
@@ -293,9 +312,7 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
       });
     } catch (error) {
       setRefreshTone("warning");
-      setRefreshMessage(
-        error instanceof Error ? error.message : "Market data refresh failed."
-      );
+      setRefreshMessage(error instanceof Error ? error.message : copy.holdings.table.refreshFailed);
     } finally {
       setIsRefreshRequestPending(false);
     }
@@ -307,8 +324,8 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
     <article className="surface-card holdings-table-card">
       <div className="transaction-panel-header">
         <div>
-          <p className="eyebrow">Holdings</p>
-          <h2 className="section-title">Current positions</h2>
+          <p className="eyebrow">{copy.holdings.table.eyebrow}</p>
+          <h2 className="section-title">{copy.holdings.table.title}</h2>
         </div>
         <button
           type="button"
@@ -316,27 +333,27 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
           onClick={() => void handleRefresh()}
           disabled={isRefreshBusy}
         >
-          {isRefreshBusy ? "Refreshing..." : "Refresh prices"}
+          {isRefreshBusy ? copy.holdings.table.refreshing : copy.holdings.table.refreshPrices}
         </button>
       </div>
 
       {holdings.length === 0 ? (
         <div className="transaction-empty-state">
-          <p>No open positions yet. Add a buy transaction and holdings will appear here.</p>
+          <p>{copy.holdings.table.noOpenPositions}</p>
         </div>
       ) : (
         <>
-          <div className="table-toolbar" aria-label="Holdings table tools">
+          <div className="table-toolbar" aria-label={copy.holdings.table.toolsLabel}>
             <label className="table-search">
-              <span>Search</span>
+              <span>{copy.shared.search}</span>
               <input
                 type="search"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Symbol, name, market"
+                placeholder={copy.holdings.table.searchPlaceholder}
               />
             </label>
-            <div className="table-filter-group" aria-label="Holdings filters">
+            <div className="table-filter-group" aria-label={copy.holdings.table.filtersLabel}>
               {filterOptions.map((option) => (
                 <button
                   key={option.value}
@@ -356,7 +373,11 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
           ) : null}
 
           <div className="table-count">
-            Showing {visibleHoldings.length} of {holdings.length} positions
+            {copy.shared.countOf(
+              visibleHoldings.length,
+              holdings.length,
+              copy.holdings.table.positionsUnit
+            )}
           </div>
 
           <div className="transaction-table-wrap">
@@ -373,21 +394,21 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
               </colgroup>
               <thead>
                 <tr>
-                  <SortableHeader label="Symbol" sortKey="symbol" sort={sort} onSort={handleSort} />
-                  <SortableHeader label="Quantity" sortKey="quantity" sort={sort} onSort={handleSort} align="right" />
-                  <SortableHeader label="Average cost" sortKey="averageCost" sort={sort} onSort={handleSort} align="right" />
-                  <SortableHeader label="Total cost" sortKey="totalCost" sort={sort} onSort={handleSort} align="right" />
-                  <SortableHeader label="Last price" sortKey="lastPrice" sort={sort} onSort={handleSort} align="right" />
-                  <SortableHeader label="Market value" sortKey="marketValue" sort={sort} onSort={handleSort} align="right" />
-                  <SortableHeader label="Unrealized P&L" sortKey="unrealizedPnl" sort={sort} onSort={handleSort} align="right" />
-                  <SortableHeader label="Weight" sortKey="portfolioWeight" sort={sort} onSort={handleSort} align="right" />
+                  <SortableHeader label={copy.holdings.table.columns.symbol} language={language} sortKey="symbol" sort={sort} onSort={handleSort} />
+                  <SortableHeader label={copy.holdings.table.columns.quantity} language={language} sortKey="quantity" sort={sort} onSort={handleSort} align="right" />
+                  <SortableHeader label={copy.holdings.table.columns.averageCost} language={language} sortKey="averageCost" sort={sort} onSort={handleSort} align="right" />
+                  <SortableHeader label={copy.holdings.table.columns.totalCost} language={language} sortKey="totalCost" sort={sort} onSort={handleSort} align="right" />
+                  <SortableHeader label={copy.holdings.table.columns.lastPrice} language={language} sortKey="lastPrice" sort={sort} onSort={handleSort} align="right" />
+                  <SortableHeader label={copy.holdings.table.columns.marketValue} language={language} sortKey="marketValue" sort={sort} onSort={handleSort} align="right" />
+                  <SortableHeader label={copy.holdings.table.columns.unrealizedPnl} language={language} sortKey="unrealizedPnl" sort={sort} onSort={handleSort} align="right" />
+                  <SortableHeader label={copy.holdings.table.columns.weight} language={language} sortKey="portfolioWeight" sort={sort} onSort={handleSort} align="right" />
                 </tr>
               </thead>
               <tbody>
                 {visibleHoldings.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="table-empty-cell">
-                      No positions match the current filters.
+                      {copy.holdings.table.noMatches}
                     </td>
                   </tr>
                 ) : (
@@ -417,23 +438,44 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
                           </div>
                         </div>
                       </td>
-                      <td className="table-number">{formatQuantity(holding.quantity)}</td>
+                      <td className="table-number">{formatQuantity(holding.quantity, { locale })}</td>
                       <td className="table-number">
                         {formatCurrency(holding.averageCost, {
                           currency: holding.currency,
+                          locale,
                           maximumFractionDigits: 4
                         })}
                       </td>
-                      <td className="table-number">{formatCurrency(holding.totalCost, { currency: holding.currency })}</td>
+                      <td className="table-number">
+                        {formatCurrency(holding.totalCost, { currency: holding.currency, locale })}
+                      </td>
                       <td className="table-number">
                         <div className="holdings-value-stack">
-                          <span>{formatHoldingPrice(holding.lastPrice, holding.currency)}</span>
+                          <span>
+                            {formatHoldingPrice(
+                              holding.lastPrice,
+                              holding.currency,
+                              locale,
+                              copy.holdings.table.noPriceYet
+                            )}
+                          </span>
                           {holding.lastPriceAsOf ? (
-                            <span className="table-subtext">as of {formatHoldingDateTime(holding.lastPriceAsOf)}</span>
+                            <span className="table-subtext">
+                              {copy.holdings.table.asOf(
+                                formatHoldingDateTime(holding.lastPriceAsOf, locale)
+                              )}
+                            </span>
                           ) : null}
                         </div>
                       </td>
-                      <td className="table-number">{formatHoldingMoney(holding.marketValue, holding.currency)}</td>
+                      <td className="table-number">
+                        {formatHoldingMoney(
+                          holding.marketValue,
+                          holding.currency,
+                          locale,
+                          copy.shared.waiting
+                        )}
+                      </td>
                       <td className="table-number">
                         <div className="holdings-value-stack">
                           <span
@@ -447,16 +489,31 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
                                     : undefined
                             }
                           >
-                            {formatHoldingMoney(holding.unrealizedPnl, holding.currency)}
+                            {formatHoldingMoney(
+                              holding.unrealizedPnl,
+                              holding.currency,
+                              locale,
+                              copy.shared.waiting
+                            )}
                           </span>
                           <span className="table-subtext">
-                            {formatHoldingPercent(holding.unrealizedPnlPercent)}
+                            {formatHoldingPercent(
+                              holding.unrealizedPnlPercent,
+                              locale,
+                              copy.shared.waiting
+                            )}
                           </span>
                         </div>
                       </td>
                       <td className="table-number">
                         <div className="holdings-weight-cell">
-                          <span>{formatHoldingPercent(holding.portfolioWeight, "No data")}</span>
+                          <span>
+                            {formatHoldingPercent(
+                              holding.portfolioWeight,
+                              locale,
+                              copy.holdings.table.noData
+                            )}
+                          </span>
                           {holding.portfolioWeight == null ? null : (
                             <span
                               className="holdings-weight-bar"
@@ -473,12 +530,28 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
               {visibleHoldings.length > 0 ? (
                 <tfoot>
                   <tr>
-                    <th scope="row">Shown total</th>
-                    <td className="table-number">{visibleHoldings.length} positions</td>
+                    <th scope="row">{copy.holdings.table.shownTotal}</th>
+                    <td className="table-number">
+                      {copy.shared.positionCount(visibleHoldings.length)}
+                    </td>
                     <td />
-                    <td className="table-number">{formatSummaryMoney(visibleSummary.totalCost, visibleCurrency)}</td>
+                    <td className="table-number">
+                      {formatSummaryMoney(
+                        visibleSummary.totalCost,
+                        visibleCurrency,
+                        locale,
+                        copy.shared.mixed
+                      )}
+                    </td>
                     <td />
-                    <td className="table-number">{formatSummaryMoney(visibleSummary.marketValue, visibleCurrency)}</td>
+                    <td className="table-number">
+                      {formatSummaryMoney(
+                        visibleSummary.marketValue,
+                        visibleCurrency,
+                        locale,
+                        copy.shared.mixed
+                      )}
+                    </td>
                     <td className="table-number">
                       <span
                         className={
@@ -491,10 +564,21 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
                                 : undefined
                         }
                       >
-                        {formatSummaryMoney(visibleSummary.unrealizedPnl, visibleCurrency)}
+                        {formatSummaryMoney(
+                          visibleSummary.unrealizedPnl,
+                          visibleCurrency,
+                          locale,
+                          copy.shared.mixed
+                        )}
                       </span>
                     </td>
-                    <td className="table-number">{formatHoldingPercent(visibleSummary.portfolioWeight, "No data")}</td>
+                    <td className="table-number">
+                      {formatHoldingPercent(
+                        visibleSummary.portfolioWeight,
+                        locale,
+                        copy.holdings.table.noData
+                      )}
+                    </td>
                   </tr>
                 </tfoot>
               ) : null}

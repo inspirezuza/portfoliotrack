@@ -1,7 +1,10 @@
 import { formatCurrency } from "@/lib/format";
+import { getUiCopy } from "@/lib/ui/copy";
+import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
 import type { DashboardSummary } from "@/server/dashboard";
 
 type SummaryCardsProps = {
+  language: UiLanguage;
   summary: DashboardSummary;
 };
 
@@ -22,52 +25,76 @@ function getPnlTone(value: number | null): SummaryCardConfig["tone"] {
   return value > 0 ? "positive" : "negative";
 }
 
-function getPriceCoverageDetail(summary: DashboardSummary) {
+function getPriceCoverageDetail(
+  summary: DashboardSummary,
+  copy: ReturnType<typeof getUiCopy>["holdings"]["summary"]
+) {
   if (summary.openPositionCount === 0) {
-    return "No open positions yet";
+    return copy.priceCoverageNoOpen;
   }
 
   if (summary.missingPricePositionCount === 0) {
     return summary.latestPriceAsOf
-      ? `Cached prices cover all ${summary.pricedPositionCount} positions as of ${summary.latestPriceAsOf}`
-      : `Cached prices cover all ${summary.pricedPositionCount} positions`;
+      ? copy.priceCoverageFullAsOf(summary.pricedPositionCount, summary.latestPriceAsOf)
+      : copy.priceCoverageFull(summary.pricedPositionCount);
   }
 
   const awaitingList = summary.awaitingPriceSymbols.slice(0, 3).join(", ");
   const suffix =
     summary.awaitingPriceSymbols.length > 3
-      ? ` +${summary.awaitingPriceSymbols.length - 3} more`
+      ? copy.moreSymbols(summary.awaitingPriceSymbols.length - 3)
       : "";
 
-  return `${summary.pricedPositionCount} of ${summary.openPositionCount} positions priced; waiting for ${awaitingList}${suffix}`;
+  return copy.priceCoveragePartial(
+    summary.pricedPositionCount,
+    summary.openPositionCount,
+    `${awaitingList}${suffix}`
+  );
 }
 
 function formatCurrencyBreakdown(
   summary: DashboardSummary,
-  key: "totalCostBasis" | "totalMarketValue" | "totalUnrealizedPnl"
+  key: "totalCostBasis" | "totalMarketValue" | "totalUnrealizedPnl",
+  locale: string,
+  copy: ReturnType<typeof getUiCopy>["holdings"]["summary"]
 ) {
   return summary.currencyBreakdown
     .map((entry) => {
       const value = entry[key];
 
       if (value == null) {
-        return `${entry.currency}: waiting for price`;
+        return copy.currencyBreakdown(entry.currency, copy.waitingForPrice);
       }
 
-      return `${entry.currency}: ${formatCurrency(value, { currency: entry.currency })}`;
+      return copy.currencyBreakdown(
+        entry.currency,
+        formatCurrency(value, { currency: entry.currency, locale })
+      );
     })
     .join(" - ");
 }
 
-function formatRealizedBreakdown(summary: DashboardSummary) {
+function formatRealizedBreakdown(
+  summary: DashboardSummary,
+  locale: string,
+  copy: ReturnType<typeof getUiCopy>["holdings"]["summary"]
+) {
   return summary.realizedBreakdown
     .map((entry) =>
-      `${entry.currency}: ${formatCurrency(entry.totalRealizedPnl, { currency: entry.currency })}`
+      copy.currencyBreakdown(
+        entry.currency,
+        formatCurrency(entry.totalRealizedPnl, { currency: entry.currency, locale })
+      )
     )
     .join(" - ");
 }
 
-function buildCards(summary: DashboardSummary): SummaryCardConfig[] {
+function buildCards(
+  summary: DashboardSummary,
+  language: UiLanguage
+): SummaryCardConfig[] {
+  const copy = getUiCopy(language).holdings.summary;
+  const locale = getUiLocale(language);
   const marketValueIsMixedCurrency =
     summary.totalMarketValue == null &&
     summary.openPositionCount > 0 &&
@@ -81,82 +108,86 @@ function buildCards(summary: DashboardSummary): SummaryCardConfig[] {
 
   return [
     {
-      label: "Open positions",
+      label: copy.openPositions,
       value: summary.openPositionCount.toString(),
       detail:
         summary.openPositionCount === 0
-          ? "No open holdings yet"
-          : `${summary.openPositionCount} positions are still open from the trade ledger`
+          ? copy.noOpenHoldings
+          : copy.openLedger(summary.openPositionCount)
     },
     {
-      label: "Open cost basis",
+      label: copy.openCostBasis,
       value:
         summary.totalCostBasis == null
-          ? "Mixed currency"
+          ? copy.mixedCurrency
           : formatCurrency(summary.totalCostBasis, {
-              currency: summary.openPositionCurrency ?? DEFAULT_DISPLAY_CURRENCY
+              currency: summary.openPositionCurrency ?? DEFAULT_DISPLAY_CURRENCY,
+              locale
             }),
       detail:
         summary.totalCostBasis == null
-          ? formatCurrencyBreakdown(summary, "totalCostBasis")
-          : "Calculated from open positions only"
+          ? formatCurrencyBreakdown(summary, "totalCostBasis", locale, copy)
+          : copy.calculatedOpenOnly
     },
     {
-      label: "Market value",
+      label: copy.marketValue,
       value:
         summary.totalMarketValue == null
           ? marketValueIsMixedCurrency
-            ? "Mixed currency"
-            : "Waiting"
+            ? copy.mixedCurrency
+            : copy.waiting
           : formatCurrency(summary.totalMarketValue, {
-              currency: summary.openPositionCurrency ?? DEFAULT_DISPLAY_CURRENCY
+              currency: summary.openPositionCurrency ?? DEFAULT_DISPLAY_CURRENCY,
+              locale
             }),
       detail:
         summary.totalMarketValue == null
           ? marketValueIsMixedCurrency
-            ? formatCurrencyBreakdown(summary, "totalMarketValue")
-            : `${getPriceCoverageDetail(summary)} ${formatCurrencyBreakdown(summary, "totalMarketValue")}`
+            ? formatCurrencyBreakdown(summary, "totalMarketValue", locale, copy)
+            : `${getPriceCoverageDetail(summary, copy)} ${formatCurrencyBreakdown(summary, "totalMarketValue", locale, copy)}`
           : summary.latestPriceAsOf
-            ? `Using cached prices as of ${summary.latestPriceAsOf}`
-            : "Using cached prices"
+            ? copy.usingCachedPricesAsOf(summary.latestPriceAsOf)
+            : copy.usingCachedPrices
     },
     {
-      label: "Unrealized P&L",
+      label: copy.unrealizedPnl,
       value:
         summary.totalUnrealizedPnl == null
           ? unrealizedPnlIsMixedCurrency
-            ? "Mixed currency"
-            : "Waiting"
+            ? copy.mixedCurrency
+            : copy.waiting
           : formatCurrency(summary.totalUnrealizedPnl, {
-              currency: summary.openPositionCurrency ?? DEFAULT_DISPLAY_CURRENCY
+              currency: summary.openPositionCurrency ?? DEFAULT_DISPLAY_CURRENCY,
+              locale
             }),
       tone: getPnlTone(summary.totalUnrealizedPnl),
       detail:
         summary.totalUnrealizedPnl == null
           ? unrealizedPnlIsMixedCurrency
-            ? formatCurrencyBreakdown(summary, "totalUnrealizedPnl")
-            : `${getPriceCoverageDetail(summary)} ${formatCurrencyBreakdown(summary, "totalUnrealizedPnl")}`
-          : "Open-position gain or loss versus cost"
+            ? formatCurrencyBreakdown(summary, "totalUnrealizedPnl", locale, copy)
+            : `${getPriceCoverageDetail(summary, copy)} ${formatCurrencyBreakdown(summary, "totalUnrealizedPnl", locale, copy)}`
+          : copy.openGainLoss
     },
     {
-      label: "Realized P&L",
+      label: copy.realizedPnl,
       value:
         summary.totalRealizedPnl == null
-          ? "Mixed currency"
+          ? copy.mixedCurrency
           : formatCurrency(summary.totalRealizedPnl, {
-              currency: summary.realizedBreakdown[0]?.currency ?? DEFAULT_DISPLAY_CURRENCY
+              currency: summary.realizedBreakdown[0]?.currency ?? DEFAULT_DISPLAY_CURRENCY,
+              locale
             }),
       tone: getPnlTone(summary.totalRealizedPnl),
       detail:
         summary.totalRealizedPnl == null
-          ? formatRealizedBreakdown(summary)
-          : "Closed-trade result through now"
+          ? formatRealizedBreakdown(summary, locale, copy)
+          : copy.closedTradeResult
     }
   ];
 }
 
-export function SummaryCards({ summary }: SummaryCardsProps) {
-  const cards = buildCards(summary);
+export function SummaryCards({ language, summary }: SummaryCardsProps) {
+  const cards = buildCards(summary, language);
 
   return (
     <div className="summary-card-grid">

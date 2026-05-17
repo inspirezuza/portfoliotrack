@@ -3,6 +3,8 @@ import { Inter } from "next/font/google";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/app-shell";
 import { UiPreferencesProvider } from "@/lib/ui/preferences";
+import { getServerUiLanguage } from "@/lib/ui/server";
+import { getHtmlLanguage } from "@/lib/ui/translations";
 import "./globals.css";
 
 const inter = Inter({
@@ -16,42 +18,39 @@ export const metadata: Metadata = {
   description: "A local-first portfolio tracker for focused personal investing."
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const language = await getServerUiLanguage();
+  const htmlLanguage = getHtmlLanguage(language);
+
   return (
-    <html lang="en" data-language="en" data-theme="light" suppressHydrationWarning>
+    <html
+      lang={htmlLanguage}
+      data-language={htmlLanguage}
+      data-theme="light"
+      suppressHydrationWarning
+    >
       <head>
         <script
           dangerouslySetInnerHTML={{
             __html: `
               try {
                 var theme = localStorage.getItem("portfoliotrack.theme");
-                var language = localStorage.getItem("portfoliotrack.language");
                 if (theme === "dark") {
                   document.documentElement.dataset.theme = "dark";
                 }
-                if (language === "TH") {
-                  document.documentElement.dataset.language = "th";
-                  document.documentElement.lang = "th";
-                }
 
-                function syncPreferenceButtons() {
-                  var currentLanguage = document.documentElement.dataset.language === "th" ? "TH" : "EN";
+                function syncThemeButtons() {
                   var currentTheme = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
-                  var buttons = document.querySelectorAll("[data-preference-kind][data-preference-value]");
+                  var buttons = document.querySelectorAll('[data-preference-kind="theme"][data-preference-value]');
 
                   for (var index = 0; index < buttons.length; index += 1) {
                     var button = buttons[index];
-                    var kind = button.getAttribute("data-preference-kind");
                     var value = button.getAttribute("data-preference-value");
-                    var isPressed =
-                      (kind === "language" && value === currentLanguage) ||
-                      (kind === "theme" && value === currentTheme);
-
-                    button.setAttribute("aria-pressed", isPressed ? "true" : "false");
+                    button.setAttribute("aria-pressed", value === currentTheme ? "true" : "false");
                   }
                 }
 
-                document.addEventListener("DOMContentLoaded", syncPreferenceButtons);
+                document.addEventListener("DOMContentLoaded", syncThemeButtons);
 
                 document.addEventListener("click", function (event) {
                   var target = event.target;
@@ -59,25 +58,17 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                     return;
                   }
 
-                  var button = target.closest("[data-preference-kind][data-preference-value]");
+                  var button = target.closest('[data-preference-kind="theme"][data-preference-value]');
                   if (!button) {
                     return;
                   }
 
-                  var kind = button.getAttribute("data-preference-kind");
                   var value = button.getAttribute("data-preference-value");
 
-                  if (kind === "theme" && (value === "light" || value === "dark")) {
+                  if (value === "light" || value === "dark") {
                     document.documentElement.dataset.theme = value;
                     localStorage.setItem("portfoliotrack.theme", value);
-                    syncPreferenceButtons();
-                  }
-
-                  if (kind === "language" && (value === "TH" || value === "EN")) {
-                    document.documentElement.dataset.language = value.toLowerCase();
-                    document.documentElement.lang = value === "TH" ? "th" : "en";
-                    localStorage.setItem("portfoliotrack.language", value);
-                    syncPreferenceButtons();
+                    syncThemeButtons();
                   }
                 }, true);
               } catch (_) {}
@@ -86,7 +77,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         />
       </head>
       <body className={inter.variable}>
-        <UiPreferencesProvider>
+        <UiPreferencesProvider initialLanguage={language}>
           <AppShell>{children}</AppShell>
         </UiPreferencesProvider>
       </body>

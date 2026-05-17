@@ -9,6 +9,8 @@ import {
   normalizeInstrumentSearchValue,
   sortInstrumentOptions
 } from "@/lib/transactions/instrument-selection";
+import { getUiCopy } from "@/lib/ui/copy";
+import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
 import type { TransactionInstrumentOption, TransactionListItem } from "@/server/transactions";
 
 type TransactionFormValues = {
@@ -33,6 +35,7 @@ type NewInstrumentFormValues = {
 type TransactionFormProps = {
   instruments: TransactionInstrumentOption[];
   editingTransaction?: TransactionListItem | null;
+  language: UiLanguage;
 };
 
 type ApiErrorResponse = {
@@ -113,7 +116,8 @@ function getTransactionInstrumentLabel(
 
 function getErrorMessage(
   error: ApiErrorResponse["error"],
-  fallbackMessage = "Transaction could not be saved."
+  fallbackMessage: string,
+  language: UiLanguage
 ) {
   if (!error) {
     return fallbackMessage;
@@ -140,7 +144,10 @@ function getErrorMessage(
     const availableQuantity = error.details?.availableQuantity;
 
     if (typeof availableQuantity === "number") {
-      return `Sell quantity is greater than current holdings. Maximum sellable quantity is ${formatQuantity(availableQuantity)}.`;
+      const copy = getUiCopy(language).transactions.form;
+      return copy.insufficientQuantity(
+        formatQuantity(availableQuantity, { locale: getUiLocale(language) })
+      );
     }
   }
 
@@ -162,7 +169,13 @@ function getSynchronizedInstrumentId(
   return hasMatchingInstrument ? instrumentId : "";
 }
 
-export function TransactionForm({ instruments, editingTransaction = null }: TransactionFormProps) {
+export function TransactionForm({
+  instruments,
+  editingTransaction = null,
+  language
+}: TransactionFormProps) {
+  const copy = getUiCopy(language);
+  const locale = getUiLocale(language);
   const router = useRouter();
   const [isRefreshing, startTransition] = useTransition();
   const isEditing = editingTransaction != null;
@@ -213,14 +226,14 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
   const isSubmitDisabled = isDisabled || selectedInstrument == null;
   const submitButtonLabel = (() => {
     if (isSubmitting) {
-      return isEditing ? "Updating..." : "Saving...";
+      return isEditing ? copy.transactions.form.updating : copy.transactions.form.saving;
     }
 
     if (isRefreshing) {
-      return "Refreshing...";
+      return copy.transactions.form.refreshing;
     }
 
-    return isEditing ? "Update transaction" : "Save transaction";
+    return isEditing ? copy.transactions.form.updateTransaction : copy.transactions.form.saveTransaction;
   })();
 
   useEffect(() => {
@@ -316,7 +329,7 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
         const payload = (await response.json()) as InstrumentSearchApiResponse;
 
         if (!response.ok) {
-          throw new Error(getErrorMessage(payload.error));
+          throw new Error(getErrorMessage(payload.error, copy.transactions.form.couldNotSave, language));
         }
 
         setInstrumentLookupResults(payload.results ?? []);
@@ -327,7 +340,7 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
 
         setInstrumentLookupResults([]);
         setInstrumentErrorMessage(
-          error instanceof Error ? error.message : "Instrument search is unavailable right now."
+          error instanceof Error ? error.message : copy.transactions.form.instrumentSearchUnavailable
         );
       } finally {
         setIsSearchingInstruments(false);
@@ -338,13 +351,19 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
       abortController.abort();
       window.clearTimeout(timeoutId);
     };
-  }, [instrumentLookupQuery, isInstrumentFormOpen]);
+  }, [
+    copy.transactions.form.couldNotSave,
+    copy.transactions.form.instrumentSearchUnavailable,
+    instrumentLookupQuery,
+    isInstrumentFormOpen,
+    language
+  ]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!selectedInstrument) {
-      setErrorMessage("Select an instrument from the list before saving.");
+      setErrorMessage(copy.transactions.form.selectBeforeSaving);
       setSuccessMessage(null);
       return;
     }
@@ -384,14 +403,17 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
         throw new Error(
           getErrorMessage(
             payload.error,
-            isEditing ? "Transaction could not be updated." : "Transaction could not be saved."
+            isEditing ? copy.transactions.form.couldNotUpdate : copy.transactions.form.couldNotSave,
+            language
           )
         );
       }
 
       setValues(createInitialValues(instrumentOptions));
       setInstrumentSearch(getInitialInstrumentSearch(instrumentOptions));
-      setSuccessMessage(isEditing ? "Transaction updated." : "Transaction saved.");
+      setSuccessMessage(
+        isEditing ? copy.transactions.form.transactionUpdated : copy.transactions.form.transactionSaved
+      );
       startTransition(() => {
         if (isEditing) {
           router.push("/transactions");
@@ -401,8 +423,8 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
       });
     } catch (error) {
       const fallbackErrorMessage = isEditing
-        ? "Transaction could not be updated."
-        : "Transaction could not be saved.";
+        ? copy.transactions.form.couldNotUpdate
+        : copy.transactions.form.couldNotSave;
 
       setErrorMessage(
         error instanceof Error
@@ -458,7 +480,7 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
       const payload = (await response.json()) as InstrumentApiResponse;
 
       if (!response.ok || !payload.instrument) {
-        throw new Error(getErrorMessage(payload.error));
+        throw new Error(getErrorMessage(payload.error, copy.transactions.form.instrumentCouldNotSave, language));
       }
 
       const createdInstrument = payload.instrument;
@@ -478,13 +500,13 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
         instrumentId: String(createdInstrument.id)
       }));
       setIsInstrumentFormOpen(false);
-      setInstrumentSuccessMessage(`${createdInstrument.symbol} added and selected.`);
+      setInstrumentSuccessMessage(copy.transactions.form.addedAndSelected(createdInstrument.symbol));
       startTransition(() => {
         router.refresh();
       });
     } catch (error) {
       setInstrumentErrorMessage(
-        error instanceof Error ? error.message : "Instrument could not be saved."
+        error instanceof Error ? error.message : copy.transactions.form.instrumentCouldNotSave
       );
     } finally {
       setIsCreatingInstrument(false);
@@ -505,7 +527,7 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
       setInstrumentLookupQuery("");
       setInstrumentLookupResults([]);
       setIsInstrumentFormOpen(false);
-      setInstrumentSuccessMessage(`${existingInstrument.symbol} selected.`);
+      setInstrumentSuccessMessage(copy.transactions.form.selected(existingInstrument.symbol));
       return;
     }
 
@@ -569,9 +591,11 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
     <article className="surface-card transaction-panel">
       <div className="transaction-panel-header">
         <div>
-          <p className="eyebrow">{isEditing ? "Edit transaction" : "New transaction"}</p>
+          <p className="eyebrow">
+            {isEditing ? copy.transactions.form.editEyebrow : copy.transactions.form.newEyebrow}
+          </p>
           <h2 className="section-title">
-            {isEditing ? "Update trade" : "Record trade"}
+            {isEditing ? copy.transactions.form.updateTitle : copy.transactions.form.recordTitle}
           </h2>
         </div>
       </div>
@@ -579,8 +603,8 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
       <div className="instrument-manager">
         <div className="instrument-manager-header">
           <div>
-            <span className="field-label">Instrument</span>
-            <p className="field-hint">Search a saved instrument or add a new one.</p>
+            <span className="field-label">{copy.transactions.form.instrument}</span>
+            <p className="field-hint">{copy.transactions.form.instrumentHint}</p>
           </div>
           <button
             type="button"
@@ -591,19 +615,19 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
               setInstrumentSuccessMessage(null);
             }}
           >
-            {isInstrumentFormOpen ? "Close" : "Add instrument"}
+            {isInstrumentFormOpen ? copy.transactions.form.close : copy.transactions.form.addInstrument}
           </button>
         </div>
 
         {isInstrumentFormOpen ? (
           <div className="instrument-lookup">
             <label className="field-group">
-              <span className="field-label">Search instrument</span>
+              <span className="field-label">{copy.transactions.form.searchInstrument}</span>
               <input
                 type="text"
                 value={instrumentLookupQuery}
                 onChange={(event) => setInstrumentLookupQuery(event.target.value)}
-                placeholder="Type ASTS03, AAPL, or a company name"
+                placeholder={copy.transactions.form.searchInstrumentPlaceholder}
                 autoComplete="off"
                 disabled={isCreatingInstrument}
               />
@@ -613,7 +637,7 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
               <div className="instrument-lookup-menu">
                 {isSearchingInstruments ? (
                   <div className="instrument-combobox-empty" role="status">
-                    Searching...
+                    {copy.transactions.form.searching}
                   </div>
                 ) : instrumentLookupResults.length > 0 ? (
                   instrumentLookupResults.map((instrument) => {
@@ -636,15 +660,20 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
                         <span className="instrument-combobox-symbol">{instrument.symbol}</span>
                         <span className="instrument-combobox-name">{instrument.displayName}</span>
                         <span className="instrument-combobox-meta">
-                          {existingInstrument ? "Saved" : "Add"} · {instrument.market} ·{" "}
-                          {instrument.currency} · {instrument.providerSymbol}
+                          {existingInstrument ? copy.transactions.form.saved : copy.transactions.form.add}
+                          {copy.shared.separator}
+                          {instrument.market}
+                          {copy.shared.separator}
+                          {instrument.currency}
+                          {copy.shared.separator}
+                          {instrument.providerSymbol}
                         </span>
                       </button>
                     );
                   })
                 ) : (
                   <div className="instrument-combobox-empty" role="status">
-                    No matching instruments
+                    {copy.transactions.form.noMatchingInstruments}
                   </div>
                 )}
               </div>
@@ -664,12 +693,12 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
 
       {instrumentOptions.length === 0 ? (
         <div className="transaction-empty-state">
-          <p>No instruments are available. Add an instrument before recording trades.</p>
+          <p>{copy.transactions.form.noInstruments}</p>
         </div>
       ) : (
         <form className="transaction-form" onSubmit={handleSubmit}>
           <label className="field-group field-group-wide">
-            <span className="field-label">Instrument</span>
+            <span className="field-label">{copy.transactions.form.instrument}</span>
             <div
               className="instrument-combobox"
               onBlur={(event) => {
@@ -714,7 +743,7 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
                   highlightedInstrumentId ? `instrument-option-${highlightedInstrumentId}` : undefined
                 }
                 autoComplete="off"
-                placeholder="Choose an instrument"
+                placeholder={copy.transactions.form.chooseInstrument}
                 disabled={isDisabled}
                 required
               />
@@ -744,15 +773,19 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
                           <span className="instrument-combobox-symbol">{instrument.symbol}</span>
                           <span className="instrument-combobox-name">{instrument.displayName}</span>
                           <span className="instrument-combobox-meta">
-                            {instrument.market} · {instrument.currency}
-                            {instrument.providerSymbol ? ` · ${instrument.providerSymbol}` : ""}
+                            {instrument.market}
+                            {copy.shared.separator}
+                            {instrument.currency}
+                            {instrument.providerSymbol
+                              ? `${copy.shared.separator}${instrument.providerSymbol}`
+                              : ""}
                           </span>
                         </button>
                       );
                     })
                   ) : (
                     <div className="instrument-combobox-empty" role="status">
-                      No matching instruments
+                      {copy.transactions.form.noMatchingInstruments}
                     </div>
                   )}
                 </div>
@@ -760,17 +793,19 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
             </div>
             {selectedInstrument ? (
               <span className="field-hint">
-                Current quantity: {formatQuantity(selectedInstrument.currentQuantity)} units
+                {copy.transactions.form.currentQuantity(
+                  formatQuantity(selectedInstrument.currentQuantity, { locale })
+                )}
               </span>
             ) : instrumentSearch.trim().length > 0 ? (
               <span className="field-hint field-hint-warning">
-                Select a matching instrument before saving.
+                {copy.transactions.form.selectBeforeSaving}
               </span>
             ) : null}
           </label>
 
           <label className="field-group">
-            <span className="field-label">Trade date</span>
+            <span className="field-label">{copy.transactions.form.tradeDate}</span>
             <input
               type="date"
               name="tradeDate"
@@ -782,20 +817,20 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
           </label>
 
           <label className="field-group">
-            <span className="field-label">Side</span>
+            <span className="field-label">{copy.transactions.form.side}</span>
             <select
               name="side"
               value={values.side}
               onChange={(event) => updateValue("side", event.target.value as "BUY" | "SELL")}
               disabled={isDisabled}
             >
-              <option value="BUY">Buy</option>
-              <option value="SELL">Sell</option>
+              <option value="BUY">{copy.transactions.form.buy}</option>
+              <option value="SELL">{copy.transactions.form.sell}</option>
             </select>
           </label>
 
           <label className="field-group">
-            <span className="field-label">Quantity</span>
+            <span className="field-label">{copy.transactions.form.quantity}</span>
             <input
               type="number"
               name="quantity"
@@ -811,7 +846,7 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
           </label>
 
           <label className="field-group">
-            <span className="field-label">Price</span>
+            <span className="field-label">{copy.transactions.form.price}</span>
             <input
               type="number"
               name="price"
@@ -827,7 +862,7 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
           </label>
 
           <label className="field-group">
-            <span className="field-label">Fee</span>
+            <span className="field-label">{copy.transactions.form.fee}</span>
             <input
               type="number"
               name="fee"
@@ -843,14 +878,14 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
           </label>
 
           <label className="field-group field-group-wide">
-            <span className="field-label">Notes</span>
+            <span className="field-label">{copy.transactions.form.notes}</span>
             <textarea
               name="notes"
               value={values.notes}
               onChange={(event) => updateValue("notes", event.target.value)}
               rows={4}
               maxLength={500}
-              placeholder="Optional note, such as broker, fill context, or trade reason"
+              placeholder={copy.transactions.form.notesPlaceholder}
               disabled={isDisabled}
             />
           </label>
@@ -866,7 +901,7 @@ export function TransactionForm({ instruments, editingTransaction = null }: Tran
                 onClick={handleCancelEdit}
                 disabled={isSubmitting || isRefreshing}
               >
-                Cancel edit
+                {copy.transactions.form.cancelEdit}
               </button>
             ) : null}
             <button type="submit" className="primary-button" disabled={isSubmitDisabled}>

@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
-import { languages, shellCopy, type UiTheme } from "@/lib/ui/translations";
+import { getUiCopy } from "@/lib/ui/copy";
 import { useUiPreferences } from "@/lib/ui/preferences";
+import { languages, type UiTheme } from "@/lib/ui/translations";
 
 type NavItem = {
   href: "/" | "/holdings" | "/transactions";
-  label: keyof typeof shellCopy.TH.nav;
+  label: "dashboard" | "holdings" | "transactions";
   icon: "dashboard" | "holdings" | "transactions";
 };
 
@@ -32,18 +33,19 @@ function isActivePath(pathname: string, href: NavItem["href"]) {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { language, theme, setLanguage, setTheme } = useUiPreferences();
-  const copy = shellCopy[language];
+  const copy = getUiCopy(language).shell;
 
   return (
     <div className="app-shell">
       <div className="shell-frame">
-        <aside className="shell-sidebar" aria-label="Main navigation">
-          <Link href="/" className="brand-mark" aria-label="PortfolioTrack home">
+        <aside className="shell-sidebar" aria-label={copy.mainNavigation}>
+          <Link href="/" className="brand-mark" aria-label={copy.homeLabel}>
             P
           </Link>
 
-          <nav className="shell-nav" aria-label="Primary">
+          <nav className="shell-nav" aria-label={copy.primaryNavigation}>
             {navItems.map((item) => {
               const active = isActivePath(pathname, item.href);
 
@@ -80,7 +82,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                     data-preference-kind="language"
                     data-preference-value={item}
                     className="preference-button"
-                    onClick={() => setLanguage(item)}
+                    onClick={() => {
+                      setLanguage(item);
+                      router.refresh();
+                    }}
                     aria-pressed={language === item}
                   >
                     {item}

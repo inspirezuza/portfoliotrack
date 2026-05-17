@@ -16,9 +16,12 @@ import type {
   PortfolioBenchmarkTimelineStatus,
   PortfolioTimelinePoint
 } from "@/lib/portfolio/timeline";
+import { getUiCopy } from "@/lib/ui/copy";
+import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
 
 type PortfolioChartProps = {
   currency: string | null;
+  language: UiLanguage;
   series: PortfolioTimelinePoint[];
   status: PortfolioBenchmarkTimelineStatus;
 };
@@ -47,22 +50,10 @@ type PortfolioChartTooltipProps = {
     payload?: ChartPoint;
   }>;
   currency: string | null;
+  language: UiLanguage;
 };
 
-const TIMEFRAME_OPTIONS: Array<{
-  key: TimeframeKey;
-  label: string;
-}> = [
-  { key: "1D", label: "1D" },
-  { key: "5D", label: "5D" },
-  { key: "1W", label: "1W" },
-  { key: "1M", label: "1M" },
-  { key: "3M", label: "3M" },
-  { key: "YTD", label: "YTD" },
-  { key: "1Y", label: "1Y" },
-  { key: "START", label: "Start" },
-  { key: "ALL", label: "All" }
-];
+const TIMEFRAME_OPTIONS: TimeframeKey[] = ["1D", "5D", "1W", "1M", "3M", "YTD", "1Y", "START", "ALL"];
 
 function parseChartDate(value: string) {
   return new Date(value.includes("T") ? value : `${value}T00:00:00.000Z`);
@@ -72,10 +63,10 @@ function isIntradayDate(value: string) {
   return value.includes("T");
 }
 
-function formatChartDate(value: string) {
+function formatChartDate(value: string, locale: string) {
   const hasTime = isIntradayDate(value);
 
-  return new Intl.DateTimeFormat("en-GB", {
+  return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     ...(hasTime ? { hour: "2-digit", minute: "2-digit" } : {}),
@@ -83,30 +74,31 @@ function formatChartDate(value: string) {
   }).format(parseChartDate(value));
 }
 
-function formatAxisDate(value: string) {
-  return new Intl.DateTimeFormat("en-GB", {
+function formatAxisDate(value: string, locale: string) {
+  return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     timeZone: "UTC"
   }).format(parseChartDate(value));
 }
 
-function formatChartValue(value: number, currency: string | null) {
+function formatChartValue(value: number, currency: string | null, locale: string) {
   if (currency == null) {
-    return new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat(locale, {
       maximumFractionDigits: 0
     }).format(value);
   }
 
   return formatCurrency(value, {
     currency,
+    locale,
     minimumFractionDigits: value >= 100 ? 0 : 2,
     maximumFractionDigits: value >= 100 ? 0 : 2
   });
 }
 
-function formatAxisValue(value: number) {
-  return new Intl.NumberFormat(undefined, {
+function formatAxisValue(value: number, locale: string) {
+  return new Intl.NumberFormat(locale, {
     maximumFractionDigits: value >= 100 ? 0 : 2,
     notation: value >= 1_000_000 ? "compact" : "standard"
   }).format(value);
@@ -116,16 +108,19 @@ function formatSignedPercent(value: number) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
 
-function getUnavailableMessage(status: PortfolioBenchmarkTimelineStatus) {
+function getUnavailableMessage(
+  status: PortfolioBenchmarkTimelineStatus,
+  copy: ReturnType<typeof getUiCopy>["charts"]["portfolio"]
+) {
   switch (status) {
     case "no-transactions":
-      return "Add a transaction to start the portfolio chart.";
+      return copy.unavailable.noTransactions;
     case "mixed-currency":
-      return "Portfolio chart is paused for mixed open-position currencies.";
+      return copy.unavailable.mixedCurrency;
     case "missing-portfolio-history":
-      return "Price history is incomplete for current holdings.";
+      return copy.unavailable.missingPortfolioHistory;
     default:
-      return "No portfolio chart data yet.";
+      return copy.unavailable.default;
   }
 }
 
@@ -271,8 +266,16 @@ function getChartPoint(state: ChartMouseState | undefined) {
   return state?.activePayload?.[0]?.payload ?? null;
 }
 
-function PortfolioChartTooltip({ active, label, payload, currency }: PortfolioChartTooltipProps) {
+function PortfolioChartTooltip({
+  active,
+  label,
+  language,
+  payload,
+  currency
+}: PortfolioChartTooltipProps) {
   const point = payload?.[0]?.payload;
+  const copy = getUiCopy(language).charts.common;
+  const locale = getUiLocale(language);
 
   if (!active || point == null || label == null) {
     return null;
@@ -280,18 +283,20 @@ function PortfolioChartTooltip({ active, label, payload, currency }: PortfolioCh
 
   return (
     <div className="chart-tooltip">
-      <span>{formatChartDate(label)}</span>
-      <strong>{formatChartValue(point.value, currency)}</strong>
+      <span>{formatChartDate(label, locale)}</span>
+      <strong>{formatChartValue(point.value, currency, locale)}</strong>
       {point.changeFromRangeStart == null ? null : (
         <em className={point.changeFromRangeStart >= 0 ? "value-positive" : "value-negative"}>
-          {formatSignedPercent(point.changeFromRangeStart)} from range start
+          {formatSignedPercent(point.changeFromRangeStart)} {copy.fromRangeStart}
         </em>
       )}
     </div>
   );
 }
 
-export function PortfolioChart({ currency, series, status }: PortfolioChartProps) {
+export function PortfolioChart({ currency, language, series, status }: PortfolioChartProps) {
+  const copy = getUiCopy(language);
+  const locale = getUiLocale(language);
   const [timeframe, setTimeframe] = useState<TimeframeKey>("ALL");
   const [selection, setSelection] = useState<SelectionRange | null>(null);
   const isDraggingRef = useRef(false);
@@ -378,22 +383,22 @@ export function PortfolioChart({ currency, series, status }: PortfolioChartProps
     <article className="surface-card chart-card portfolio-chart-card">
       <div className="chart-card-header">
         <div>
-          <p className="eyebrow">Portfolio value</p>
-          <h2 className="section-title">Portfolio value history</h2>
+          <p className="eyebrow">{copy.charts.portfolio.eyebrow}</p>
+          <h2 className="section-title">{copy.charts.portfolio.title}</h2>
         </div>
-        <div className="chart-timeframes" aria-label="Portfolio chart timeframe">
+        <div className="chart-timeframes" aria-label={copy.charts.portfolio.timeframe}>
           {TIMEFRAME_OPTIONS.map((option) => (
             <button
-              aria-pressed={timeframe === option.key}
-              className={timeframe === option.key ? "active" : ""}
-              key={option.key}
+              aria-pressed={timeframe === option}
+              className={timeframe === option ? "active" : ""}
+              key={option}
               onClick={() => {
-                setTimeframe(option.key);
+                setTimeframe(option);
                 setSelection(null);
               }}
               type="button"
             >
-              {option.label}
+              {copy.charts.common.timeframes[option]}
             </button>
           ))}
         </div>
@@ -402,9 +407,9 @@ export function PortfolioChart({ currency, series, status }: PortfolioChartProps
       {hasSeries ? (
         <div className="chart-workspace">
           {rangeStats == null ? null : (
-            <div className="chart-stat-strip" aria-label="Portfolio value range summary">
+            <div className="chart-stat-strip" aria-label={copy.charts.portfolio.rangeSummary}>
               <div>
-                <span>Range</span>
+                <span>{copy.charts.common.range}</span>
                 <strong
                   className={
                     rangeStats.percentChange == null
@@ -420,16 +425,16 @@ export function PortfolioChart({ currency, series, status }: PortfolioChartProps
                 </strong>
               </div>
               <div>
-                <span>Latest</span>
-                <strong>{formatChartValue(rangeStats.latestPoint.value, currency)}</strong>
+                <span>{copy.charts.common.latest}</span>
+                <strong>{formatChartValue(rangeStats.latestPoint.value, currency, locale)}</strong>
               </div>
               <div>
-                <span>High</span>
-                <strong>{formatChartValue(rangeStats.highPoint.value, currency)}</strong>
+                <span>{copy.charts.common.high}</span>
+                <strong>{formatChartValue(rangeStats.highPoint.value, currency, locale)}</strong>
               </div>
               <div>
-                <span>Low</span>
-                <strong>{formatChartValue(rangeStats.lowPoint.value, currency)}</strong>
+                <span>{copy.charts.common.low}</span>
+                <strong>{formatChartValue(rangeStats.lowPoint.value, currency, locale)}</strong>
               </div>
             </div>
           )}
@@ -453,7 +458,7 @@ export function PortfolioChart({ currency, series, status }: PortfolioChartProps
                 <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 6" vertical={false} />
                 <XAxis
                   dataKey="date"
-                  tickFormatter={formatAxisDate}
+                  tickFormatter={(value: string) => formatAxisDate(value, locale)}
                   tickLine={false}
                   axisLine={false}
                   minTickGap={28}
@@ -462,7 +467,7 @@ export function PortfolioChart({ currency, series, status }: PortfolioChartProps
                   stroke="var(--chart-axis)"
                 />
                 <YAxis
-                  tickFormatter={(value: number) => formatAxisValue(value)}
+                  tickFormatter={(value: number) => formatAxisValue(value, locale)}
                   tickLine={false}
                   axisLine={false}
                   width={78}
@@ -472,7 +477,7 @@ export function PortfolioChart({ currency, series, status }: PortfolioChartProps
                 />
                 <Tooltip
                   cursor={{ stroke: "rgba(10, 126, 101, 0.2)", strokeWidth: 1 }}
-                  content={<PortfolioChartTooltip currency={currency} />}
+                  content={<PortfolioChartTooltip currency={currency} language={language} />}
                 />
                 {!hasActiveSelection || selection == null ? null : (
                   <ReferenceArea
@@ -503,19 +508,20 @@ export function PortfolioChart({ currency, series, status }: PortfolioChartProps
               }
             >
               {!hasActiveSelection || selectionPoints == null || selectionPercent == null ? (
-                <span>Drag across the chart to compare</span>
+                <span>{copy.charts.common.dragToCompare}</span>
               ) : (
                 <>
                 <span>
-                  {formatChartDate(selectionPoints.startPoint.date)} to{" "}
-                  {formatChartDate(selectionPoints.endPoint.date)}
+                  {formatChartDate(selectionPoints.startPoint.date, locale)}{" "}
+                  {copy.charts.common.to} {formatChartDate(selectionPoints.endPoint.date, locale)}
                 </span>
                 <strong className={selectionPercent >= 0 ? "value-positive" : "value-negative"}>
                   {formatSignedPercent(selectionPercent)}
                 </strong>
                 <span>
-                  {formatChartValue(selectionPoints.startPoint.value, currency)} to{" "}
-                  {formatChartValue(selectionPoints.endPoint.value, currency)}
+                  {formatChartValue(selectionPoints.startPoint.value, currency, locale)}{" "}
+                  {copy.charts.common.to}{" "}
+                  {formatChartValue(selectionPoints.endPoint.value, currency, locale)}
                 </span>
                 </>
               )}
@@ -524,8 +530,8 @@ export function PortfolioChart({ currency, series, status }: PortfolioChartProps
         </div>
       ) : (
         <div className="chart-empty-state">
-          <strong>No chart data</strong>
-          <p>{getUnavailableMessage(status)}</p>
+          <strong>{copy.charts.common.noChartData}</strong>
+          <p>{getUnavailableMessage(status, copy.charts.portfolio)}</p>
         </div>
       )}
     </article>

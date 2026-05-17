@@ -1,6 +1,8 @@
 import { TransactionForm } from "@/components/transaction-form";
 import { TransactionTable } from "@/components/transaction-table";
 import { sortInstrumentOptions } from "@/lib/transactions/instrument-selection";
+import { getUiCopy } from "@/lib/ui/copy";
+import { getServerUiLanguage } from "@/lib/ui/server";
 import {
   listSelectableTransactionInstrumentOptions,
   listTransactionInstrumentOptions,
@@ -23,6 +25,8 @@ function parseEditTransactionId(edit: string | string[] | undefined) {
 }
 
 export default async function TransactionsPage({ searchParams }: TransactionsPageProps) {
+  const language = await getServerUiLanguage();
+  const copy = getUiCopy(language);
   const resolvedSearchParams = await searchParams;
   const editTransactionId = parseEditTransactionId(resolvedSearchParams?.edit);
   const [transactions, allInstruments, instruments] = await Promise.all([
@@ -45,7 +49,7 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
   const transactionCount = transactions.length;
   const uniqueInstrumentCount = new Set(transactions.map((transaction) => transaction.instrumentId))
     .size;
-  const latestTradeDate = transactions[0]?.tradeDate ?? "No trades yet";
+  const latestTradeDate = transactions[0]?.tradeDate ?? copy.shared.noTradesYet;
   const openInstrumentCount = allInstruments.filter(
     (instrument) => instrument.currentQuantity > 0
   ).length;
@@ -54,41 +58,49 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
     <section className="transactions-page transactions-workspace">
       <div className="workstation-topbar">
         <div>
-          <p className="eyebrow">Ledger</p>
-          <h1>Transactions</h1>
-          <p>Record buys, sells, and fees without preselecting an instrument.</p>
+          <p className="eyebrow">{copy.transactions.pageEyebrow}</p>
+          <h1>{copy.transactions.pageTitle}</h1>
+          <p>{copy.transactions.pageDescription}</p>
         </div>
       </div>
 
-      <div className="transaction-summary-strip" aria-label="Transaction summary">
+      <div className="transaction-summary-strip" aria-label={copy.transactions.summaryLabel}>
         <div>
-          <span>Recorded</span>
+          <span>{copy.transactions.recorded}</span>
           <strong>{transactionCount}</strong>
         </div>
         <div>
-          <span>Traded</span>
+          <span>{copy.transactions.traded}</span>
           <strong>{uniqueInstrumentCount}</strong>
         </div>
         <div>
-          <span>Open</span>
+          <span>{copy.transactions.open}</span>
           <strong>{openInstrumentCount}</strong>
         </div>
         <div>
-          <span>Latest</span>
+          <span>{copy.transactions.latest}</span>
           <strong>{latestTradeDate}</strong>
         </div>
         <div>
-          <span>Selectable</span>
+          <span>{copy.transactions.selectable}</span>
           <strong>{instruments.length}</strong>
         </div>
         <div>
-          <span>All instruments</span>
+          <span>{copy.transactions.allInstruments}</span>
           <strong>{allInstruments.length}</strong>
         </div>
       </div>
 
-      <TransactionForm instruments={formInstruments} editingTransaction={editingTransaction} />
-      <TransactionTable transactions={transactions} editingTransactionId={editingTransaction?.id ?? null} />
+      <TransactionForm
+        instruments={formInstruments}
+        editingTransaction={editingTransaction}
+        language={language}
+      />
+      <TransactionTable
+        transactions={transactions}
+        editingTransactionId={editingTransaction?.id ?? null}
+        language={language}
+      />
     </section>
   );
 }

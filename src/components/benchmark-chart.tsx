@@ -17,11 +17,14 @@ import type {
   BenchmarkTimelinePoint,
   PortfolioBenchmarkTimelineStatus
 } from "@/lib/portfolio/timeline";
+import { getUiCopy } from "@/lib/ui/copy";
+import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
 
 type BenchmarkChartProps = {
   benchmarkSymbol: string | null;
   benchmarkCurrency: string | null;
   comparisonBasis: BenchmarkComparisonBasis | null;
+  language: UiLanguage;
   portfolioCurrency: string | null;
   series: BenchmarkTimelinePoint[];
   status: PortfolioBenchmarkTimelineStatus;
@@ -64,29 +67,9 @@ type BenchmarkChartTooltipProps = {
   }>;
 };
 
-const TIMEFRAME_OPTIONS: Array<{
-  key: TimeframeKey;
-  label: string;
-}> = [
-  { key: "1D", label: "1D" },
-  { key: "5D", label: "5D" },
-  { key: "1W", label: "1W" },
-  { key: "1M", label: "1M" },
-  { key: "3M", label: "3M" },
-  { key: "YTD", label: "YTD" },
-  { key: "1Y", label: "1Y" },
-  { key: "START", label: "Start" },
-  { key: "ALL", label: "All" }
-];
+const TIMEFRAME_OPTIONS: TimeframeKey[] = ["1D", "5D", "1W", "1M", "3M", "YTD", "1Y", "START", "ALL"];
 
-const PERFORMANCE_MODE_OPTIONS: Array<{
-  key: PerformanceMode;
-  label: string;
-}> = [
-  { key: "INDEXED", label: "Indexed" },
-  { key: "GAP", label: "Gap" },
-  { key: "DRAWDOWN", label: "Drawdown" }
-];
+const PERFORMANCE_MODE_OPTIONS: PerformanceMode[] = ["INDEXED", "GAP", "DRAWDOWN"];
 
 function parseChartDate(value: string) {
   return new Date(value.includes("T") ? value : `${value}T00:00:00.000Z`);
@@ -96,10 +79,10 @@ function isIntradayDate(value: string) {
   return value.includes("T");
 }
 
-function formatChartDate(value: string) {
+function formatChartDate(value: string, locale: string) {
   const hasTime = isIntradayDate(value);
 
-  return new Intl.DateTimeFormat("en-GB", {
+  return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     ...(hasTime ? { hour: "2-digit", minute: "2-digit" } : {}),
@@ -107,16 +90,17 @@ function formatChartDate(value: string) {
   }).format(parseChartDate(value));
 }
 
-function formatAxisDate(value: string) {
-  return new Intl.DateTimeFormat("en-GB", {
+function formatAxisDate(value: string, locale: string) {
+  return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     timeZone: "UTC"
   }).format(parseChartDate(value));
 }
 
-function formatIndexedReturn(value: number) {
+function formatIndexedReturn(value: number, locale: string) {
   return formatPercentRatio(value / 100 - 1, {
+    locale,
     maximumFractionDigits: 1,
     minimumFractionDigits: 1
   });
@@ -130,85 +114,68 @@ function formatPercentagePoint(value: number) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)} pp`;
 }
 
-function formatModeValue(value: number, mode: PerformanceMode) {
+function formatModeValue(value: number, mode: PerformanceMode, locale: string) {
   if (mode === "INDEXED") {
-    return formatIndexedReturn(value);
+    return formatIndexedReturn(value, locale);
   }
 
   return mode === "GAP" ? formatPercentagePoint(value) : formatSignedPercent(value);
 }
 
-function getModeCopy(mode: PerformanceMode) {
-  switch (mode) {
-    case "GAP":
-      return {
-        portfolioName: "Portfolio gap",
-        benchmarkName: "Benchmark baseline",
-        yAxisLabel: "Gap"
-      };
-    case "DRAWDOWN":
-      return {
-        portfolioName: "Portfolio drawdown",
-        benchmarkName: "Benchmark drawdown",
-        yAxisLabel: "Drawdown"
-      };
-    default:
-      return {
-        portfolioName: "Portfolio",
-        benchmarkName: "Benchmark",
-        yAxisLabel: "Return"
-      };
-  }
-}
-
 function getBasisLabel({
   benchmarkCurrency,
   comparisonBasis,
-  portfolioCurrency
+  portfolioCurrency,
+  copy
 }: {
   benchmarkCurrency: string | null;
   comparisonBasis: BenchmarkComparisonBasis | null;
   portfolioCurrency: string | null;
+  copy: ReturnType<typeof getUiCopy>["charts"]["benchmark"];
 }) {
   if (comparisonBasis === "same-currency") {
-    return portfolioCurrency == null ? "Same-currency return" : `${portfolioCurrency} return`;
+    return portfolioCurrency == null
+      ? copy.basis.sameCurrencyFallback
+      : copy.basis.sameCurrency(portfolioCurrency);
   }
 
   if (comparisonBasis === "native-currency-return") {
     return benchmarkCurrency == null
-      ? "Native-currency benchmark return"
-      : `${benchmarkCurrency} benchmark return, compared by %`;
+      ? copy.basis.nativeCurrencyFallback
+      : copy.basis.nativeCurrency(benchmarkCurrency);
   }
 
-  return "Performance return";
+  return copy.basis.performanceReturn;
 }
 
 function getUnavailableMessage({
   benchmarkSymbol,
+  copy,
   portfolioCurrency,
   status
 }: {
   benchmarkSymbol: string | null;
+  copy: ReturnType<typeof getUiCopy>["charts"]["benchmark"];
   portfolioCurrency: string | null;
   status: PortfolioBenchmarkTimelineStatus;
 }) {
   switch (status) {
     case "no-transactions":
-      return "Add a transaction to start the benchmark chart.";
+      return copy.unavailable.noTransactions;
     case "mixed-currency":
-      return "Benchmark comparison is disabled for mixed open-position currencies.";
+      return copy.unavailable.mixedCurrency;
     case "missing-portfolio-history":
-      return "Price history is incomplete for current holdings.";
+      return copy.unavailable.missingPortfolioHistory;
     case "benchmark-currency-mismatch":
       return benchmarkSymbol == null || portfolioCurrency == null
-        ? "The benchmark currency does not match the portfolio currency."
-        : `${benchmarkSymbol} is not quoted in ${portfolioCurrency}.`;
+        ? copy.unavailable.currencyMismatchFallback
+        : copy.unavailable.currencyMismatch(benchmarkSymbol, portfolioCurrency);
     case "missing-benchmark-history":
       return benchmarkSymbol == null
-        ? "Set a benchmark to enable comparison."
-        : `No cached history for ${benchmarkSymbol}.`;
+        ? copy.unavailable.missingBenchmarkFallback
+        : copy.unavailable.missingBenchmarkHistory(benchmarkSymbol);
     default:
-      return "Benchmark chart is not available yet.";
+      return copy.unavailable.default;
   }
 }
 
@@ -357,10 +324,12 @@ function getChartPoint(state: ChartMouseState | undefined) {
 function BenchmarkChartTooltip({
   active,
   label,
+  language,
   mode,
   payload
-}: BenchmarkChartTooltipProps & { mode: PerformanceMode }) {
+}: BenchmarkChartTooltipProps & { language: UiLanguage; mode: PerformanceMode }) {
   const point = payload?.[0]?.payload;
+  const locale = getUiLocale(language);
 
   if (!active || point == null || label == null) {
     return null;
@@ -368,7 +337,7 @@ function BenchmarkChartTooltip({
 
   return (
     <div className="chart-tooltip">
-      <span>{formatChartDate(label)}</span>
+      <span>{formatChartDate(label, locale)}</span>
       {payload?.map((item) => {
         const value = item.value;
 
@@ -384,7 +353,7 @@ function BenchmarkChartTooltip({
         return (
           <div className="chart-tooltip-row" key={item.dataKey}>
             <span>{item.name ?? item.dataKey}</span>
-            <strong>{formatModeValue(value, mode)}</strong>
+            <strong>{formatModeValue(value, mode, locale)}</strong>
             {mode !== "INDEXED" || change == null ? null : (
               <em className={change >= 0 ? "value-positive" : "value-negative"}>
                 {formatSignedPercent(change)}
@@ -401,10 +370,13 @@ export function BenchmarkChart({
   benchmarkSymbol,
   benchmarkCurrency,
   comparisonBasis,
+  language,
   portfolioCurrency,
   series,
   status
 }: BenchmarkChartProps) {
+  const copy = getUiCopy(language);
+  const locale = getUiLocale(language);
   const [timeframe, setTimeframe] = useState<TimeframeKey>("ALL");
   const [mode, setMode] = useState<PerformanceMode>("INDEXED");
   const [selection, setSelection] = useState<SelectionRange | null>(null);
@@ -488,7 +460,7 @@ export function BenchmarkChart({
     selectedPortfolioChange == null || selectedBenchmarkChange == null
       ? null
       : selectedPortfolioChange - selectedBenchmarkChange;
-  const modeCopy = getModeCopy(mode);
+  const modeCopy = copy.charts.benchmark.modeCopy[mode];
   const yDomain = useMemo(
     () =>
       getPaddedDomain(
@@ -536,48 +508,53 @@ export function BenchmarkChart({
     <article className="surface-card chart-card benchmark-chart-card">
       <div className="chart-card-header">
         <div>
-          <p className="eyebrow">Performance</p>
+          <p className="eyebrow">{copy.charts.benchmark.eyebrow}</p>
           <h2 className="section-title">
             {benchmarkSymbol == null
-              ? "Performance vs benchmark"
-              : `Performance vs ${benchmarkSymbol}`}
+              ? copy.charts.benchmark.titleDefault
+              : copy.charts.benchmark.titleWithSymbol(benchmarkSymbol)}
           </h2>
           {hasSeries ? (
             <p className="chart-subtitle">
-              {getBasisLabel({ benchmarkCurrency, comparisonBasis, portfolioCurrency })}
+              {getBasisLabel({
+                benchmarkCurrency,
+                comparisonBasis,
+                copy: copy.charts.benchmark,
+                portfolioCurrency
+              })}
             </p>
           ) : null}
         </div>
         <div className="chart-control-stack">
-          <div className="chart-view-modes" aria-label="Benchmark performance mode">
+          <div className="chart-view-modes" aria-label={copy.charts.benchmark.performanceMode}>
             {PERFORMANCE_MODE_OPTIONS.map((option) => (
               <button
-                aria-pressed={mode === option.key}
-                className={mode === option.key ? "active" : ""}
-                key={option.key}
+                aria-pressed={mode === option}
+                className={mode === option ? "active" : ""}
+                key={option}
                 onClick={() => {
-                  setMode(option.key);
+                  setMode(option);
                   setSelection(null);
                 }}
                 type="button"
               >
-                {option.label}
+                {copy.charts.benchmark.modes[option]}
               </button>
             ))}
           </div>
-          <div className="chart-timeframes" aria-label="Benchmark chart timeframe">
+          <div className="chart-timeframes" aria-label={copy.charts.benchmark.timeframe}>
             {TIMEFRAME_OPTIONS.map((option) => (
               <button
-                aria-pressed={timeframe === option.key}
-                className={timeframe === option.key ? "active" : ""}
-                key={option.key}
+                aria-pressed={timeframe === option}
+                className={timeframe === option ? "active" : ""}
+                key={option}
                 onClick={() => {
-                  setTimeframe(option.key);
+                  setTimeframe(option);
                   setSelection(null);
                 }}
                 type="button"
               >
-                {option.label}
+                {copy.charts.common.timeframes[option]}
               </button>
             ))}
           </div>
@@ -587,9 +564,9 @@ export function BenchmarkChart({
       {hasSeries ? (
         <div className="chart-workspace">
           {rangeStats == null ? null : (
-            <div className="chart-stat-strip" aria-label="Benchmark comparison range summary">
+            <div className="chart-stat-strip" aria-label={copy.charts.benchmark.rangeSummary}>
               <div>
-                <span>Portfolio</span>
+                <span>{copy.charts.benchmark.portfolio}</span>
                 <strong
                   className={
                     rangeStats.portfolioChange == null
@@ -605,7 +582,7 @@ export function BenchmarkChart({
                 </strong>
               </div>
               <div>
-                <span>{benchmarkSymbol ?? "Benchmark"}</span>
+                <span>{benchmarkSymbol ?? copy.charts.benchmark.benchmark}</span>
                 <strong
                   className={
                     rangeStats.benchmarkChange == null
@@ -621,7 +598,7 @@ export function BenchmarkChart({
                 </strong>
               </div>
               <div>
-                <span>{mode === "GAP" ? "Latest gap" : "Gap"}</span>
+                <span>{mode === "GAP" ? copy.charts.benchmark.latestGap : copy.charts.benchmark.gap}</span>
                 <strong
                   className={
                     rangeStats.gap == null
@@ -636,7 +613,7 @@ export function BenchmarkChart({
               </div>
               <div>
                 <span>{modeCopy.yAxisLabel}</span>
-                <strong>{formatModeValue(rangeStats.latestPoint.portfolioDisplay, mode)}</strong>
+                <strong>{formatModeValue(rangeStats.latestPoint.portfolioDisplay, mode, locale)}</strong>
               </div>
             </div>
           )}
@@ -654,7 +631,7 @@ export function BenchmarkChart({
                 <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 6" vertical={false} />
                 <XAxis
                   dataKey="date"
-                  tickFormatter={formatAxisDate}
+                  tickFormatter={(value: string) => formatAxisDate(value, locale)}
                   tickLine={false}
                   axisLine={false}
                   minTickGap={28}
@@ -663,7 +640,7 @@ export function BenchmarkChart({
                   stroke="var(--chart-axis)"
                 />
                 <YAxis
-                  tickFormatter={(value: number) => formatModeValue(value, mode)}
+                  tickFormatter={(value: number) => formatModeValue(value, mode, locale)}
                   tickLine={false}
                   axisLine={false}
                   width={76}
@@ -673,7 +650,7 @@ export function BenchmarkChart({
                 />
                 <Tooltip
                   cursor={{ stroke: "rgba(17, 27, 23, 0.16)", strokeWidth: 1 }}
-                  content={<BenchmarkChartTooltip mode={mode} />}
+                  content={<BenchmarkChartTooltip language={language} mode={mode} />}
                 />
                 {!hasActiveSelection || selection == null ? null : (
                   <ReferenceArea
@@ -720,22 +697,22 @@ export function BenchmarkChart({
               selectionPoints == null ||
               selectedPortfolioChange == null ||
               selectedBenchmarkChange == null ? (
-                <span>Drag across the chart to compare</span>
+                <span>{copy.charts.common.dragToCompare}</span>
               ) : (
                 <>
                 <span>
-                  {formatChartDate(selectionPoints.startPoint.date)} to{" "}
-                  {formatChartDate(selectionPoints.endPoint.date)}
+                  {formatChartDate(selectionPoints.startPoint.date, locale)}{" "}
+                  {copy.charts.common.to} {formatChartDate(selectionPoints.endPoint.date, locale)}
                 </span>
                 <strong className={selectedPortfolioChange >= 0 ? "value-positive" : "value-negative"}>
-                  Portfolio {formatSignedPercent(selectedPortfolioChange)}
+                  {copy.charts.benchmark.portfolio} {formatSignedPercent(selectedPortfolioChange)}
                 </strong>
                 <span className={selectedBenchmarkChange >= 0 ? "value-positive" : "value-negative"}>
-                  {benchmarkSymbol ?? "Benchmark"} {formatSignedPercent(selectedBenchmarkChange)}
+                  {benchmarkSymbol ?? copy.charts.benchmark.benchmark} {formatSignedPercent(selectedBenchmarkChange)}
                 </span>
                 {selectedGap == null ? null : (
                   <span className={selectedGap >= 0 ? "value-positive" : "value-negative"}>
-                    Gap {formatPercentagePoint(selectedGap)}
+                    {copy.charts.benchmark.gap} {formatPercentagePoint(selectedGap)}
                   </span>
                 )}
                 </>
@@ -745,8 +722,15 @@ export function BenchmarkChart({
         </div>
       ) : (
         <div className="chart-empty-state">
-          <strong>No chart data</strong>
-          <p>{getUnavailableMessage({ benchmarkSymbol, portfolioCurrency, status })}</p>
+          <strong>{copy.charts.common.noChartData}</strong>
+          <p>
+            {getUnavailableMessage({
+              benchmarkSymbol,
+              copy: copy.charts.benchmark,
+              portfolioCurrency,
+              status
+            })}
+          </p>
         </div>
       )}
     </article>
