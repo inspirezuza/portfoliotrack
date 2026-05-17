@@ -1223,10 +1223,12 @@ html[data-theme="dark"] .secondary-button {
 .transaction-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px 12px;
+  gap: 12px;
 }
 
 .transaction-panel {
+  width: min(100%, 1120px);
+  justify-self: start;
   padding: 16px;
 }
 
@@ -1445,7 +1447,7 @@ html[data-theme="dark"] .secondary-button {
 }
 
 .field-group textarea {
-  min-height: 96px;
+  min-height: 86px;
   resize: vertical;
 }
 
@@ -1570,6 +1572,22 @@ html[data-theme="dark"] .secondary-button {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+@media (min-width: 1181px) {
+  .transaction-form {
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+  }
+
+  .transaction-form .field-group:not(.field-group-wide) {
+    grid-column: span 2;
+  }
+
+  .transaction-form .field-group-wide,
+  .transaction-form .form-banner,
+  .transaction-form .transaction-form-footer {
+    grid-column: 1 / -1;
+  }
 }
 
 .transaction-table-wrap {
