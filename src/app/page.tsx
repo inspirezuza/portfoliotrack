@@ -4,6 +4,7 @@ import { HoldingsAllocationChart } from "@/components/holdings-allocation-chart"
 import { PortfolioChart } from "@/components/portfolio-chart";
 import { formatCurrency, formatPercentRatio, formatQuantity } from "@/lib/format";
 import { isAdminAuthenticated } from "@/lib/auth/admin";
+import { getPortfolioSelection } from "@/lib/portfolio/selection";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getServerUiLanguage } from "@/lib/ui/server";
 import { getUiLocale } from "@/lib/ui/translations";
@@ -185,7 +186,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const copy = getUiCopy(language);
   const locale = getUiLocale(language);
   const isAdmin = await isAdminAuthenticated();
+  const { selectedPortfolio } = await getPortfolioSelection();
   const { summary, holdingsSnapshot, marketData, timeline } = await getDashboardSnapshot({
+    portfolioId: selectedPortfolio.id,
     ensureFresh: isAdmin
   });
   const resolvedSearchParams = (await searchParams) ?? {};
@@ -236,6 +239,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <div>
           <p className="eyebrow">{copy.dashboard.workspace}</p>
           <h1>{copy.dashboard.title}</h1>
+          <p>{selectedPortfolio.name}</p>
         </div>
 
         {isAdmin ? (

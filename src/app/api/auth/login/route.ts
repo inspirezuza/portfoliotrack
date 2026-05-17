@@ -6,21 +6,27 @@ import {
   verifyAdminCredentials
 } from "@/lib/auth/admin";
 
-function getSafeRedirect(request: Request, value: string | null) {
-  const requestUrl = new URL(request.url);
+function getSafeRedirectPath(value: string | null) {
   const target = value?.trim() || "/transactions";
-  const candidate = new URL(target, requestUrl);
 
   if (
     target.startsWith("/") &&
     !target.startsWith("//") &&
-    !target.startsWith("/\\") &&
-    candidate.origin === requestUrl.origin
+    !target.startsWith("/\\")
   ) {
-    return new URL(`${candidate.pathname}${candidate.search}${candidate.hash}`, requestUrl);
+    return target;
   }
 
-  return new URL("/transactions", requestUrl);
+  return "/transactions";
+}
+
+function redirectResponse(location: string) {
+  return new NextResponse(null, {
+    status: 303,
+    headers: {
+      Location: location
+    }
+  });
 }
 
 async function parseLoginRequest(request: Request) {
@@ -64,10 +70,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const redirectUrl = getSafeRedirect(request, "/login");
-    redirectUrl.searchParams.set("error", "invalid");
-    redirectUrl.searchParams.set("next", login.next || "/transactions");
-    return NextResponse.redirect(redirectUrl, { status: 303 });
+    const redirectUrl = new URLSearchParams({
+      error: "invalid",
+      next: getSafeRedirectPath(login.next)
+    });
+
+    return redirectResponse(`/login?${redirectUrl.toString()}`);
   }
 
   const cookieValue = createAdminSessionCookieValue(login.username);
@@ -85,7 +93,7 @@ export async function POST(request: Request) {
     return response;
   }
 
-  const response = NextResponse.redirect(getSafeRedirect(request, login.next), { status: 303 });
+  const response = redirectResponse(getSafeRedirectPath(login.next));
   response.cookies.set(
     adminSessionCookieName,
     cookieValue,

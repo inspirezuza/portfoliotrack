@@ -1,4 +1,5 @@
 import { isAdminAuthenticated } from "@/lib/auth/admin";
+import { getSelectedPortfolioId } from "@/lib/portfolio/selection";
 import {
   commitTransactionImport,
   previewTransactionImport,
@@ -72,10 +73,11 @@ export async function POST(request: Request) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
+    const portfolioId = await getSelectedPortfolioId();
     const preview =
       mode === "preview"
-        ? await previewTransactionImport(buffer)
-        : await commitTransactionImport(buffer);
+        ? await previewTransactionImport(buffer, { portfolioId })
+        : await commitTransactionImport(buffer, { portfolioId });
 
     return Response.json({
       mode,

@@ -1,6 +1,7 @@
 import { HoldingsTable } from "@/components/holdings-table";
 import { SummaryCards } from "@/components/summary-cards";
 import { isAdminAuthenticated } from "@/lib/auth/admin";
+import { getPortfolioSelection } from "@/lib/portfolio/selection";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getServerUiLanguage } from "@/lib/ui/server";
 import { getUiLocale } from "@/lib/ui/translations";
@@ -34,7 +35,9 @@ export default async function HoldingsPage() {
   const copy = getUiCopy(language);
   const locale = getUiLocale(language);
   const isAdmin = await isAdminAuthenticated();
+  const { selectedPortfolio } = await getPortfolioSelection();
   const { summary, holdingsSnapshot } = await getDashboardSnapshot({
+    portfolioId: selectedPortfolio.id,
     ensureFresh: isAdmin
   });
 
@@ -44,6 +47,7 @@ export default async function HoldingsPage() {
         <div>
           <p className="eyebrow">{copy.holdings.pageEyebrow}</p>
           <h1>{copy.holdings.pageTitle}</h1>
+          <p>{selectedPortfolio.name}</p>
         </div>
       </div>
 

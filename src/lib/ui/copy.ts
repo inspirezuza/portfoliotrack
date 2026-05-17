@@ -28,6 +28,8 @@ const uiCopy = {
       mainNavigation: "เมนูหลัก",
       homeLabel: "PortfolioTrack หน้าแรก",
       primaryNavigation: "การนำทางหลัก",
+      portfolioLabel: "พอร์ต",
+      managePortfolios: "จัดการ",
       nav: {
         dashboard: "ภาพรวม",
         holdings: "หุ้นที่ถือ",
@@ -378,6 +380,8 @@ const uiCopy = {
       mainNavigation: "Main navigation",
       homeLabel: "PortfolioTrack home",
       primaryNavigation: "Primary",
+      portfolioLabel: "Portfolio",
+      managePortfolios: "Manage",
       nav: {
         dashboard: "Dashboard",
         holdings: "Holdings",

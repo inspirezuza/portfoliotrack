@@ -46,10 +46,29 @@ export const instruments = pgTable(
   })
 );
 
+export const portfolios = pgTable(
+  "portfolios",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    isDefault: boolean("is_default").notNull().default(false),
+    ...timestamps
+  },
+  (table) => ({
+    nameUniqueIdx: uniqueIndex("portfolios_name_unique").on(table.name),
+    defaultUniqueIdx: uniqueIndex("portfolios_default_unique").on(table.isDefault).where(
+      sql`${table.isDefault} = true`
+    )
+  })
+);
+
 export const transactions = pgTable(
   "transactions",
   {
     id: serial("id").primaryKey(),
+    portfolioId: integer("portfolio_id")
+      .notNull()
+      .references(() => portfolios.id, { onDelete: "cascade", onUpdate: "cascade" }),
     instrumentId: integer("instrument_id")
       .notNull()
       .references(() => instruments.id, { onDelete: "restrict", onUpdate: "cascade" }),
@@ -64,6 +83,7 @@ export const transactions = pgTable(
   (table) => ({
     // Deterministic same-day ordering is tradeDate, then createdAt, then id.
     tradeExecutionOrderIdx: index("transactions_trade_execution_order_idx").on(
+      table.portfolioId,
       table.instrumentId,
       table.tradeDate,
       table.createdAt,
@@ -167,6 +187,8 @@ export const appSettings = pgTable(
 
 export type Instrument = typeof instruments.$inferSelect;
 export type NewInstrument = typeof instruments.$inferInsert;
+export type Portfolio = typeof portfolios.$inferSelect;
+export type NewPortfolio = typeof portfolios.$inferInsert;
 export type Transaction = typeof transactions.$inferSelect;
 export type NewTransaction = typeof transactions.$inferInsert;
 export type PriceSnapshot = typeof priceSnapshots.$inferSelect;

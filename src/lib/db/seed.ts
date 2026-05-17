@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { createDatabaseHandle } from "./client";
-import { appSettings, instruments, type NewInstrument } from "./schema";
+import { appSettings, instruments, portfolios, type NewInstrument } from "./schema";
 
 const defaultInstruments: NewInstrument[] = [
   {
@@ -65,6 +65,12 @@ async function main() {
           updatedAt: sql`CURRENT_TIMESTAMP`
         }
       });
+
+    await tx.execute(sql`
+      INSERT INTO ${portfolios} (${portfolios.name}, ${portfolios.isDefault})
+      SELECT 'Main Portfolio', true
+      WHERE NOT EXISTS (SELECT 1 FROM ${portfolios})
+    `);
 
     for (const setting of defaultSettings) {
       await tx.insert(appSettings)

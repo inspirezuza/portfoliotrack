@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/runtime";
 import { instruments, transactions, type Instrument, type NewTransaction } from "@/lib/db/schema";
 import { normalizeMoney, normalizePrice, normalizeQuantity } from "@/lib/db/precision";
@@ -20,6 +20,7 @@ import {
 } from "@/lib/transactions/excel";
 import { transactionInputSchema, type TransactionInput } from "@/lib/validation/transaction";
 import { listTransactions, toChronologicalPositionTransaction } from "@/server/transactions";
+import { parsePortfolioId } from "@/server/portfolios";
 
 export const MAX_TRANSACTION_IMPORT_FILE_SIZE = 5 * 1024 * 1024;
 export const MAX_TRANSACTION_IMPORT_ROWS = 5000;
@@ -199,7 +200,7 @@ function resolveInstrument(row: ParsedTransactionExcelRow, instrumentById: Map<n
   };
 }
 
-async function getImportContext() {
+async function getImportContext(portfolioId: number) {
   const instrumentRows = db
     .select({
       id: instruments.id,
@@ -225,6 +226,7 @@ async function getImportContext() {
       createdAt: transactions.createdAt
     })
     .from(transactions)
+    .where(eq(transactions.portfolioId, portfolioId))
     .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id));
 
   return {
@@ -289,7 +291,7 @@ function getPositionValidationErrors(
   return errors;
 }
 
-async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[]) {
+async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfolioId: number) {
   if (parsedRows.length > MAX_TRANSACTION_IMPORT_ROWS) {
     throw new TransactionImportExportError(
       "TOO_MANY_ROWS",
@@ -297,7 +299,7 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[]) {
     );
   }
 
-  const context = await getImportContext();
+  const context = await getImportContext(portfolioId);
   const instrumentById = new Map(context.instruments.map((instrument) => [instrument.id, instrument]));
   const instrumentByProviderSymbol = new Map(
     context.instruments.map((instrument) => [normalizeLookupValue(instrument.providerSymbol), instrument])
@@ -451,8 +453,9 @@ async function parseImportBuffer(buffer: Buffer) {
   }
 }
 
-function buildInsertValue(input: TransactionInput): NewTransaction {
+function buildInsertValue(input: TransactionInput, portfolioId: number): NewTransaction {
   return {
+    portfolioId,
     instrumentId: input.instrumentId,
     tradeDate: input.tradeDate,
     side: input.side,
@@ -464,11 +467,14 @@ function buildInsertValue(input: TransactionInput): NewTransaction {
 }
 
 export async function buildTransactionExport({
+  portfolioId: portfolioIdInput,
   template = false
 }: {
+  portfolioId: number;
   template?: boolean;
 }) {
-  const transactionRows = template ? [] : await listTransactions({ order: "asc" });
+  const portfolioId = parsePortfolioId(portfolioIdInput);
+  const transactionRows = template ? [] : await listTransactions({ portfolioId, order: "asc" });
   const buffer = await buildTransactionExcelWorkbook(transactionRows);
   const fileName = template
     ? "PortfolioTrack-transaction-template.xlsx"
@@ -480,13 +486,18 @@ export async function buildTransactionExport({
   };
 }
 
-export async function previewTransactionImport(buffer: Buffer): Promise<TransactionImportPreview> {
+export async function previewTransactionImport(
+  buffer: Buffer,
+  { portfolioId: portfolioIdInput }: { portfolioId: number }
+): Promise<TransactionImportPreview> {
+  const portfolioId = parsePortfolioId(portfolioIdInput);
+
   if (buffer.byteLength > MAX_TRANSACTION_IMPORT_FILE_SIZE) {
     throw new TransactionImportExportError("IMPORT_TOO_LARGE", "Import file must be 5MB or smaller.");
   }
 
   const parsedWorkbook = await parseImportBuffer(buffer);
-  const evaluation = await buildEvaluation(parsedWorkbook.rows);
+  const evaluation = await buildEvaluation(parsedWorkbook.rows, portfolioId);
 
   return {
     counts: evaluation.counts,
@@ -494,13 +505,18 @@ export async function previewTransactionImport(buffer: Buffer): Promise<Transact
   };
 }
 
-export async function commitTransactionImport(buffer: Buffer): Promise<TransactionImportPreview> {
+export async function commitTransactionImport(
+  buffer: Buffer,
+  { portfolioId: portfolioIdInput }: { portfolioId: number }
+): Promise<TransactionImportPreview> {
+  const portfolioId = parsePortfolioId(portfolioIdInput);
+
   if (buffer.byteLength > MAX_TRANSACTION_IMPORT_FILE_SIZE) {
     throw new TransactionImportExportError("IMPORT_TOO_LARGE", "Import file must be 5MB or smaller.");
   }
 
   const parsedWorkbook = await parseImportBuffer(buffer);
-  const evaluation = await buildEvaluation(parsedWorkbook.rows);
+  const evaluation = await buildEvaluation(parsedWorkbook.rows, portfolioId);
 
   if (evaluation.counts.errorRows > 0) {
     throw new TransactionImportExportError(
@@ -523,6 +539,7 @@ export async function commitTransactionImport(buffer: Buffer): Promise<Transacti
         createdAt: transactions.createdAt
       })
       .from(transactions)
+      .where(eq(transactions.portfolioId, portfolioId))
       .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id));
 
     calculatePositions([
@@ -541,7 +558,7 @@ export async function commitTransactionImport(buffer: Buffer): Promise<Transacti
 
     if (evaluation.readyRows.length > 0) {
       await tx.insert(transactions).values(
-        evaluation.readyRows.map((row) => buildInsertValue(row.input))
+        evaluation.readyRows.map((row) => buildInsertValue(row.input, portfolioId))
       );
     }
   });

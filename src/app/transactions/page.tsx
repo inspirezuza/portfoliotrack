@@ -2,6 +2,7 @@ import { TransactionForm } from "@/components/transaction-form";
 import { TransactionExcelTools } from "@/components/transaction-excel-tools";
 import { TransactionTable } from "@/components/transaction-table";
 import { isAdminAuthenticated } from "@/lib/auth/admin";
+import { getPortfolioSelection } from "@/lib/portfolio/selection";
 import { sortInstrumentOptions } from "@/lib/transactions/instrument-selection";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getServerUiLanguage } from "@/lib/ui/server";
@@ -30,12 +31,13 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
   const language = await getServerUiLanguage();
   const copy = getUiCopy(language);
   const isAdmin = await isAdminAuthenticated();
+  const { selectedPortfolio } = await getPortfolioSelection();
   const resolvedSearchParams = await searchParams;
   const editTransactionId = isAdmin ? parseEditTransactionId(resolvedSearchParams?.edit) : null;
   const [transactions, allInstruments, instruments] = await Promise.all([
-    listTransactions({ order: "desc" }),
-    listTransactionInstrumentOptions({ activeOnly: false }),
-    listSelectableTransactionInstrumentOptions()
+    listTransactions({ portfolioId: selectedPortfolio.id, order: "desc" }),
+    listTransactionInstrumentOptions({ portfolioId: selectedPortfolio.id, activeOnly: false }),
+    listSelectableTransactionInstrumentOptions({ portfolioId: selectedPortfolio.id })
   ]);
   const editingTransaction =
     editTransactionId == null
@@ -63,7 +65,7 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
         <div>
           <p className="eyebrow">{copy.transactions.pageEyebrow}</p>
           <h1>{copy.transactions.pageTitle}</h1>
-          <p>{copy.transactions.pageDescription}</p>
+          <p>{copy.transactions.pageDescription} {selectedPortfolio.name}</p>
         </div>
       </div>
 

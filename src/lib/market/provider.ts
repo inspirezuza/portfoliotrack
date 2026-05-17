@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { OperationTimeoutError, withOperationTimeout } from "@/lib/async/timeout";
 import { db } from "@/lib/db/runtime";
 import { appSettings, historicalPrices, instruments, intradayPrices, priceSnapshots, transactions } from "@/lib/db/schema";
@@ -12,6 +12,7 @@ import type {
   MarketQuoteSnapshot
 } from "@/lib/market/types";
 import { yahooProvider } from "@/lib/market/yahoo-provider";
+import { parsePortfolioId } from "@/server/portfolios";
 
 const DEFAULT_BENCHMARK_SYMBOL = "SPY";
 const DEFAULT_MARKET_REFRESH_MINUTES = 30;
@@ -311,10 +312,13 @@ async function runAutoRefreshBestEffort(context: RefreshContext, timeoutMs: numb
 }
 
 async function buildRefreshContext({
+  portfolioId: portfolioIdInput,
   includeBenchmark = true
 }: {
+  portfolioId: number;
   includeBenchmark?: boolean;
-} = {}): Promise<RefreshContext> {
+}): Promise<RefreshContext> {
+  const portfolioId = parsePortfolioId(portfolioIdInput);
   const [{ benchmarkSymbol, marketRefreshMinutes }, instrumentRows, transactionRows] = await Promise.all([
     getMarketSettings(),
     db.select().from(instruments),
@@ -324,6 +328,7 @@ async function buildRefreshContext({
         tradeDate: transactions.tradeDate
       })
       .from(transactions)
+      .where(eq(transactions.portfolioId, portfolioId))
       .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id))
   ]);
   const today = getCurrentLocalIsoDate();
@@ -406,13 +411,15 @@ async function hasIncompleteHistoricalData({
 }
 
 export async function ensureFreshMarketDataCache({
+  portfolioId,
   includeBenchmark = true,
   timeoutMs = DEFAULT_AUTO_REFRESH_TIMEOUT_MS
 }: {
+  portfolioId: number;
   includeBenchmark?: boolean;
   timeoutMs?: number | null;
-} = {}) {
-  const context = await buildRefreshContext({ includeBenchmark });
+}) {
+  const context = await buildRefreshContext({ portfolioId, includeBenchmark });
   const { marketRefreshMinutes, targets } = context;
 
   if (targets.length === 0) {
@@ -441,9 +448,10 @@ export async function ensureFreshMarketDataCache({
 }
 
 export async function refreshMarketDataCache(
+  { portfolioId }: { portfolioId: number },
   existingContext?: RefreshContext
 ): Promise<MarketDataRefreshResult> {
-  const context = existingContext ?? (await buildRefreshContext());
+  const context = existingContext ?? (await buildRefreshContext({ portfolioId }));
 
   return runRefreshWithDedup(context);
 }
