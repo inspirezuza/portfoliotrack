@@ -181,71 +181,27 @@ html[data-theme="dark"] .nav-link-active {
 }
 
 .nav-icon {
-  position: relative;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  color: currentColor;
+}
+
+.nav-icon svg {
   display: block;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.9;
 }
 
-.nav-icon::before,
-.nav-icon::after {
-  position: absolute;
-  display: block;
-  content: "";
-}
-
-.nav-icon[data-nav-icon="dashboard"]::before {
-  inset: 3px;
-  border: 2px solid currentColor;
-  border-radius: 5px;
-  box-shadow:
-    -7px -7px 0 -5px currentColor,
-    7px -7px 0 -5px currentColor,
-    -7px 7px 0 -5px currentColor,
-    7px 7px 0 -5px currentColor;
-}
-
-.nav-icon[data-nav-icon="holdings"]::before {
-  right: 3px;
-  bottom: 3px;
-  left: 3px;
-  height: 3px;
-  border-radius: 999px;
-  background: currentColor;
-  box-shadow:
-    0 -5px 0 currentColor,
-    0 -10px 0 currentColor;
-}
-
-.nav-icon[data-nav-icon="holdings"]::after {
-  top: 3px;
-  bottom: 3px;
-  left: 8px;
-  width: 3px;
-  border-radius: 999px;
-  background: currentColor;
-  box-shadow: 6px 4px 0 currentColor;
-}
-
-.nav-icon[data-nav-icon="transactions"]::before {
-  top: 5px;
-  right: 3px;
-  left: 3px;
-  height: 2px;
-  border-radius: 999px;
-  background: currentColor;
-  box-shadow: 0 8px 0 currentColor;
-}
-
-.nav-icon[data-nav-icon="transactions"]::after {
-  top: 2px;
-  right: 2px;
-  width: 7px;
-  height: 7px;
-  border-top: 2px solid currentColor;
-  border-right: 2px solid currentColor;
-  transform: rotate(45deg);
-  box-shadow: -9px 9px 0 -2px currentColor;
+.nav-link-active .nav-icon svg {
+  stroke-width: 2.05;
 }
 
 .nav-full {
@@ -335,6 +291,7 @@ html[data-theme="dark"] .shell-main {
   border: 0;
   border-radius: 999px;
   min-width: 38px;
+  min-height: 34px;
   padding: 7px 10px;
   color: var(--muted);
   background: transparent;
@@ -342,6 +299,33 @@ html[data-theme="dark"] .shell-main {
   font-weight: 700;
   line-height: 1;
   transition: transform 120ms ease;
+}
+
+.preference-icon-button {
+  display: inline-grid;
+  width: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  place-items: center;
+  padding: 0;
+}
+
+.preference-icon {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+}
+
+.preference-icon svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
 }
 
 .preference-button:hover {
@@ -379,6 +363,7 @@ html[data-theme="dark"] .preference-button[aria-pressed="true"] {
 
 .shell-content {
   flex: 1;
+  min-width: 0;
   padding: 16px 18px;
 }
 
@@ -394,7 +379,22 @@ html[data-theme="dark"] .preference-button[aria-pressed="true"] {
 .chart-card,
 .asset-sidebar-card {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 12px;
+}
+
+.workstation-page > *,
+.transactions-page > *,
+.asset-detail-page > *,
+.workstation-grid > *,
+.asset-layout > *,
+.chart-card > *,
+.chart-workspace > *,
+.feature-stack > *,
+.surface-card > *,
+.metric-card > * {
+  min-width: 0;
 }
 
 .workstation-topbar {
@@ -470,6 +470,7 @@ html[data-theme="dark"] .metric-card-hero {
   font-weight: 750;
   line-height: 1.08;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
 }
 
 .metric-value-xl {
@@ -534,6 +535,7 @@ html[data-theme="dark"] .state-pill-muted {
   grid-template-columns: minmax(0, 1.9fr) minmax(300px, 0.72fr);
   gap: 12px;
   align-items: start;
+  min-width: 0;
 }
 
 .surface-card,
@@ -587,6 +589,7 @@ html[data-theme="dark"] .route-card {
 
 .chart-shell {
   position: relative;
+  min-width: 0;
   padding: 10px 18px 10px 18px;
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -606,6 +609,8 @@ html[data-theme="dark"] .route-card {
 
 .chart-workspace {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 10px;
   margin-top: 8px;
 }
@@ -636,6 +641,7 @@ html[data-theme="dark"] .route-card {
 .chart-view-modes button,
 .chart-timeframes button {
   min-width: 42px;
+  min-height: 36px;
   border: 1px solid transparent;
   border-radius: 999px;
   padding: 7px 10px;
@@ -1087,6 +1093,7 @@ html[data-theme="dark"] .holdings-pie-legend li > span {
 .secondary-button {
   border: 0;
   border-radius: 999px;
+  min-height: 42px;
   padding: 10px 14px;
   font-size: 0.9rem;
   font-weight: 700;
@@ -1095,6 +1102,7 @@ html[data-theme="dark"] .holdings-pie-legend li > span {
 .compact-button {
   border: 1px solid var(--line-strong);
   border-radius: 999px;
+  min-height: 40px;
   padding: 8px 12px;
   color: var(--accent);
   background: var(--surface-strong);
@@ -1148,6 +1156,7 @@ html[data-theme="dark"] .secondary-button {
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
+  min-width: 0;
   padding: 11px 0;
   border-bottom: 1px solid var(--line);
 }
@@ -1215,6 +1224,7 @@ html[data-theme="dark"] .secondary-button {
 
 .field-group {
   display: grid;
+  min-width: 0;
   gap: 6px;
 }
 
@@ -1374,6 +1384,7 @@ html[data-theme="dark"] .secondary-button {
 }
 
 .transaction-table-wrap {
+  max-width: 100%;
   max-height: min(68vh, 760px);
   overflow: auto;
   border: 1px solid rgba(18, 31, 25, 0.08);
@@ -1583,7 +1594,7 @@ html[data-theme="dark"] .table-search input {
 
 .table-filter-button {
   border-radius: 999px;
-  min-height: 32px;
+  min-height: 36px;
   padding: 7px 11px;
   color: var(--muted);
   background: transparent;
@@ -1721,7 +1732,7 @@ html[data-theme="dark"] .table-filter-button[aria-pressed="true"] {
 .table-refresh-button {
   width: fit-content;
   min-width: 132px;
-  min-height: 40px;
+  min-height: 42px;
   box-shadow: 0 8px 18px rgba(8, 116, 93, 0.18);
 }
 
@@ -1787,6 +1798,7 @@ html[data-theme="dark"] .transaction-table tbody td {
 .table-action-link {
   display: inline-flex;
   align-items: center;
+  min-height: 36px;
   border-radius: 999px;
   padding: 6px 9px;
   color: var(--accent);
@@ -1811,6 +1823,7 @@ html[data-theme="dark"] .transaction-table tbody td {
 .table-action-button {
   display: inline-flex;
   align-items: center;
+  min-height: 36px;
   border: 0;
   border-radius: 999px;
   padding: 6px 9px;
@@ -1960,13 +1973,16 @@ html[data-theme="dark"] .holdings-weight-bar {
 }
 
 .detail-list dt {
+  min-width: 0;
   color: var(--ink);
   font-weight: 650;
 }
 
 .detail-list dd {
+  min-width: 0;
   margin: 0;
   color: var(--muted);
+  overflow-wrap: anywhere;
   text-align: right;
 }
 
@@ -1977,11 +1993,20 @@ html[data-theme="dark"] .holdings-weight-bar {
   gap: 12px;
 }
 
+.asset-title-lockup > div {
+  min-width: 0;
+}
+
+.asset-title-lockup h1 {
+  overflow-wrap: anywhere;
+}
+
 .asset-title-muted {
   color: var(--muted);
   font-size: 0.42em;
   font-weight: 600;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
 }
 
 .asset-performance-grid,
@@ -2013,6 +2038,7 @@ html[data-theme="dark"] .dr-step {
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
 }
 
 .panel-title,
@@ -2136,11 +2162,13 @@ html[data-theme="dark"] .subtabs .active {
   .shell-nav {
     flex: 1;
     flex-direction: row;
-    justify-content: flex-end;
+    justify-content: stretch;
   }
 
   .nav-link {
-    min-height: 40px;
+    flex: 1 1 0;
+    min-width: 44px;
+    min-height: 44px;
     gap: 2px;
     padding: 5px 8px;
     border-radius: 12px;
@@ -2148,8 +2176,13 @@ html[data-theme="dark"] .subtabs .active {
   }
 
   .nav-icon {
-    width: 15px;
-    height: 15px;
+    width: 18px;
+    height: 18px;
+  }
+
+  .nav-icon svg {
+    width: 18px;
+    height: 18px;
   }
 
   .shell-header,
@@ -2165,16 +2198,73 @@ html[data-theme="dark"] .subtabs .active {
   .shell-header {
     align-items: center;
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    gap: 8px;
+    min-height: 54px;
+    padding: 8px 10px;
+  }
+
+  .brand-lockup {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .brand-name {
+    max-width: 128px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .shell-actions {
-    width: 100%;
-    justify-content: flex-start;
+    width: auto;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-left: auto;
+  }
+
+  .preference-group {
+    flex: 0 0 auto;
+  }
+
+  .preference-button {
+    min-width: 34px;
+    min-height: 36px;
+    padding: 6px 8px;
+    font-size: 0.74rem;
+  }
+
+  .preference-icon-button {
+    width: 36px;
+    min-width: 36px;
+    padding: 0;
   }
 
   .transactions-workspace .workstation-topbar {
     align-items: stretch;
+  }
+
+  .asset-topbar {
+    flex-wrap: wrap;
+  }
+
+  .asset-title-lockup {
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .asset-title-muted {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.52em;
+    line-height: 1.18;
+  }
+
+  .asset-topbar .state-pill {
+    max-width: 100%;
+    white-space: normal;
   }
 
   .chart-control-stack {
@@ -2188,6 +2278,7 @@ html[data-theme="dark"] .subtabs .active {
   }
 
   .shell-content {
+    min-width: 0;
     padding: 10px;
   }
 
@@ -2220,6 +2311,22 @@ html[data-theme="dark"] .subtabs .active {
 
   .primary-button,
   .secondary-button {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .compact-button,
+  .preference-button,
+  .chart-view-modes button,
+  .chart-timeframes button,
+  .table-filter-button,
+  .table-sort-button,
+  .table-action-link,
+  .table-action-button {
+    min-height: 40px;
+  }
+
+  .table-search {
     width: 100%;
   }
 
@@ -2255,6 +2362,14 @@ html[data-theme="dark"] .subtabs .active {
     margin: 0 5px 8px;
     border-radius: var(--radius-md);
   }
+
+  .detail-list div {
+    align-items: flex-start;
+  }
+
+  .detail-list dd {
+    max-width: 65%;
+  }
 }
 
 @media (max-width: 480px) {
@@ -2267,17 +2382,30 @@ html[data-theme="dark"] .subtabs .active {
   }
 
   .nav-link {
-    min-width: 0;
+    min-width: 44px;
     padding: 5px 6px;
   }
 
   .shell-actions {
-    gap: 6px;
+    gap: 4px;
+  }
+
+  .preference-group {
+    gap: 2px;
+    padding: 2px;
   }
 
   .preference-button {
-    min-width: 34px;
-    padding: 7px 8px;
+    min-width: 30px;
+    min-height: 36px;
+    padding: 6px 7px;
+    font-size: 0.72rem;
+  }
+
+  .preference-icon-button {
+    width: 36px;
+    min-width: 36px;
+    padding: 0;
   }
 
   .surface-card,
@@ -2288,16 +2416,23 @@ html[data-theme="dark"] .subtabs .active {
   }
 
   .transaction-table {
-    min-width: 820px;
+    min-width: 780px;
   }
 
   .holdings-table {
-    min-width: 860px;
+    min-width: 980px;
+  }
+
+  .transaction-table th,
+  .transaction-table td {
+    padding: 10px 12px;
   }
 
   .chart-view-modes button,
-  .chart-timeframes button {
+  .chart-timeframes button,
+  .table-sort-button {
     flex: 1 1 44px;
+    min-height: 44px;
   }
 
   .chart-stat-strip {
