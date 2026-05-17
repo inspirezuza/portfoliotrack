@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAdminAuthenticated } from "@/lib/auth/admin";
 import { refreshMarketDataCache } from "@/lib/market/provider";
 
 function jsonErrorResponse(code: string, message: string, status: number) {
@@ -60,6 +61,14 @@ export async function POST(request: Request) {
   const expectsRedirect = isFormSubmissionRequest(request);
 
   try {
+    if (!(await isAdminAuthenticated())) {
+      if (expectsRedirect) {
+        return NextResponse.redirect(new URL("/login?next=/", request.url), { status: 303 });
+      }
+
+      return jsonErrorResponse("ADMIN_REQUIRED", "Admin login is required to refresh market data.", 401);
+    }
+
     if (expectsRedirect) {
       formSearchParams = await getFormSearchParams(request);
     }

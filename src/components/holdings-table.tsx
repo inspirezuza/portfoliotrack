@@ -9,6 +9,7 @@ import { InstrumentLogo } from "@/components/instrument-logo";
 
 type HoldingsTableProps = {
   holdings: HoldingRow[];
+  canRefresh?: boolean;
 };
 
 type HoldingSortKey =
@@ -199,7 +200,7 @@ function SortableHeader({
   );
 }
 
-export function HoldingsTable({ holdings }: HoldingsTableProps) {
+export function HoldingsTable({ holdings, canRefresh = false }: HoldingsTableProps) {
   const router = useRouter();
   const [isRefreshing, startRefreshTransition] = useTransition();
   const [isRefreshRequestPending, setIsRefreshRequestPending] = useState(false);
@@ -310,14 +311,16 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
           <p className="eyebrow">Holdings</p>
           <h2 className="section-title">Current positions</h2>
         </div>
-        <button
-          type="button"
-          className="secondary-button table-refresh-button"
-          onClick={() => void handleRefresh()}
-          disabled={isRefreshBusy}
-        >
-          {isRefreshBusy ? "Refreshing..." : "Refresh prices"}
-        </button>
+        {canRefresh ? (
+          <button
+            type="button"
+            className="secondary-button table-refresh-button"
+            onClick={() => void handleRefresh()}
+            disabled={isRefreshBusy}
+          >
+            {isRefreshBusy ? "Refreshing..." : "Refresh prices"}
+          </button>
+        ) : null}
       </div>
 
       {holdings.length === 0 ? (

@@ -10,6 +10,7 @@ import { InstrumentLogo } from "@/components/instrument-logo";
 type TransactionTableProps = {
   transactions: TransactionListItem[];
   editingTransactionId?: number | null;
+  canEdit?: boolean;
 };
 
 type ApiErrorResponse = {
@@ -109,7 +110,11 @@ function SortableHeader({
   );
 }
 
-export function TransactionTable({ transactions, editingTransactionId = null }: TransactionTableProps) {
+export function TransactionTable({
+  transactions,
+  editingTransactionId = null,
+  canEdit = false
+}: TransactionTableProps) {
   const router = useRouter();
   const [isRefreshing, startTransition] = useTransition();
   const [deletingTransactionId, setDeletingTransactionId] = useState<number | null>(null);
@@ -232,13 +237,13 @@ export function TransactionTable({ transactions, editingTransactionId = null }: 
                   <SortableHeader label="Fee" sortKey="fee" sort={sort} onSort={handleSort} />
                   <SortableHeader label="Net" sortKey="netAmount" sort={sort} onSort={handleSort} />
                   <th scope="col">Notes</th>
-                  <th scope="col">Actions</th>
+                  {canEdit ? <th scope="col">Actions</th> : null}
                 </tr>
               </thead>
               <tbody>
                 {visibleTransactions.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="table-empty-cell">
+                    <td colSpan={canEdit ? 9 : 8} className="table-empty-cell">
                       No transactions match the current search.
                     </td>
                   </tr>
@@ -283,25 +288,27 @@ export function TransactionTable({ transactions, editingTransactionId = null }: 
                       <td className="table-number">{formatCurrency(transaction.fee, { currency: transaction.instrument.currency })}</td>
                       <td className="table-number">{formatCurrency(transaction.netAmount, { currency: transaction.instrument.currency })}</td>
                       <td>{transaction.notes ?? "-"}</td>
-                      <td>
-                        <div className="table-actions">
-                          <Link className="table-action-link" href={`/transactions?edit=${transaction.id}`}>
-                            Edit
-                          </Link>
-                          <button
-                            type="button"
-                            className="table-action-button table-action-button-danger"
-                            onClick={() => void handleDelete(transaction)}
-                            disabled={
-                              deletingTransactionId === transaction.id ||
-                              isRefreshing ||
-                              deletingTransactionId !== null
-                            }
-                          >
-                            {deletingTransactionId === transaction.id ? "Deleting..." : "Delete"}
-                          </button>
-                        </div>
-                      </td>
+                      {canEdit ? (
+                        <td>
+                          <div className="table-actions">
+                            <Link className="table-action-link" href={`/transactions?edit=${transaction.id}`}>
+                              Edit
+                            </Link>
+                            <button
+                              type="button"
+                              className="table-action-button table-action-button-danger"
+                              onClick={() => void handleDelete(transaction)}
+                              disabled={
+                                deletingTransactionId === transaction.id ||
+                                isRefreshing ||
+                                deletingTransactionId !== null
+                              }
+                            >
+                              {deletingTransactionId === transaction.id ? "Deleting..." : "Delete"}
+                            </button>
+                          </div>
+                        </td>
+                      ) : null}
                     </tr>
                   ))
                 )}

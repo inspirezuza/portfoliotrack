@@ -166,8 +166,7 @@ async function listHoldingRows(asOfDate: string): Promise<HoldingJoinedRow[]> {
     .innerJoin(instruments, eq(transactions.instrumentId, instruments.id))
     .leftJoin(priceSnapshots, eq(priceSnapshots.instrumentId, instruments.id))
     .where(lte(transactions.tradeDate, asOfDate))
-    .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id))
-    .all();
+    .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id));
 }
 
 export async function getHoldingsSnapshot({

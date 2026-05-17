@@ -1,11 +1,10 @@
-import path from "node:path";
 import type { Config } from "drizzle-kit";
 
 export default {
   schema: "./src/lib/db/schema.ts",
   out: "./drizzle",
-  dialect: "sqlite",
+  dialect: "postgresql",
   dbCredentials: {
-    url: path.join(".", "data", "portfolio.sqlite")
+    url: process.env.DATABASE_URL!
   }
 } satisfies Config;

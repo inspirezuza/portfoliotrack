@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAdminAuthenticated } from "@/lib/auth/admin";
 import { createInstrument, InstrumentServiceError } from "@/server/transactions";
 
 function getStatusCode(error: InstrumentServiceError) {
@@ -32,6 +33,10 @@ function jsonErrorResponse(
 
 export async function POST(request: Request) {
   try {
+    if (!(await isAdminAuthenticated())) {
+      return jsonErrorResponse("ADMIN_REQUIRED", "Admin login is required to add instruments.", 401);
+    }
+
     const payload = await request.json();
     const instrument = await createInstrument(payload);
 

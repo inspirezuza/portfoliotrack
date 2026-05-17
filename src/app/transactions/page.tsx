@@ -1,5 +1,6 @@
 import { TransactionForm } from "@/components/transaction-form";
 import { TransactionTable } from "@/components/transaction-table";
+import { isAdminAuthenticated } from "@/lib/auth/admin";
 import { sortInstrumentOptions } from "@/lib/transactions/instrument-selection";
 import {
   listSelectableTransactionInstrumentOptions,
@@ -23,8 +24,9 @@ function parseEditTransactionId(edit: string | string[] | undefined) {
 }
 
 export default async function TransactionsPage({ searchParams }: TransactionsPageProps) {
+  const isAdmin = await isAdminAuthenticated();
   const resolvedSearchParams = await searchParams;
-  const editTransactionId = parseEditTransactionId(resolvedSearchParams?.edit);
+  const editTransactionId = isAdmin ? parseEditTransactionId(resolvedSearchParams?.edit) : null;
   const [transactions, allInstruments, instruments] = await Promise.all([
     listTransactions({ order: "desc" }),
     listTransactionInstrumentOptions({ activeOnly: false }),
@@ -87,8 +89,14 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
         </div>
       </div>
 
-      <TransactionForm instruments={formInstruments} editingTransaction={editingTransaction} />
-      <TransactionTable transactions={transactions} editingTransactionId={editingTransaction?.id ?? null} />
+      {isAdmin ? (
+        <TransactionForm instruments={formInstruments} editingTransaction={editingTransaction} />
+      ) : null}
+      <TransactionTable
+        transactions={transactions}
+        editingTransactionId={editingTransaction?.id ?? null}
+        canEdit={isAdmin}
+      />
     </section>
   );
 }

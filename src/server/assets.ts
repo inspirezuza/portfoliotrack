@@ -291,17 +291,20 @@ async function getDrProviderQuotes(instrument: Instrument) {
 async function buildDrAnalytics({
   instrument,
   drPrice,
-  averageDrCost
+  averageDrCost,
+  allowProviderQuotes
 }: {
   instrument: Instrument;
   drPrice: number | null;
   averageDrCost: number | null;
+  allowProviderQuotes: boolean;
 }): Promise<AssetDetail["dr"]> {
   if (!shouldExposeDrAnalytics(instrument)) {
     return null;
   }
 
   const hasCompleteCalculationMetadata =
+    allowProviderQuotes &&
     isPositiveFiniteNumber(instrument.drRatio) &&
     instrument.underlyingProviderSymbol != null &&
     instrument.underlyingCurrency != null &&
@@ -311,7 +314,9 @@ async function buildDrAnalytics({
     : {
         parentQuote: null,
         fxQuote: null,
-        analyticsIssue: "DR metadata is incomplete, so parent and FX analytics are unavailable."
+        analyticsIssue: allowProviderQuotes
+          ? "DR metadata is incomplete, so parent and FX analytics are unavailable."
+          : "Login and refresh market data to calculate live DR parent and FX analytics."
       };
   const parentMarketPrice = isPositiveFiniteNumber(parentQuote?.price) ? parentQuote.price : null;
   const fxRate = isPositiveFiniteNumber(fxQuote?.price) ? fxQuote.price : null;
@@ -434,7 +439,7 @@ async function refreshAssetQuote({
         : null;
 
   if (quote != null && quote.currency === instrument.currency) {
-    db.insert(priceSnapshots)
+    await db.insert(priceSnapshots)
       .values({
         instrumentId: instrument.id,
         price: quote.price,
@@ -450,8 +455,7 @@ async function refreshAssetQuote({
           asOf: quote.asOf,
           source: quote.source
         }
-      })
-      .run();
+      });
   }
 
   return {
@@ -518,9 +522,9 @@ async function refreshAssetHistory({
 
   const validHistory = history!;
 
-  db.transaction((tx) => {
+  await db.transaction(async (tx) => {
     for (const bar of validHistory.bars) {
-      tx.insert(historicalPrices)
+      await tx.insert(historicalPrices)
         .values({
           instrumentId: instrument.id,
           priceDate: bar.date,
@@ -535,8 +539,7 @@ async function refreshAssetHistory({
             currency: validHistory.currency,
             source: validHistory.source
           }
-        })
-        .run();
+        });
     }
   });
 
@@ -585,10 +588,10 @@ async function refreshAssetIntraday({
   }
 
   if (validSeries.length > 0) {
-    db.transaction((tx) => {
+    await db.transaction(async (tx) => {
       for (const series of validSeries) {
         for (const bar of series.bars) {
-          tx.insert(intradayPrices)
+          await tx.insert(intradayPrices)
             .values({
               instrumentId: instrument.id,
               interval: series.interval,
@@ -604,8 +607,7 @@ async function refreshAssetIntraday({
                 currency: series.currency,
                 source: series.source
               }
-            })
-            .run();
+            });
         }
       }
     });
@@ -618,7 +620,7 @@ async function refreshAssetIntraday({
 }
 
 async function getAssetRows(symbol: string) {
-  const instrument = await db.select().from(instruments).where(eq(instruments.symbol, symbol)).get();
+  const [instrument] = await db.select().from(instruments).where(eq(instruments.symbol, symbol));
 
   if (instrument == null) {
     return null;
@@ -629,11 +631,10 @@ async function getAssetRows(symbol: string) {
       .select()
       .from(transactions)
       .where(eq(transactions.instrumentId, instrument.id))
-      .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id))
-      .all(),
-    db.select().from(priceSnapshots).where(eq(priceSnapshots.instrumentId, instrument.id)).get(),
-    db.select().from(historicalPrices).where(eq(historicalPrices.instrumentId, instrument.id)).all(),
-    db.select().from(intradayPrices).where(eq(intradayPrices.instrumentId, instrument.id)).all()
+      .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id)),
+    db.select().from(priceSnapshots).where(eq(priceSnapshots.instrumentId, instrument.id)).then((rows) => rows[0] ?? null),
+    db.select().from(historicalPrices).where(eq(historicalPrices.instrumentId, instrument.id)),
+    db.select().from(intradayPrices).where(eq(intradayPrices.instrumentId, instrument.id))
   ]);
 
   return {
@@ -645,7 +646,14 @@ async function getAssetRows(symbol: string) {
   };
 }
 
-export async function getAssetDetail(symbol: string): Promise<AssetDetail | null> {
+export async function getAssetDetail(
+  symbol: string,
+  {
+    allowMarketRefresh = false
+  }: {
+    allowMarketRefresh?: boolean;
+  } = {}
+): Promise<AssetDetail | null> {
   const normalizedSymbol = symbol.trim().toUpperCase();
   const initialRows = await getAssetRows(normalizedSymbol);
 
@@ -666,14 +674,15 @@ export async function getAssetDetail(symbol: string): Promise<AssetDetail | null
     : null;
   const matchingInitialHistory = filterMatchingHistoryRows(initialRows.historyRows, instrument);
   const matchingInitialIntraday = filterMatchingIntradayRows(initialRows.intradayRows, instrument);
-  const shouldRefreshQuote =
+  const shouldRefreshQuote = allowMarketRefresh && (
     matchingInitialSnapshot == null ||
-    isMarketDataStale(matchingInitialSnapshot.asOf, marketSettings.marketRefreshMinutes);
+    isMarketDataStale(matchingInitialSnapshot.asOf, marketSettings.marketRefreshMinutes)
+  );
   const historyCooldownState = getHistoryCooldownState(instrument.id);
   const shouldRefreshHistory =
-    matchingInitialHistory.length === 0 && historyCooldownState == null;
+    allowMarketRefresh && matchingInitialHistory.length === 0 && historyCooldownState == null;
   const shouldRefreshIntraday =
-    matchingInitialIntraday.length === 0 || shouldRefreshQuote;
+    allowMarketRefresh && (matchingInitialIntraday.length === 0 || shouldRefreshQuote);
 
   const [quoteRefreshResult, historyRefreshResult, intradayRefreshResult] = await Promise.all([
     shouldRefreshQuote
@@ -758,7 +767,8 @@ export async function getAssetDetail(symbol: string): Promise<AssetDetail | null
   const dr = await buildDrAnalytics({
     instrument,
     drPrice: lastPrice,
-    averageDrCost: averageCost
+    averageDrCost: averageCost,
+    allowProviderQuotes: allowMarketRefresh
   });
 
   return {

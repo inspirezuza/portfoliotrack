@@ -344,6 +344,26 @@ html[data-theme="dark"] .shell-main {
   transition: transform 120ms ease;
 }
 
+.auth-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 11px;
+  color: var(--ink);
+  background: var(--surface-strong);
+  font-size: 0.78rem;
+  font-weight: 750;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.auth-button:hover {
+  border-color: var(--line-strong);
+  color: var(--accent);
+}
+
 .preference-button:hover {
   color: var(--ink);
   background: rgba(18, 31, 25, 0.08);
@@ -393,6 +413,29 @@ html[data-theme="dark"] .preference-button[aria-pressed="true"] {
 .asset-detail-page,
 .chart-card,
 .asset-sidebar-card {
+  display: grid;
+  gap: 12px;
+}
+
+.login-page {
+  display: grid;
+  min-height: calc(100dvh - 120px);
+  place-items: center;
+}
+
+.login-card {
+  display: grid;
+  width: min(100%, 420px);
+  gap: 16px;
+}
+
+.login-card h1 {
+  margin: 4px 0 6px;
+  font-size: clamp(1.55rem, 1.1rem + 1vw, 2.1rem);
+  line-height: 1.05;
+}
+
+.login-form {
   display: grid;
   gap: 12px;
 }

@@ -1,5 +1,6 @@
 import { HoldingsTable } from "@/components/holdings-table";
 import { SummaryCards } from "@/components/summary-cards";
+import { isAdminAuthenticated } from "@/lib/auth/admin";
 import { getDashboardSnapshot } from "@/server/dashboard";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +27,10 @@ function formatCacheDateLabel(value: string | null) {
 }
 
 export default async function HoldingsPage() {
-  const { summary, holdingsSnapshot } = await getDashboardSnapshot();
+  const isAdmin = await isAdminAuthenticated();
+  const { summary, holdingsSnapshot } = await getDashboardSnapshot({
+    ensureFresh: isAdmin
+  });
 
   return (
     <section className="workstation-page">
@@ -58,7 +62,7 @@ export default async function HoldingsPage() {
         </article>
       </section>
 
-      <HoldingsTable holdings={holdingsSnapshot.holdings} />
+      <HoldingsTable holdings={holdingsSnapshot.holdings} canRefresh={isAdmin} />
 
       <SummaryCards summary={summary} />
     </section>

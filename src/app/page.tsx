@@ -3,6 +3,7 @@ import { BenchmarkChart } from "@/components/benchmark-chart";
 import { HoldingsAllocationChart } from "@/components/holdings-allocation-chart";
 import { PortfolioChart } from "@/components/portfolio-chart";
 import { formatCurrency, formatPercentRatio, formatQuantity } from "@/lib/format";
+import { isAdminAuthenticated } from "@/lib/auth/admin";
 import { getDashboardSnapshot, type DashboardSummary } from "@/server/dashboard";
 
 export const dynamic = "force-dynamic";
@@ -174,7 +175,10 @@ function buildRefreshMessage({
 }
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
-  const { summary, holdingsSnapshot, marketData, timeline } = await getDashboardSnapshot();
+  const isAdmin = await isAdminAuthenticated();
+  const { summary, holdingsSnapshot, marketData, timeline } = await getDashboardSnapshot({
+    ensureFresh: isAdmin
+  });
   const resolvedSearchParams = (await searchParams) ?? {};
   const refreshMessage = buildRefreshMessage(resolvedSearchParams);
   const leadingHoldings = holdingsSnapshot.holdings.slice(0, 5);
@@ -220,12 +224,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <h1>Dashboard</h1>
         </div>
 
-        <form action="/api/market-data/refresh" method="post" className="refresh-form">
-          <input type="hidden" name="redirectTo" value="/" />
-          <button type="submit" className="primary-button">
-            Refresh prices
-          </button>
-        </form>
+        {isAdmin ? (
+          <form action="/api/market-data/refresh" method="post" className="refresh-form">
+            <input type="hidden" name="redirectTo" value="/" />
+            <button type="submit" className="primary-button">
+              Refresh prices
+            </button>
+          </form>
+        ) : null}
       </div>
 
       {refreshMessage ? (
@@ -316,12 +322,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
             </div>
 
-            <form action="/api/market-data/refresh" method="post" className="refresh-form">
-              <input type="hidden" name="redirectTo" value="/" />
-              <button type="submit" className="secondary-button">
-                Update market data
-              </button>
-            </form>
+            {isAdmin ? (
+              <form action="/api/market-data/refresh" method="post" className="refresh-form">
+                <input type="hidden" name="redirectTo" value="/" />
+                <button type="submit" className="secondary-button">
+                  Update market data
+                </button>
+              </form>
+            ) : null}
           </article>
 
           <article className="surface-card holdings-preview-card">

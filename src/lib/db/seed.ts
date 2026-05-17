@@ -41,11 +41,11 @@ const defaultSettings: Array<{ key: string; value: string }> = [
   { key: "timezone", value: "Asia/Bangkok" },
   { key: "symbolOverrides", value: "{}" }
 ];
-const { db, sqlite } = createDatabaseHandle();
+const { db } = createDatabaseHandle();
 
-try {
-  db.transaction((tx) => {
-    tx.insert(instruments)
+async function main() {
+  await db.transaction(async (tx) => {
+    await tx.insert(instruments)
       .values(defaultInstruments)
       .onConflictDoUpdate({
         target: instruments.symbol,
@@ -64,11 +64,10 @@ try {
           isActive: sql`excluded.is_active`,
           updatedAt: sql`CURRENT_TIMESTAMP`
         }
-      })
-      .run();
+      });
 
     for (const setting of defaultSettings) {
-      tx.insert(appSettings)
+      await tx.insert(appSettings)
         .values(setting)
         .onConflictDoUpdate({
           target: appSettings.key,
@@ -76,14 +75,16 @@ try {
             value: setting.value,
             updatedAt: sql`CURRENT_TIMESTAMP`
           }
-        })
-        .run();
+        });
     }
   });
 
   console.log(
     `Database seeded with ${defaultInstruments.length} instruments and ${defaultSettings.length} settings.`
   );
-} finally {
-  sqlite.close();
 }
+
+main().catch((error) => {
+  console.error("Database seed failed.", error);
+  process.exit(1);
+});

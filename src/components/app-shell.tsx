@@ -30,7 +30,7 @@ function isActivePath(pathname: string, href: NavItem["href"]) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ children, isAdmin }: { children: ReactNode; isAdmin: boolean }) {
   const pathname = usePathname();
   const { language, theme, setLanguage, setTheme } = useUiPreferences();
   const copy = shellCopy[language];
@@ -103,6 +103,18 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </button>
                 ))}
               </div>
+
+              {isAdmin ? (
+                <form action="/api/auth/logout" method="post">
+                  <button type="submit" className="auth-button">
+                    Logout
+                  </button>
+                </form>
+              ) : (
+                <Link href="/login" className="auth-button">
+                  Admin login
+                </Link>
+              )}
             </div>
           </header>
 

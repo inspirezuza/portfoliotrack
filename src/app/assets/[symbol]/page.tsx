@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { AssetHeader } from "@/components/asset-header";
 import { AssetPriceChart } from "@/components/asset-price-chart";
 import { formatCurrency, formatPercentRatio, formatQuantity } from "@/lib/format";
+import { isAdminAuthenticated } from "@/lib/auth/admin";
 import { getAssetDetail } from "@/server/assets";
 
 export const dynamic = "force-dynamic";
@@ -48,8 +49,9 @@ function formatOptionalPercent(value: number | null) {
 }
 
 export default async function AssetDetailPage({ params }: AssetDetailPageProps) {
+  const isAdmin = await isAdminAuthenticated();
   const { symbol } = await params;
-  const asset = await getAssetDetail(symbol);
+  const asset = await getAssetDetail(symbol, { allowMarketRefresh: isAdmin });
 
   if (asset == null) {
     notFound();
