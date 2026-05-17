@@ -110,11 +110,7 @@ export function AppShell({ children, isAdmin }: { children: ReactNode; isAdmin: 
                     Logout
                   </button>
                 </form>
-              ) : (
-                <Link href="/login" className="auth-button">
-                  Admin login
-                </Link>
-              )}
+              ) : null}
             </div>
           </header>
 
