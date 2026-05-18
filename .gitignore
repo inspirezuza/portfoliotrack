@@ -13,3 +13,4 @@ tsconfig.tsbuildinfo
 .env.*
 !.env.example
 .vercel
+.vscode/settings.json
