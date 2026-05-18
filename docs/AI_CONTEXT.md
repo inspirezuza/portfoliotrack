@@ -37,7 +37,7 @@ API routes:
 - `POST /api/transactions/import`: admin-only Excel import preview or commit.
 - `POST /api/instruments`: admin-only instrument creation.
 - `GET /api/instruments/search`: admin-only Yahoo instrument search.
-- `POST /api/market-data/refresh`: admin-only explicit market-data refresh.
+- `POST /api/market-data/refresh`: admin-only explicit market-data refresh for form/manual requests; public JSON `{ "mode": "daily-auto" }` is guarded to refresh cache at most twice per Bangkok day per portfolio.
 - `POST /api/auth/login` and `POST /api/auth/logout`: admin session lifecycle.
 
 ## Source Tree
@@ -80,6 +80,7 @@ Tables:
 - `priceSnapshots`: latest quote per instrument, unique by `instrumentId`.
 - `historicalPrices`: daily close history, unique by `(instrumentId, priceDate)`.
 - `intradayPrices`: intraday close data, unique by `(instrumentId, interval, observedAt)`.
+- `marketRefreshRuns`: daily/manual market refresh run tracking with selected portfolio, Bangkok refresh date, status, attempt counts, result counts, and error text.
 - `appSettings`: small key/value settings such as benchmark symbol and market refresh interval.
 
 Schema deployment:
@@ -88,7 +89,7 @@ Schema deployment:
 npm run db:migrate
 ```
 
-This runs `drizzle-kit push` against `DATABASE_URL`. The baseline SQL is `drizzle/0000_initial_postgres.sql`; `drizzle/0001_multi_portfolios.sql` adds portfolio support and migrates existing transactions into `Main Portfolio`.
+This runs `drizzle-kit push` against `DATABASE_URL`. The baseline SQL is `drizzle/0000_initial_postgres.sql`; `drizzle/0001_multi_portfolios.sql` adds portfolio support and migrates existing transactions into `Main Portfolio`; `drizzle/0002_market_refresh_runs.sql` adds refresh run tracking for guarded background market updates.
 
 Seed:
 
@@ -117,9 +118,10 @@ Public users can read current app pages and switch portfolios. Admin-only contro
 ## Server Modules
 
 - `src/server/portfolios.ts`: validates, lists, creates, updates, defaults, and deletes portfolios.
-- `src/server/dashboard.ts`: `getDashboardSnapshot({ portfolioId, ensureFresh })`; public pages pass `false`, admin pages pass `true`.
+- `src/server/dashboard.ts`: `getDashboardSnapshot({ portfolioId, ensureFresh })`; app pages pass `false` so navigation renders cached data without waiting on market refresh.
 - `src/server/holdings.ts`: builds selected-portfolio open/closed position snapshots and currency breakdowns.
-- `src/server/transactions.ts`: validates transaction input, enforces selected-portfolio sell quantity, and maps service errors.
+- `src/server/transactions.ts`: validates transaction input, enforces selected-portfolio sell quantity, maps service errors, and provides the consolidated transactions workspace loader.
+- `src/server/market-refresh.ts`: separates admin manual refresh from public guarded daily auto refresh and records refresh run outcomes.
 - `src/server/transaction-import-export.ts`: builds selected-portfolio Excel exports and evaluates/imports template workbooks against existing instruments, duplicate keys, validation, and position constraints.
 - `src/server/assets.ts`: `getAssetDetail(symbol, { portfolioId, allowMarketRefresh })`; public pages render cached data only.
 
@@ -149,7 +151,10 @@ Refresh behavior:
 - Writes only valid same-currency data to Postgres.
 - Records missing/mismatched provider data as structured issues.
 - Deduplicates overlapping in-flight refreshes.
-- Public pages render cached data only; admin page-triggered refresh is best-effort and timeout-bound.
+- Dashboard, holdings, and transactions render cached data first and do not call the provider during route render.
+- `DailyMarketRefresh` in the app shell triggers a public `daily-auto` refresh after page render on dashboard, holdings, and transactions.
+- Public `daily-auto` refresh is guarded by `market_refresh_runs`: one success per Bangkok day per portfolio, with at most two attempts after failed or stale-running jobs.
+- Admin manual refresh uses the existing button/form path, bypasses the public daily limit, records a `manual` run, and preserves the dashboard banner flow.
 
 ## UI Shell, Theme, And Language
 
@@ -191,3 +196,4 @@ Notes:
 - If changing portfolio math, verify transaction ordering and sell validation.
 - If changing auth or public/admin behavior, verify both logged-out read-only and logged-in admin flows.
 - If changing market data, preserve currency checks and missing-data states.
+- If changing page performance, keep dashboard/holdings/transactions cached-first; provider refresh should stay outside route render.

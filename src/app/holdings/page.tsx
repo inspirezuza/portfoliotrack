@@ -38,7 +38,7 @@ export default async function HoldingsPage() {
   const { selectedPortfolio } = await getPortfolioSelection();
   const { summary, holdingsSnapshot } = await getDashboardSnapshot({
     portfolioId: selectedPortfolio.id,
-    ensureFresh: isAdmin
+    ensureFresh: false
   });
 
   return (

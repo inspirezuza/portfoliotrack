@@ -4,6 +4,7 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { normalizeMoney } from "@/lib/db/precision";
 import { db } from "@/lib/db/runtime";
 import { getKnownDrMetadata } from "@/lib/instruments/dr-metadata";
+import { sortInstrumentOptions } from "@/lib/transactions/instrument-selection";
 import {
   instruments,
   transactions,
@@ -617,4 +618,61 @@ export async function listSelectableTransactionInstrumentOptions({ portfolioId }
   const instruments = await listTransactionInstrumentOptions({ portfolioId, activeOnly: false });
 
   return instruments.filter(isTransactionInstrumentSelectable);
+}
+
+export async function getTransactionWorkspace({
+  editTransactionId,
+  portfolioId: portfolioIdInput
+}: {
+  editTransactionId: number | null;
+  portfolioId: number;
+}) {
+  const portfolioId = parsePortfolioId(portfolioIdInput);
+  const [transactionRows, instrumentRows] = await Promise.all([
+    db
+      .select({
+        transaction: transactions,
+        instrument: instruments
+      })
+      .from(transactions)
+      .innerJoin(instruments, eq(transactions.instrumentId, instruments.id))
+      .where(eq(transactions.portfolioId, portfolioId))
+      .orderBy(...getTransactionOrder("desc")),
+    db.select().from(instruments).orderBy(asc(instruments.symbol))
+  ]);
+  const transactionsList = transactionRows.map(mapTransactionListItem);
+  const positions = calculatePositions(
+    transactionRows.map((row) => toChronologicalPositionTransaction(row.transaction))
+  );
+  const allInstruments = instrumentRows.map((instrument) =>
+    mapInstrumentOption(instrument, positions.get(instrument.id)?.quantity ?? 0)
+  );
+  const selectableInstruments = allInstruments.filter(isTransactionInstrumentSelectable);
+  const editingTransaction =
+    editTransactionId == null
+      ? null
+      : transactionsList.find((transaction) => transaction.id === editTransactionId) ?? null;
+  const formInstruments =
+    editingTransaction && !selectableInstruments.some((instrument) => instrument.id === editingTransaction.instrumentId)
+      ? sortInstrumentOptions([
+          ...selectableInstruments,
+          ...allInstruments.filter((instrument) => instrument.id === editingTransaction.instrumentId)
+        ])
+      : selectableInstruments;
+
+  return {
+    allInstruments,
+    editingTransaction,
+    formInstruments,
+    instruments: selectableInstruments,
+    summary: {
+      allInstrumentCount: allInstruments.length,
+      latestTradeDate: transactionsList[0]?.tradeDate ?? null,
+      openInstrumentCount: allInstruments.filter((instrument) => instrument.currentQuantity > 0).length,
+      selectableInstrumentCount: selectableInstruments.length,
+      transactionCount: transactionsList.length,
+      uniqueInstrumentCount: new Set(transactionsList.map((transaction) => transaction.instrumentId)).size
+    },
+    transactions: transactionsList
+  };
 }

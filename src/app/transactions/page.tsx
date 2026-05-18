@@ -3,14 +3,9 @@ import { TransactionExcelTools } from "@/components/transaction-excel-tools";
 import { TransactionTable } from "@/components/transaction-table";
 import { isAdminAuthenticated } from "@/lib/auth/admin";
 import { getPortfolioSelection } from "@/lib/portfolio/selection";
-import { sortInstrumentOptions } from "@/lib/transactions/instrument-selection";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getServerUiLanguage } from "@/lib/ui/server";
-import {
-  listSelectableTransactionInstrumentOptions,
-  listTransactionInstrumentOptions,
-  listTransactions
-} from "@/server/transactions";
+import { getTransactionWorkspace } from "@/server/transactions";
 
 export const dynamic = "force-dynamic";
 
@@ -34,30 +29,16 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
   const { selectedPortfolio } = await getPortfolioSelection();
   const resolvedSearchParams = await searchParams;
   const editTransactionId = isAdmin ? parseEditTransactionId(resolvedSearchParams?.edit) : null;
-  const [transactions, allInstruments, instruments] = await Promise.all([
-    listTransactions({ portfolioId: selectedPortfolio.id, order: "desc" }),
-    listTransactionInstrumentOptions({ portfolioId: selectedPortfolio.id, activeOnly: false }),
-    listSelectableTransactionInstrumentOptions({ portfolioId: selectedPortfolio.id })
-  ]);
-  const editingTransaction =
-    editTransactionId == null
-      ? null
-      : transactions.find((transaction) => transaction.id === editTransactionId) ?? null;
-  const formInstruments =
-    editingTransaction && !instruments.some((instrument) => instrument.id === editingTransaction.instrumentId)
-      ? sortInstrumentOptions([
-          ...instruments,
-          ...allInstruments.filter((instrument) => instrument.id === editingTransaction.instrumentId)
-        ])
-      : instruments;
-
-  const transactionCount = transactions.length;
-  const uniqueInstrumentCount = new Set(transactions.map((transaction) => transaction.instrumentId))
-    .size;
-  const latestTradeDate = transactions[0]?.tradeDate ?? copy.shared.noTradesYet;
-  const openInstrumentCount = allInstruments.filter(
-    (instrument) => instrument.currentQuantity > 0
-  ).length;
+  const {
+    editingTransaction,
+    formInstruments,
+    summary,
+    transactions
+  } = await getTransactionWorkspace({
+    editTransactionId,
+    portfolioId: selectedPortfolio.id
+  });
+  const latestTradeDate = summary.latestTradeDate ?? copy.shared.noTradesYet;
 
   return (
     <section className="transactions-page transactions-workspace">
@@ -72,15 +53,15 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
       <div className="transaction-summary-strip" aria-label={copy.transactions.summaryLabel}>
         <div>
           <span>{copy.transactions.recorded}</span>
-          <strong>{transactionCount}</strong>
+          <strong>{summary.transactionCount}</strong>
         </div>
         <div>
           <span>{copy.transactions.traded}</span>
-          <strong>{uniqueInstrumentCount}</strong>
+          <strong>{summary.uniqueInstrumentCount}</strong>
         </div>
         <div>
           <span>{copy.transactions.open}</span>
-          <strong>{openInstrumentCount}</strong>
+          <strong>{summary.openInstrumentCount}</strong>
         </div>
         <div>
           <span>{copy.transactions.latest}</span>
@@ -88,11 +69,11 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
         </div>
         <div>
           <span>{copy.transactions.selectable}</span>
-          <strong>{instruments.length}</strong>
+          <strong>{summary.selectableInstrumentCount}</strong>
         </div>
         <div>
           <span>{copy.transactions.allInstruments}</span>
-          <strong>{allInstruments.length}</strong>
+          <strong>{summary.allInstrumentCount}</strong>
         </div>
       </div>
 

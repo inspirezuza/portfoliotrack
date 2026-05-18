@@ -189,7 +189,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const { selectedPortfolio } = await getPortfolioSelection();
   const { summary, holdingsSnapshot, marketData, timeline } = await getDashboardSnapshot({
     portfolioId: selectedPortfolio.id,
-    ensureFresh: isAdmin
+    ensureFresh: false
   });
   const resolvedSearchParams = (await searchParams) ?? {};
   const refreshMessage = buildRefreshMessage(resolvedSearchParams, copy.dashboard);
