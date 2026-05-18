@@ -535,11 +535,10 @@ export function TransactionForm({
     const existingInstrument = findExistingInstrumentForLookup(selectedInstrumentLookupResult);
 
     if (existingInstrument) {
-      selectInstrument(existingInstrument);
-      setInstrumentLookupQuery("");
-      setInstrumentLookupResults([]);
-      setSelectedInstrumentLookupResult(null);
-      setInstrumentSuccessMessage(copy.transactions.form.selected(existingInstrument.symbol));
+      setInstrumentSuccessMessage(null);
+      setInstrumentErrorMessage(
+        copy.transactions.form.instrumentAlreadyAdded(existingInstrument.symbol)
+      );
       return;
     }
 
@@ -551,6 +550,14 @@ export function TransactionForm({
     setInstrumentSearch(instrument.label);
     setHighlightedInstrumentId(String(instrument.id));
     setIsInstrumentComboboxOpen(false);
+  }
+
+  function clearInstrumentLookup() {
+    setInstrumentLookupQuery("");
+    setInstrumentLookupResults([]);
+    setSelectedInstrumentLookupResult(null);
+    setInstrumentErrorMessage(null);
+    setInstrumentSuccessMessage(null);
   }
 
   function handleInstrumentSearchKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
@@ -623,17 +630,32 @@ export function TransactionForm({
         <form className="instrument-lookup" onSubmit={handleInstrumentLookupSubmit}>
             <label className="field-group">
               <span className="field-label">{copy.transactions.form.searchInstrument}</span>
-              <input
-                type="text"
-                value={instrumentLookupQuery}
-                onChange={(event) => {
-                  setInstrumentLookupQuery(event.target.value);
-                  setSelectedInstrumentLookupResult(null);
-                }}
-                placeholder={copy.transactions.form.searchInstrumentPlaceholder}
-                autoComplete="off"
-                disabled={isCreatingInstrument}
-              />
+              <span className="instrument-lookup-search">
+                <input
+                  type="text"
+                  value={instrumentLookupQuery}
+                  onChange={(event) => {
+                    setInstrumentLookupQuery(event.target.value);
+                    setSelectedInstrumentLookupResult(null);
+                    setInstrumentErrorMessage(null);
+                    setInstrumentSuccessMessage(null);
+                  }}
+                  placeholder={copy.transactions.form.searchInstrumentPlaceholder}
+                  autoComplete="off"
+                  disabled={isCreatingInstrument}
+                />
+                {instrumentLookupQuery.trim().length > 0 ? (
+                  <button
+                    type="button"
+                    className="instrument-lookup-clear"
+                    onClick={clearInstrumentLookup}
+                    aria-label={copy.transactions.form.clearInstrumentSearch}
+                    disabled={isCreatingInstrument}
+                  >
+                    x
+                  </button>
+                ) : null}
+              </span>
             </label>
 
             {instrumentLookupQuery.trim().length >= 2 ? (

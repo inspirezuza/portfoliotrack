@@ -1609,6 +1609,40 @@ html[data-theme="dark"] .portfolio-name-field input {
   gap: 10px;
 }
 
+.instrument-lookup-search {
+  position: relative;
+  display: block;
+}
+
+.instrument-lookup-search input {
+  padding-right: 40px;
+}
+
+.instrument-lookup-clear {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 50%;
+  color: var(--muted);
+  background: transparent;
+  font-size: 0.85rem;
+  font-weight: 800;
+  line-height: 1;
+  transform: translateY(-50%);
+}
+
+.instrument-lookup-clear:hover,
+.instrument-lookup-clear:focus-visible {
+  color: var(--danger);
+  background: rgba(184, 75, 67, 0.1);
+}
+
 .instrument-lookup-menu {
   display: grid;
   max-height: 300px;
