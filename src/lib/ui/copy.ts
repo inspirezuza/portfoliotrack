@@ -289,6 +289,7 @@ const uiCopy = {
         instrument: "Instrument",
         instrumentHint: "ค้นหา instrument ที่บันทึกไว้ หรือเพิ่มใหม่",
         close: "ปิด",
+        clearInstrumentSearch: "ล้างการค้นหา instrument",
         addInstrument: "เพิ่ม instrument",
         searchInstrument: "ค้นหา instrument",
         searchInstrumentPlaceholder: "พิมพ์ ASTS03, AAPL หรือชื่อบริษัท",
@@ -319,6 +320,8 @@ const uiCopy = {
         transactionSaved: "บันทึกรายการแล้ว",
         instrumentSearchUnavailable: "ค้นหา instrument ไม่พร้อมใช้งานตอนนี้",
         instrumentCouldNotSave: "บันทึก instrument ไม่สำเร็จ",
+        instrumentAlreadyAdded: (symbol: string) =>
+          `${symbol} ถูกเพิ่มไว้แล้ว เลือกจากช่อง Instrument ด้านล่างแทน`,
         addedAndSelected: (symbol: string) => `เพิ่มและเลือก ${symbol} แล้ว`,
         selected: (symbol: string) => `เลือก ${symbol} แล้ว`,
         insufficientQuantity: (quantity: string) => `จำนวนขายมากกว่าที่ถืออยู่ จำนวนสูงสุดที่ขายได้คือ ${quantity}`,
@@ -641,6 +644,7 @@ const uiCopy = {
         instrument: "Instrument",
         instrumentHint: "Search a saved instrument or add a new one.",
         close: "Close",
+        clearInstrumentSearch: "Clear instrument search",
         addInstrument: "Add instrument",
         searchInstrument: "Search instrument",
         searchInstrumentPlaceholder: "Type ASTS03, AAPL, or a company name",
@@ -671,6 +675,8 @@ const uiCopy = {
         transactionSaved: "Transaction saved.",
         instrumentSearchUnavailable: "Instrument search is unavailable right now.",
         instrumentCouldNotSave: "Instrument could not be saved.",
+        instrumentAlreadyAdded: (symbol: string) =>
+          `${symbol} is already saved. Select it from the Instrument field below.`,
         addedAndSelected: (symbol: string) => `${symbol} added and selected.`,
         selected: (symbol: string) => `${symbol} selected.`,
         insufficientQuantity: (quantity: string) =>
