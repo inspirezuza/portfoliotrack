@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import { OperationTimeoutError, withOperationTimeout } from "@/lib/async/timeout";
 import { db } from "@/lib/db/runtime";
 import { appSettings, historicalPrices, instruments, intradayPrices, priceSnapshots, transactions } from "@/lib/db/schema";
@@ -170,7 +170,10 @@ async function getHistoryCoverageByInstrument(targets: RefreshTarget[]) {
     return new Map<number, { earliestPriceDate: string | null; latestPriceDate: string | null }>();
   }
 
-  const historicalRows = await db.select().from(historicalPrices);
+  const historicalRows = await db
+    .select()
+    .from(historicalPrices)
+    .where(inArray(historicalPrices.instrumentId, historyTargets.map((target) => target.instrument.id)));
   const coverageByInstrument = new Map<number, { earliestPriceDate: string | null; latestPriceDate: string | null }>();
   const targetByInstrumentId = new Map(
     historyTargets.map((target) => [target.instrument.id, target] as const)
@@ -208,7 +211,10 @@ async function hasMissingIntradayData(targets: RefreshTarget[]) {
     return false;
   }
 
-  const rows = await db.select().from(intradayPrices);
+  const rows = await db
+    .select()
+    .from(intradayPrices)
+    .where(inArray(intradayPrices.instrumentId, targets.map((target) => target.instrument.id)));
   const intervalsByInstrumentId = new Map<number, Set<string>>();
 
   for (const row of rows) {

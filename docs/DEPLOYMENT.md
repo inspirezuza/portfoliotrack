@@ -47,7 +47,7 @@ Optional seed:
 npm run db:seed
 ```
 
-The committed SQL baseline is in `drizzle/0000_initial_postgres.sql` for review and manual database setup if needed.
+The committed SQL files are in `drizzle/` for review and manual database setup if needed. Apply the full schema before deploying changes that depend on new tables such as `market_refresh_runs`.
 
 ## 4. Deploy
 
@@ -60,6 +60,7 @@ npm run build
 After deploy:
 
 - Visit the public URL while logged out and confirm dashboard, holdings, transactions, and asset detail pages load read-only.
+- On the first public dashboard/holdings/transactions visit of a Bangkok day, the app may trigger a guarded background market refresh; pages should still render from cached data first.
 - Visit `/login`, sign in as admin, then confirm create/update/delete and refresh controls appear.
 - On `/transactions`, confirm the Dime/Webull broker selector is available in the admin transaction form, the Excel template downloads, ledger export requires admin, and an uploaded template can be previewed.
 - Use `/api/auth/logout` through the header logout button to return to public read-only mode.
@@ -69,4 +70,5 @@ After deploy:
 - Public users can view all current pages and portfolio data.
 - Public users can download the blank transaction import template.
 - Public users cannot call protected write/import/export APIs; they return `401`.
+- Public users can only trigger market-cache writes through the guarded `daily-auto` refresh path. Admin manual refresh is still required for on-demand updates.
 - Vercel and Neon are free within their published free-tier limits. Higher traffic, storage, or compute can require a paid plan.

@@ -187,6 +187,42 @@ export const appSettings = pgTable(
   })
 );
 
+export const marketRefreshRuns = pgTable(
+  "market_refresh_runs",
+  {
+    id: serial("id").primaryKey(),
+    portfolioId: integer("portfolio_id")
+      .notNull()
+      .references(() => portfolios.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    refreshDate: text("refresh_date").notNull(),
+    mode: text("mode").notNull(),
+    status: text("status").notNull(),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    quoteRefreshCount: integer("quote_refresh_count").notNull().default(0),
+    historicalBarCount: integer("historical_bar_count").notNull().default(0),
+    intradayBarCount: integer("intraday_bar_count").notNull().default(0),
+    issueCount: integer("issue_count").notNull().default(0),
+    latestSuccessfulAsOf: text("latest_successful_as_of"),
+    errorMessage: text("error_message"),
+    startedAt: timestamp("started_at", { mode: "string" }),
+    completedAt: timestamp("completed_at", { mode: "string" }),
+    ...timestamps
+  },
+  (table) => ({
+    dailyAutoPortfolioDateUniqueIdx: uniqueIndex("market_refresh_runs_daily_auto_portfolio_date_unique").on(
+      table.portfolioId,
+      table.refreshDate
+    ).where(sql`${table.mode} = 'daily-auto'`),
+    portfolioDateIdx: index("market_refresh_runs_portfolio_date_idx").on(
+      table.portfolioId,
+      table.refreshDate
+    ),
+    modeCheck: check("market_refresh_runs_mode_check", sql`${table.mode} in ('daily-auto', 'manual')`),
+    statusCheck: check("market_refresh_runs_status_check", sql`${table.status} in ('running', 'success', 'failed')`),
+    attemptCountPositive: check("market_refresh_runs_attempt_count_positive", sql`${table.attemptCount} >= 0`)
+  })
+);
+
 export type Instrument = typeof instruments.$inferSelect;
 export type NewInstrument = typeof instruments.$inferInsert;
 export type Portfolio = typeof portfolios.$inferSelect;
@@ -197,3 +233,4 @@ export type PriceSnapshot = typeof priceSnapshots.$inferSelect;
 export type HistoricalPrice = typeof historicalPrices.$inferSelect;
 export type IntradayPrice = typeof intradayPrices.$inferSelect;
 export type AppSetting = typeof appSettings.$inferSelect;
+export type MarketRefreshRun = typeof marketRefreshRuns.$inferSelect;

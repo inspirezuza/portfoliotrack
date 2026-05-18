@@ -15,7 +15,7 @@ For the latest layout and visual-design review, read [docs/UX_REVIEW.md](docs/UX
 - Dashboard with portfolio summary cards, price coverage, top holdings, portfolio chart, and S&P 500 benchmark comparison.
 - Per-asset detail route at `/assets/[symbol]` with position metrics, price history, recent transactions, and DR analytics when metadata exists.
 - DR equivalent analytics for instruments with DR metadata, including parent-stock implied price, FX rate, parent quote, and premium/discount.
-- Yahoo Finance quote and historical-price refresh with Neon Postgres caching.
+- Yahoo Finance quote and historical-price refresh with Neon Postgres caching, cached-first page loads, and guarded once-per-day public background refresh.
 - Local UI preferences for `EN / TH` shell language and `light / dark` theme.
 - Fullscreen application shell optimized for a dense personal finance workspace.
 
@@ -112,13 +112,15 @@ The production database lives in Neon Postgres. See [docs/DEPLOYMENT.md](docs/DE
 
 The database schema is declared in `src/lib/db/schema.ts`, with SQL migrations in `drizzle/`. Use `npm run db:migrate` after schema changes.
 
+Market refresh runs are tracked in `market_refresh_runs`. Public visitors can trigger the guarded `daily-auto` refresh once per Bangkok day per portfolio, with at most two public attempts after transient failures. Admin manual refresh bypasses that daily limit and keeps the dashboard banner flow.
+
 ## Notes For Future Work
 
 - The test suite covers the transaction selection helper, position math, validation, and timeout utility. Run `npm run test` before changing those flows.
 - Excel transaction import is template-only for now: unknown instruments are rejected, duplicate rows are skipped, broker defaults to Dime when omitted, and valid rows are inserted as one batch.
 - Transactions are scoped by selected portfolio; instruments and market price caches are shared across portfolios.
 - Market data comes from Yahoo Finance and can fail or return missing/currency-mismatched data. UI code should preserve clear missing-data states.
-- Automatic market-data refreshes are best-effort with short timeouts so pages can keep showing cached local data when Yahoo is slow.
+- Dashboard, holdings, and transactions render from cached local data first. Background market-data refreshes are guarded and best-effort so pages keep opening quickly when Yahoo is slow.
 - The main app surface is English-first in `EN` mode. Thai remains only in the explicit `TH` shell labels and should be added back to pages through a deliberate bilingual copy layer if needed.
 - Theme and language preferences are stored in browser `localStorage`, not the database.
 - The development server may print a Windows SWC DLL warning while still compiling and building successfully.

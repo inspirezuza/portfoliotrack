@@ -172,7 +172,7 @@ async function listHoldingRows(asOfDate: string, portfolioId: number): Promise<H
 
 export async function getHoldingsSnapshot({
   portfolioId: portfolioIdInput,
-  ensureFresh = true
+  ensureFresh = false
 }: {
   portfolioId: number;
   ensureFresh?: boolean;

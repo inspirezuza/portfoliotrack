@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, gte, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/runtime";
 import { historicalPrices, instruments, intradayPrices, priceSnapshots, transactions } from "@/lib/db/schema";
 import {
@@ -56,7 +56,7 @@ function isTimelineIntradayInterval(value: string): value is TimelineIntradayPri
 
 export async function getDashboardSnapshot({
   portfolioId: portfolioIdInput,
-  ensureFresh = true
+  ensureFresh = false
 }: {
   portfolioId: number;
   ensureFresh?: boolean;
@@ -67,7 +67,7 @@ export async function getDashboardSnapshot({
     await ensureFreshMarketDataCache({ portfolioId, includeBenchmark: true });
   }
 
-  const [holdingsSnapshot, marketSettings, transactionRows, instrumentRows, historicalPriceRows, intradayPriceRows] =
+  const [holdingsSnapshot, marketSettings, transactionRows, instrumentRows] =
     await Promise.all([
       getHoldingsSnapshot({ portfolioId, ensureFresh: false }),
       getMarketSettings(),
@@ -85,23 +85,58 @@ export async function getDashboardSnapshot({
         .from(transactions)
         .where(eq(transactions.portfolioId, portfolioId))
         .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id)),
-      db.select().from(instruments),
-      db.select().from(historicalPrices),
-      db.select().from(intradayPrices)
+      db.select().from(instruments)
     ]);
   const benchmarkInstrument =
     marketSettings.benchmarkSymbol == null
       ? null
       : instrumentRows.find((instrument) => instrument.symbol === marketSettings.benchmarkSymbol) ?? null;
-  const [benchmarkSnapshot] =
-    benchmarkInstrument == null
-      ? [null]
-      : await db
-          .select({
-            asOf: priceSnapshots.asOf
-          })
-          .from(priceSnapshots)
-          .where(eq(priceSnapshots.instrumentId, benchmarkInstrument.id));
+  const relevantInstrumentIds = Array.from(
+    new Set([
+      ...transactionRows.map((transaction) => transaction.instrumentId),
+      ...(benchmarkInstrument == null ? [] : [benchmarkInstrument.id])
+    ])
+  );
+  const earliestTradeDate =
+    transactionRows
+      .map((transaction) => transaction.tradeDate)
+      .sort((left, right) => left.localeCompare(right))[0] ?? null;
+  const [historicalPriceRows, intradayPriceRows, benchmarkSnapshotRows] =
+    relevantInstrumentIds.length === 0
+      ? [[], [], []]
+      : await Promise.all([
+          db
+            .select()
+            .from(historicalPrices)
+            .where(
+              earliestTradeDate == null
+                ? inArray(historicalPrices.instrumentId, relevantInstrumentIds)
+                : and(
+                    inArray(historicalPrices.instrumentId, relevantInstrumentIds),
+                    gte(historicalPrices.priceDate, earliestTradeDate)
+                  )
+            ),
+          db
+            .select()
+            .from(intradayPrices)
+            .where(
+              earliestTradeDate == null
+                ? inArray(intradayPrices.instrumentId, relevantInstrumentIds)
+                : and(
+                    inArray(intradayPrices.instrumentId, relevantInstrumentIds),
+                    gte(intradayPrices.observedAt, `${earliestTradeDate}T00:00:00.000Z`)
+                  )
+            ),
+          benchmarkInstrument == null
+            ? Promise.resolve([])
+            : db
+                .select({
+                  asOf: priceSnapshots.asOf
+                })
+                .from(priceSnapshots)
+                .where(eq(priceSnapshots.instrumentId, benchmarkInstrument.id))
+        ]);
+  const benchmarkSnapshot = benchmarkSnapshotRows[0] ?? null;
   const latestMarketDataAsOf =
     [holdingsSnapshot.latestPriceAsOf, benchmarkSnapshot?.asOf ?? null]
       .filter((value): value is string => value != null)

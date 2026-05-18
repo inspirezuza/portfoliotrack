@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
+import { DailyMarketRefresh } from "@/components/daily-market-refresh";
 import { PortfolioSwitcher } from "@/components/portfolio-switcher";
 import { getUiCopy } from "@/lib/ui/copy";
 import { useUiPreferences } from "@/lib/ui/preferences";
@@ -122,6 +123,7 @@ export function AppShell({
 
   return (
     <div className="app-shell">
+      <DailyMarketRefresh selectedPortfolioId={selectedPortfolioId} />
       <div className="shell-frame">
         <aside className="shell-sidebar" aria-label={copy.mainNavigation}>
           <Link href="/" className="brand-mark" aria-label={copy.homeLabel}>

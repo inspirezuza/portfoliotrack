@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth/admin";
 import { getSelectedPortfolioId } from "@/lib/portfolio/selection";
-import { refreshMarketDataCache } from "@/lib/market/provider";
+import { runDailyAutoMarketRefresh, runManualMarketRefresh } from "@/server/market-refresh";
 
 function jsonErrorResponse(code: string, message: string, status: number) {
   return NextResponse.json(
@@ -57,11 +57,45 @@ function isFormSubmissionRequest(request: Request) {
   );
 }
 
+async function getJsonRefreshMode(request: Request) {
+  const contentType = request.headers.get("content-type") ?? "";
+
+  if (!contentType.includes("application/json")) {
+    return null;
+  }
+
+  try {
+    const payload = (await request.json()) as Record<string, unknown>;
+    const mode = payload.mode;
+
+    return typeof mode === "string" ? mode : null;
+  } catch {
+    return "invalid-json";
+  }
+}
+
 export async function POST(request: Request) {
   let formSearchParams: URLSearchParams | null = null;
   const expectsRedirect = isFormSubmissionRequest(request);
 
   try {
+    const refreshMode = expectsRedirect ? null : await getJsonRefreshMode(request);
+
+    if (refreshMode === "invalid-json") {
+      return jsonErrorResponse("INVALID_JSON", "Refresh request JSON is invalid.", 400);
+    }
+
+    if (refreshMode === "daily-auto") {
+      const portfolioId = await getSelectedPortfolioId();
+      const result = await runDailyAutoMarketRefresh({ portfolioId });
+
+      return NextResponse.json(result);
+    }
+
+    if (refreshMode != null) {
+      return jsonErrorResponse("INVALID_REFRESH_MODE", "Refresh mode is not supported.", 400);
+    }
+
     if (!(await isAdminAuthenticated())) {
       if (expectsRedirect) {
         return NextResponse.redirect(new URL("/login?next=/", request.url), { status: 303 });
@@ -75,7 +109,7 @@ export async function POST(request: Request) {
     }
 
     const portfolioId = await getSelectedPortfolioId();
-    const result = await refreshMarketDataCache({ portfolioId });
+    const result = await runManualMarketRefresh({ portfolioId });
 
     if (formSearchParams != null && formSearchParams.has("redirectTo")) {
       const redirectUrl = buildRedirectUrl(request, formSearchParams);
