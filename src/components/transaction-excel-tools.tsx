@@ -5,6 +5,7 @@ import { useRef, useState, useTransition } from "react";
 import { formatQuantity } from "@/lib/format";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
+import type { TransactionBroker } from "@/lib/validation/transaction";
 
 type TransactionExcelToolsProps = {
   language: UiLanguage;
@@ -19,6 +20,7 @@ type ImportPreviewRow = {
   symbol: string | null;
   tradeDate: string | null;
   side: "BUY" | "SELL" | null;
+  broker: TransactionBroker | null;
   quantity: number | null;
   price: number | null;
   fee: number | null;
@@ -232,7 +234,7 @@ export function TransactionExcelTools({ language }: TransactionExcelToolsProps) 
               </span>
               <strong>{copy.row(row.rowNumber)}</strong>
               <span>
-                {[row.symbol, row.tradeDate, row.side].filter(Boolean).join(" / ") || "-"}
+                {[row.symbol, row.tradeDate, row.side, row.broker].filter(Boolean).join(" / ") || "-"}
               </span>
               <span>
                 {row.quantity == null

@@ -12,6 +12,7 @@ const transactionExcelColumns = [
   { key: "providerSymbol", header: "Provider Symbol", width: 20 },
   { key: "tradeDate", header: "Trade Date", width: 14 },
   { key: "side", header: "Side", width: 10 },
+  { key: "broker", header: "Broker", width: 12, optional: true },
   { key: "quantity", header: "Quantity", width: 14 },
   { key: "price", header: "Price", width: 14 },
   { key: "fee", header: "Fee", width: 12 },
@@ -135,7 +136,7 @@ function getWorksheet(workbook: ExcelJS.Workbook) {
 function assertTemplateColumns(worksheet: ExcelJS.Worksheet) {
   const headerColumnMap = getHeaderColumnMap(worksheet);
   const missingHeaders = transactionExcelColumns
-    .filter((column) => !headerColumnMap.has(normalizeHeader(column.header)))
+    .filter((column) => !("optional" in column && column.optional) && !headerColumnMap.has(normalizeHeader(column.header)))
     .map((column) => column.header);
 
   if (missingHeaders.length > 0) {
@@ -234,6 +235,7 @@ export async function buildTransactionExcelWorkbook(
       providerSymbol: transaction.instrument.providerSymbol,
       tradeDate: transaction.tradeDate,
       side: transaction.side,
+      broker: transaction.broker,
       quantity: transaction.quantity,
       price: transaction.price,
       fee: transaction.fee,

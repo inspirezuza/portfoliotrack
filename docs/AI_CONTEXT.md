@@ -76,7 +76,7 @@ Tables:
 
 - `instruments`: symbols, names, market/type/currency, provider symbol, active flag, and nullable DR metadata.
 - `portfolios`: named portfolios with one default row.
-- `transactions`: portfolio-scoped manual ledger rows ordered by `tradeDate`, `createdAt`, then `id`.
+- `transactions`: portfolio-scoped manual ledger rows with a `broker` value (`DIME` or `WEBULL`), ordered by `tradeDate`, `createdAt`, then `id`.
 - `priceSnapshots`: latest quote per instrument, unique by `instrumentId`.
 - `historicalPrices`: daily close history, unique by `(instrumentId, priceDate)`.
 - `intradayPrices`: intraday close data, unique by `(instrumentId, interval, observedAt)`.
@@ -127,7 +127,7 @@ Public users can read current app pages and switch portfolios. Admin-only contro
 
 - Workbook support is server-side through `exceljs`; keep API routes using `runtime = "nodejs"`.
 - The supported import format is the app template sheet named `Transactions`; broker statement formats are intentionally out of scope.
-- Template columns include instrument identity, trade date, side, quantity, price, fee, and notes.
+- Template columns include instrument identity, trade date, side, optional broker, quantity, price, fee, and notes. Missing broker values default to Dime.
 - Instrument matching tries instrument id, provider symbol, then app symbol.
 - Preview returns row-level `ready`, `skipped_duplicate`, or `error` statuses.
 - Commit re-parses and re-validates the uploaded workbook, rejects files with errors, and inserts ready rows atomically.

@@ -74,6 +74,7 @@ export const transactions = pgTable(
       .references(() => instruments.id, { onDelete: "restrict", onUpdate: "cascade" }),
     tradeDate: text("trade_date").notNull(),
     side: text("side").notNull(),
+    broker: text("broker").notNull().default("DIME"),
     quantity: doublePrecision("quantity").notNull(),
     price: doublePrecision("price").notNull(),
     fee: doublePrecision("fee").notNull().default(0),
@@ -92,7 +93,8 @@ export const transactions = pgTable(
     quantityPositive: check("transactions_quantity_positive", sql`${table.quantity} > 0`),
     pricePositive: check("transactions_price_positive", sql`${table.price} >= 0`),
     feePositive: check("transactions_fee_positive", sql`${table.fee} >= 0`),
-    sideCheck: check("transactions_side_check", sql`${table.side} in ('BUY', 'SELL')`)
+    sideCheck: check("transactions_side_check", sql`${table.side} in ('BUY', 'SELL')`),
+    brokerCheck: check("transactions_broker_check", sql`${table.broker} in ('DIME', 'WEBULL')`)
   })
 );
 

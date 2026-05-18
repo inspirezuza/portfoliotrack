@@ -35,6 +35,7 @@ function positiveNormalizedNumber(
 }
 
 export const transactionSideSchema = z.enum(["BUY", "SELL"]);
+export const transactionBrokerSchema = z.enum(["DIME", "WEBULL"]);
 
 export const transactionInputSchema = z
   .object({
@@ -47,6 +48,10 @@ export const transactionInputSchema = z
     side: z.preprocess(
       (value) => (typeof value === "string" ? value.trim().toUpperCase() : value),
       transactionSideSchema
+    ),
+    broker: z.preprocess(
+      (value) => (typeof value === "string" ? value.trim().toUpperCase() : value),
+      transactionBrokerSchema.optional()
     ),
     quantity: positiveNormalizedNumber(
       normalizeQuantity,
@@ -71,4 +76,5 @@ export const transactionInputSchema = z
   .strict();
 
 export type TransactionSide = z.infer<typeof transactionSideSchema>;
+export type TransactionBroker = z.infer<typeof transactionBrokerSchema>;
 export type TransactionInput = z.infer<typeof transactionInputSchema>;

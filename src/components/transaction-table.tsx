@@ -26,6 +26,7 @@ type TransactionSortKey =
   | "tradeDate"
   | "instrument"
   | "side"
+  | "broker"
   | "quantity"
   | "price"
   | "fee"
@@ -73,6 +74,7 @@ function getTransactionSearchText(transaction: TransactionListItem) {
   return [
     transaction.tradeDate,
     transaction.side,
+    transaction.broker,
     transaction.notes ?? "",
     transaction.instrument.symbol,
     transaction.instrument.displayName,
@@ -153,7 +155,7 @@ export function TransactionTable({
           }
         : {
             key: sortKey,
-            direction: sortKey === "instrument" || sortKey === "side" ? "asc" : "desc"
+            direction: sortKey === "instrument" || sortKey === "side" || sortKey === "broker" ? "asc" : "desc"
           }
     );
   }
@@ -251,6 +253,7 @@ export function TransactionTable({
                   <SortableHeader label={copy.transactions.table.columns.date} language={language} sortKey="tradeDate" sort={sort} onSort={handleSort} />
                   <SortableHeader label={copy.transactions.table.columns.instrument} language={language} sortKey="instrument" sort={sort} onSort={handleSort} />
                   <SortableHeader label={copy.transactions.table.columns.side} language={language} sortKey="side" sort={sort} onSort={handleSort} />
+                  <SortableHeader label={copy.transactions.table.columns.broker} language={language} sortKey="broker" sort={sort} onSort={handleSort} />
                   <SortableHeader label={copy.transactions.table.columns.quantity} language={language} sortKey="quantity" sort={sort} onSort={handleSort} />
                   <SortableHeader label={copy.transactions.table.columns.price} language={language} sortKey="price" sort={sort} onSort={handleSort} />
                   <SortableHeader label={copy.transactions.table.columns.fee} language={language} sortKey="fee" sort={sort} onSort={handleSort} />
@@ -262,7 +265,7 @@ export function TransactionTable({
               <tbody>
                 {visibleTransactions.length === 0 ? (
                   <tr>
-                    <td colSpan={canEdit ? 9 : 8} className="table-empty-cell">
+                    <td colSpan={canEdit ? 10 : 9} className="table-empty-cell">
                       {copy.transactions.table.noMatches}
                     </td>
                   </tr>
@@ -297,6 +300,7 @@ export function TransactionTable({
                           {transaction.side}
                         </span>
                       </td>
+                      <td>{transaction.broker === "WEBULL" ? "Webull" : "Dime"}</td>
                       <td className="table-number">{formatQuantity(transaction.quantity, { locale })}</td>
                       <td className="table-number">
                         {formatCurrency(transaction.price, {

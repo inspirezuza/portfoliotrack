@@ -7,7 +7,7 @@ For the latest layout and visual-design review, read [docs/UX_REVIEW.md](docs/UX
 
 ## Current Capabilities
 
-- Manual `BUY` and `SELL` transaction entry with server-side validation.
+- Manual `BUY` and `SELL` transaction entry with broker selection for Dime or Webull and server-side validation.
 - Multiple portfolios in one app, with public portfolio switching and admin-only portfolio management.
 - Admin-only Excel transaction workflow: download the app template, export the ledger, preview imports, skip duplicates, and commit valid rows atomically.
 - Fee-aware average cost, total cost basis, realized P&L, unrealized P&L, and total fees.
@@ -115,7 +115,7 @@ The database schema is declared in `src/lib/db/schema.ts`, with SQL migrations i
 ## Notes For Future Work
 
 - The test suite covers the transaction selection helper, position math, validation, and timeout utility. Run `npm run test` before changing those flows.
-- Excel transaction import is template-only for now: unknown instruments are rejected, duplicate rows are skipped, and valid rows are inserted as one batch.
+- Excel transaction import is template-only for now: unknown instruments are rejected, duplicate rows are skipped, broker defaults to Dime when omitted, and valid rows are inserted as one batch.
 - Transactions are scoped by selected portfolio; instruments and market price caches are shared across portfolios.
 - Market data comes from Yahoo Finance and can fail or return missing/currency-mismatched data. UI code should preserve clear missing-data states.
 - Automatic market-data refreshes are best-effort with short timeouts so pages can keep showing cached local data when Yahoo is slow.
