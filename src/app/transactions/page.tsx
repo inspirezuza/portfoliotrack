@@ -33,6 +33,7 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
   const {
     editingTransaction,
     formInstruments,
+    instruments,
     summary,
     transactions
   } = await getTransactionWorkspace({
