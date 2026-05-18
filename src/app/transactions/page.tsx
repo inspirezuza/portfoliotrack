@@ -1,4 +1,5 @@
 import { TransactionForm } from "@/components/transaction-form";
+import { TransactionEditModal } from "@/components/transaction-edit-modal";
 import { TransactionExcelTools } from "@/components/transaction-excel-tools";
 import { TransactionTable } from "@/components/transaction-table";
 import { isAdminAuthenticated } from "@/lib/auth/admin";
@@ -99,10 +100,16 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
       {isAdmin ? (
         <>
           <TransactionForm
-            instruments={formInstruments}
-            editingTransaction={editingTransaction}
+            instruments={instruments}
             language={language}
           />
+          {editingTransaction ? (
+            <TransactionEditModal
+              instruments={formInstruments}
+              editingTransaction={editingTransaction}
+              language={language}
+            />
+          ) : null}
           <TransactionExcelTools language={language} />
         </>
       ) : null}
