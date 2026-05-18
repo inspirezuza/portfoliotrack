@@ -1218,18 +1218,68 @@ html[data-theme="dark"] .secondary-button {
 
 .portfolio-create-card {
   display: grid;
-  gap: 16px;
+  grid-template-columns: minmax(220px, 0.42fr) minmax(320px, 0.58fr);
+  gap: 18px 24px;
+  align-items: end;
+  background:
+    linear-gradient(135deg, rgba(8, 116, 93, 0.055), transparent 46%),
+    var(--surface-strong);
 }
 
 .portfolio-create-form {
   display: grid;
+  width: 100%;
+  max-width: 720px;
+  justify-self: end;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
+  gap: 10px;
   align-items: end;
 }
 
-.portfolio-create-form input {
-  width: 100%;
+.portfolio-name-field {
+  gap: 7px;
+}
+
+.portfolio-name-field input {
+  min-height: 46px;
+  border-radius: 16px;
+  padding-inline: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.55)),
+    var(--surface-strong);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+html[data-theme="dark"] .portfolio-name-field input {
+  background: var(--surface-muted);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.portfolio-name-field input:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.portfolio-name-field input::placeholder {
+  color: color-mix(in srgb, var(--muted) 78%, transparent);
+}
+
+.portfolio-create-button {
+  min-width: 104px;
+  min-height: 46px;
+  padding-inline: 18px;
+  box-shadow: 0 12px 28px rgba(8, 116, 93, 0.18);
+}
+
+.portfolio-create-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+  box-shadow: none;
+}
+
+.portfolio-create-card .form-success-message,
+.portfolio-create-card .form-error-message {
+  grid-column: 2;
 }
 
 .portfolio-row {
@@ -2606,9 +2656,21 @@ html[data-theme="dark"] .subtabs .active {
   .asset-performance-grid,
   .dr-formula-grid,
   .route-grid,
+  .portfolio-create-card,
+  .portfolio-create-form,
   .transaction-form,
   .compact-stat-grid {
     grid-template-columns: 1fr;
+  }
+
+  .portfolio-create-form {
+    max-width: none;
+    justify-self: stretch;
+  }
+
+  .portfolio-create-card .form-success-message,
+  .portfolio-create-card .form-error-message {
+    grid-column: 1;
   }
 
   .metric-card-hero {

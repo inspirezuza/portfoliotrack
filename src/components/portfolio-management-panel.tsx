@@ -35,6 +35,8 @@ export function PortfolioManagementPanel({
     () => portfolios.find((portfolio) => portfolio.id === selectedPortfolioId) ?? portfolios[0] ?? null,
     [portfolios, selectedPortfolioId]
   );
+  const normalizedNewName = newName.trim();
+  const isCreateDisabled = isPending || normalizedNewName.length === 0;
 
   async function requestPortfolio(
     method: "POST" | "PUT" | "DELETE",
@@ -58,11 +60,21 @@ export function PortfolioManagementPanel({
   }
 
   function handleCreate() {
+    if (isPending) {
+      return;
+    }
+
+    if (normalizedNewName.length === 0) {
+      setMessage(null);
+      setError("Portfolio name is required.");
+      return;
+    }
+
     startTransition(async () => {
       try {
         setError(null);
         setMessage(null);
-        const payload = await requestPortfolio("POST", { name: newName }, "Portfolio could not be created.");
+        const payload = await requestPortfolio("POST", { name: normalizedNewName }, "Portfolio could not be created.");
 
         if (payload.portfolio) {
           setPortfolios((current) => [...current, payload.portfolio!].sort((left, right) => left.name.localeCompare(right.name)));
@@ -184,20 +196,27 @@ export function PortfolioManagementPanel({
           {selectedPortfolio ? <p className="metric-detail">Current: {selectedPortfolio.name}</p> : null}
         </div>
 
-        <div className="portfolio-create-form">
-          <label>
+        <form
+          className="portfolio-create-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            handleCreate();
+          }}
+        >
+          <label className="field-group portfolio-name-field">
             <span className="field-label">Name</span>
             <input
               value={newName}
               onChange={(event) => setNewName(event.target.value)}
+              disabled={isPending}
               maxLength={80}
               placeholder="Long-term, Trading, Retirement"
             />
           </label>
-          <button type="button" className="primary-button" onClick={handleCreate} disabled={isPending}>
+          <button type="submit" className="primary-button portfolio-create-button" disabled={isCreateDisabled}>
             Create
           </button>
-        </div>
+        </form>
 
         {message ? <p className="form-success-message">{message}</p> : null}
         {error ? <p className="form-error-message">{error}</p> : null}
@@ -223,14 +242,16 @@ export function PortfolioManagementPanel({
                 <button type="button" className="secondary-button" onClick={() => handleRename(portfolio)} disabled={isPending}>
                   Rename
                 </button>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => handleSetDefault(portfolio)}
-                  disabled={isPending || portfolio.isDefault}
-                >
-                  Set default
-                </button>
+                {portfolio.isDefault ? null : (
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => handleSetDefault(portfolio)}
+                    disabled={isPending}
+                  >
+                    Set default
+                  </button>
+                )}
                 <button type="button" className="danger-button" onClick={() => handleDelete(portfolio)} disabled={isPending}>
                   Delete
                 </button>
