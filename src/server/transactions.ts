@@ -18,7 +18,11 @@ import {
   type PositionTransaction
 } from "@/lib/portfolio/positions";
 import { instrumentInputSchema } from "@/lib/validation/instrument";
-import { transactionInputSchema, type TransactionInput } from "@/lib/validation/transaction";
+import {
+  transactionInputSchema,
+  type TransactionBroker,
+  type TransactionInput
+} from "@/lib/validation/transaction";
 import { parsePortfolioId } from "@/server/portfolios";
 
 export type TransactionListOrder = "asc" | "desc";
@@ -29,6 +33,7 @@ export type TransactionListItem = {
   instrumentId: number;
   tradeDate: string;
   side: "BUY" | "SELL";
+  broker: TransactionBroker;
   quantity: number;
   price: number;
   fee: number;
@@ -138,6 +143,7 @@ function mapTransactionListItem(row: {
     instrumentId: row.transaction.instrumentId,
     tradeDate: row.transaction.tradeDate,
     side: row.transaction.side as "BUY" | "SELL",
+    broker: row.transaction.broker as TransactionBroker,
     quantity: row.transaction.quantity,
     price: row.transaction.price,
     fee: row.transaction.fee,
@@ -227,6 +233,7 @@ function buildInsertValues(input: TransactionInput, portfolioId: number): NewTra
     instrumentId: input.instrumentId,
     tradeDate: input.tradeDate,
     side: input.side,
+    broker: input.broker ?? "DIME",
     quantity: input.quantity,
     price: input.price,
     fee: input.fee,

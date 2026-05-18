@@ -61,7 +61,7 @@ After deploy:
 
 - Visit the public URL while logged out and confirm dashboard, holdings, transactions, and asset detail pages load read-only.
 - Visit `/login`, sign in as admin, then confirm create/update/delete and refresh controls appear.
-- On `/transactions`, confirm the Excel template downloads, ledger export requires admin, and an uploaded template can be previewed.
+- On `/transactions`, confirm the Dime/Webull broker selector is available in the admin transaction form, the Excel template downloads, ledger export requires admin, and an uploaded template can be previewed.
 - Use `/api/auth/logout` through the header logout button to return to public read-only mode.
 
 ## Notes

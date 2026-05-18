@@ -18,7 +18,11 @@ import {
   TransactionExcelError,
   type ParsedTransactionExcelRow
 } from "@/lib/transactions/excel";
-import { transactionInputSchema, type TransactionInput } from "@/lib/validation/transaction";
+import {
+  transactionInputSchema,
+  type TransactionBroker,
+  type TransactionInput
+} from "@/lib/validation/transaction";
 import { listTransactions, toChronologicalPositionTransaction } from "@/server/transactions";
 import { parsePortfolioId } from "@/server/portfolios";
 
@@ -34,6 +38,7 @@ export type TransactionImportPreviewRow = {
   symbol: string | null;
   tradeDate: string | null;
   side: "BUY" | "SELL" | null;
+  broker: TransactionBroker | null;
   quantity: number | null;
   price: number | null;
   fee: number | null;
@@ -63,7 +68,7 @@ type ImportInstrument = Pick<
 
 type ExistingTransactionRow = Pick<
   typeof transactions.$inferSelect,
-  "id" | "instrumentId" | "tradeDate" | "side" | "quantity" | "price" | "fee" | "notes" | "createdAt"
+  "id" | "instrumentId" | "tradeDate" | "side" | "broker" | "quantity" | "price" | "fee" | "notes" | "createdAt"
 >;
 
 type ImportPositionTransaction = PositionTransaction & {
@@ -122,11 +127,12 @@ function getOptionalNumber(value: unknown) {
   return Number.isFinite(numberValue) ? numberValue : null;
 }
 
-function getImportTransactionKey(input: Pick<TransactionInput, "instrumentId" | "tradeDate" | "side" | "quantity" | "price" | "fee" | "notes">) {
+function getImportTransactionKey(input: Pick<TransactionInput, "instrumentId" | "tradeDate" | "side" | "broker" | "quantity" | "price" | "fee" | "notes">) {
   return [
     input.instrumentId,
     input.tradeDate,
     input.side,
+    input.broker ?? "DIME",
     normalizeQuantity(input.quantity),
     normalizePrice(input.price),
     normalizeMoney(input.fee),
@@ -219,6 +225,7 @@ async function getImportContext(portfolioId: number) {
       instrumentId: transactions.instrumentId,
       tradeDate: transactions.tradeDate,
       side: transactions.side,
+      broker: transactions.broker,
       quantity: transactions.quantity,
       price: transactions.price,
       fee: transactions.fee,
@@ -311,7 +318,8 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
     context.transactions.map((transaction) =>
       getImportTransactionKey({
         ...transaction,
-        side: transaction.side as "BUY" | "SELL"
+        side: transaction.side as "BUY" | "SELL",
+        broker: transaction.broker as TransactionBroker
       })
     )
   );
@@ -332,6 +340,9 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
       side: normalizeLookupValue(row.values.side) === "BUY" || normalizeLookupValue(row.values.side) === "SELL"
         ? (normalizeLookupValue(row.values.side) as "BUY" | "SELL")
         : null,
+      broker: normalizeLookupValue(row.values.broker) === "DIME" || normalizeLookupValue(row.values.broker) === "WEBULL"
+        ? (normalizeLookupValue(row.values.broker) as TransactionBroker)
+        : null,
       quantity: getOptionalNumber(row.values.quantity),
       price: getOptionalNumber(row.values.price),
       fee: getOptionalNumber(row.values.fee),
@@ -351,6 +362,7 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
       instrumentId: instrument.id,
       tradeDate: getOptionalCellString(row.values.tradeDate),
       side: row.values.side,
+      broker: getOptionalCellString(row.values.broker).length > 0 ? row.values.broker : undefined,
       quantity: row.values.quantity,
       price: row.values.price,
       fee: getOptionalCellString(row.values.fee).length > 0 ? row.values.fee : 0,
@@ -377,6 +389,7 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
         symbol: instrument.symbol,
         tradeDate: parsedInput.data.tradeDate,
         side: parsedInput.data.side,
+        broker: parsedInput.data.broker ?? "DIME",
         quantity: parsedInput.data.quantity,
         price: parsedInput.data.price,
         fee: parsedInput.data.fee,
@@ -393,6 +406,7 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
       symbol: instrument.symbol,
       tradeDate: parsedInput.data.tradeDate,
       side: parsedInput.data.side,
+      broker: parsedInput.data.broker ?? "DIME",
       quantity: parsedInput.data.quantity,
       price: parsedInput.data.price,
       fee: parsedInput.data.fee,
@@ -417,6 +431,7 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
       symbol: row.symbol,
       tradeDate: row.tradeDate,
       side: row.side,
+      broker: row.broker,
       quantity: row.quantity,
       price: row.price,
       fee: row.fee,
@@ -459,6 +474,7 @@ function buildInsertValue(input: TransactionInput, portfolioId: number): NewTran
     instrumentId: input.instrumentId,
     tradeDate: input.tradeDate,
     side: input.side,
+    broker: input.broker ?? "DIME",
     quantity: input.quantity,
     price: input.price,
     fee: input.fee,

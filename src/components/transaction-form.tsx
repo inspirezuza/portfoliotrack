@@ -11,12 +11,14 @@ import {
 } from "@/lib/transactions/instrument-selection";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
+import type { TransactionBroker } from "@/lib/validation/transaction";
 import type { TransactionInstrumentOption, TransactionListItem } from "@/server/transactions";
 
 type TransactionFormValues = {
   instrumentId: string;
   tradeDate: string;
   side: "BUY" | "SELL";
+  broker: TransactionBroker;
   quantity: string;
   price: string;
   fee: string;
@@ -78,6 +80,7 @@ function createInitialValues(instruments: TransactionInstrumentOption[]): Transa
     instrumentId: getSynchronizedInstrumentId("", instruments),
     tradeDate: getTodayDate(),
     side: "BUY",
+    broker: "DIME",
     quantity: "",
     price: "",
     fee: "0",
@@ -90,6 +93,7 @@ function createValuesFromTransaction(transaction: TransactionListItem): Transact
     instrumentId: String(transaction.instrumentId),
     tradeDate: transaction.tradeDate,
     side: transaction.side,
+    broker: transaction.broker,
     quantity: String(transaction.quantity),
     price: String(transaction.price),
     fee: String(transaction.fee),
@@ -373,6 +377,7 @@ export function TransactionForm({
         instrumentId: Number(values.instrumentId),
         tradeDate: values.tradeDate,
         side: values.side,
+        broker: values.broker,
         quantity: Number(values.quantity),
         price: Number(values.price),
         fee: Number(values.fee || "0"),
@@ -858,6 +863,19 @@ export function TransactionForm({
             >
               <option value="BUY">{copy.transactions.form.buy}</option>
               <option value="SELL">{copy.transactions.form.sell}</option>
+            </select>
+          </label>
+
+          <label className="field-group">
+            <span className="field-label">{copy.transactions.form.broker}</span>
+            <select
+              name="broker"
+              value={values.broker}
+              onChange={(event) => updateValue("broker", event.target.value as TransactionBroker)}
+              disabled={isDisabled}
+            >
+              <option value="DIME">Dime</option>
+              <option value="WEBULL">Webull</option>
             </select>
           </label>
 
