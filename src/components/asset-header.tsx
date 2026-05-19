@@ -19,8 +19,8 @@ export function AssetHeader({ asset }: AssetHeaderProps) {
           size="lg"
         />
         <div>
-          <Link href="/holdings" className="route-link">
-            Back to holdings
+          <Link href="/" className="route-link">
+            Back to dashboard
           </Link>
           <p className="eyebrow">Asset detail</p>
           <h1>

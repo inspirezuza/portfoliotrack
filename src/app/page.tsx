@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { BenchmarkChart } from "@/components/benchmark-chart";
+import { HoldingsTable } from "@/components/holdings-table";
 import { HoldingsAllocationChart } from "@/components/holdings-allocation-chart";
 import { PortfolioChart } from "@/components/portfolio-chart";
+import { SummaryCards } from "@/components/summary-cards";
 import { formatCurrency, formatPercentRatio, formatQuantity } from "@/lib/format";
 import { isAdminAuthenticated } from "@/lib/auth/admin";
 import { getPortfolioSelection } from "@/lib/portfolio/selection";
@@ -65,6 +67,27 @@ function formatDateLabel(value: string | null, locale: string, emptyLabel: strin
     month: "short",
     year: "numeric",
     timeZone: "Asia/Bangkok"
+  }).format(date);
+}
+
+function formatCacheDateLabel(value: string | null, locale: string, emptyLabel: string) {
+  if (value == null) {
+    return emptyLabel;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat(locale, {
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "short",
+    timeZone: "Asia/Bangkok",
+    year: "numeric"
   }).format(date);
 }
 
@@ -358,9 +381,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 <p className="eyebrow">{copy.dashboard.holdings}</p>
                 <h2 className="side-card-title">{copy.dashboard.openPositions}</h2>
               </div>
-              <Link href="/holdings" className="route-link">
-                {copy.dashboard.viewAll}
-              </Link>
+              <span className="state-pill state-pill-muted">
+                {copy.shared.positionCount(holdingsSnapshot.openPositionCount)}
+              </span>
             </div>
 
             {leadingHoldings.length === 0 ? (
@@ -411,6 +434,47 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             )}
           </article>
         </aside>
+      </section>
+
+      <section className="dashboard-holdings-section" aria-labelledby="dashboard-holdings-title">
+        <div className="dashboard-holdings-header">
+          <div>
+            <p className="eyebrow">{copy.holdings.pageEyebrow}</p>
+            <h2 id="dashboard-holdings-title" className="section-title">
+              {copy.holdings.pageTitle}
+            </h2>
+          </div>
+          <span className="state-pill state-pill-muted">{selectedPortfolio.name}</span>
+        </div>
+
+        <section className="asset-performance-grid dashboard-holdings-status" aria-label={copy.holdings.statusLabel}>
+          <article className="metric-card dashboard-status-card">
+            <p className="metric-value">{holdingsSnapshot.openPositionCount}</p>
+            <p className="metric-label">{copy.holdings.open}</p>
+          </article>
+          <article className="metric-card dashboard-status-card">
+            <p className="metric-value">{holdingsSnapshot.pricedPositionCount}</p>
+            <p className="metric-label">{copy.holdings.priced}</p>
+          </article>
+          <article className="metric-card dashboard-status-card">
+            <p className="metric-value">{holdingsSnapshot.missingPricePositionCount}</p>
+            <p className="metric-label">{copy.holdings.missing}</p>
+          </article>
+          <article className="metric-card dashboard-status-card">
+            <p className="metric-value metric-value-compact">
+              {formatCacheDateLabel(holdingsSnapshot.latestPriceAsOf, locale, copy.shared.noCache)}
+            </p>
+            <p className="metric-label">{copy.holdings.latestCache}</p>
+          </article>
+        </section>
+
+        <HoldingsTable
+          holdings={holdingsSnapshot.holdings}
+          language={language}
+          canRefresh={isAdmin}
+        />
+
+        <SummaryCards language={language} summary={summary} />
       </section>
     </section>
   );

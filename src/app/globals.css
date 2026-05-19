@@ -438,6 +438,7 @@ html[data-theme="dark"] .preference-button[aria-pressed="true"] {
 .transactions-page > *,
 .asset-detail-page > *,
 .workstation-grid > *,
+.dashboard-holdings-section > *,
 .asset-layout > *,
 .chart-card > *,
 .chart-workspace > *,
@@ -902,6 +903,44 @@ html[data-theme="dark"] .empty-panel {
 .action-card,
 .transaction-overview-card {
   gap: 12px;
+}
+
+.dashboard-holdings-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.dashboard-holdings-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.dashboard-holdings-status {
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(135deg, rgba(8, 116, 93, 0.08), transparent 34%),
+    color-mix(in srgb, var(--surface-strong) 86%, transparent);
+}
+
+.dashboard-status-card {
+  min-height: 76px;
+  background: color-mix(in srgb, var(--surface-strong) 82%, transparent);
+}
+
+html[data-theme="dark"] .dashboard-holdings-status {
+  background:
+    linear-gradient(135deg, rgba(113, 232, 176, 0.08), transparent 34%),
+    color-mix(in srgb, var(--surface-strong) 86%, transparent);
 }
 
 .transactions-workspace .workstation-topbar {
@@ -2841,6 +2880,7 @@ html[data-theme="dark"] .subtabs .active {
 
   .shell-header,
   .workstation-topbar,
+  .dashboard-holdings-header,
   .chart-card-header,
   .transaction-panel-header,
   .side-card-header,
