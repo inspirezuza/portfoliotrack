@@ -868,15 +868,27 @@ export function TransactionForm({
 
           <label className="field-group">
             <span className="field-label">{copy.transactions.form.broker}</span>
-            <select
-              name="broker"
-              value={values.broker}
-              onChange={(event) => updateValue("broker", event.target.value as TransactionBroker)}
-              disabled={isDisabled}
+            <div
+              className="broker-segmented-control"
+              role="radiogroup"
+              aria-label={copy.transactions.form.broker}
             >
-              <option value="DIME">Dime</option>
-              <option value="WEBULL">Webull</option>
-            </select>
+              {(["DIME", "WEBULL"] as const).map((broker) => (
+                <button
+                  key={broker}
+                  type="button"
+                  className="broker-segmented-option"
+                  data-selected={values.broker === broker}
+                  role="radio"
+                  aria-checked={values.broker === broker}
+                  onClick={() => updateValue("broker", broker)}
+                  disabled={isDisabled}
+                >
+                  {broker === "DIME" ? "Dime" : "Webull"}
+                </button>
+              ))}
+            </div>
+            <input type="hidden" name="broker" value={values.broker} />
           </label>
 
           <label className="field-group">
