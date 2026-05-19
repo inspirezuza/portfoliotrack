@@ -72,7 +72,7 @@ npm run build
 After deploy:
 
 - Visit the public URL while logged out and confirm dashboard, transactions, and asset detail pages load read-only. `/holdings` should redirect to the dashboard.
-- Confirm the Vercel Cron entries exist for `GET /api/cron/market-data/1800`, `/1900`, `/2000`, `/2030`, `/2100`, `/2200`, `/2300`, `/0000`, and `/0300`, scheduled through the evening plus US market open and close in `Asia/Bangkok`.
+- Confirm the Vercel Cron entries exist for `GET /api/cron/market-data/1800`, `/1900`, `/2000`, `/2030`, `/2100`, `/2200`, `/2300`, `/0000`, and `/0300`, scheduled through the evening plus US market open and close in `Asia/Bangkok`. On Vercel Hobby, cron timing is hourly best-effort, so treat these as target windows rather than exact minute triggers.
 - Visit `/login`, sign in as admin, then confirm create/update/delete and refresh controls appear.
 - On `/transactions`, confirm the Dime/Webull broker selector is available in the admin transaction form, the Excel template downloads, ledger export requires admin, and an uploaded template can be previewed. Rows with `Instrument Action = CREATE` should create missing instruments during commit.
 - Use `/api/auth/logout` through the header logout button to return to public read-only mode.

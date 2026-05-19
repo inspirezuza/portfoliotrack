@@ -156,6 +156,7 @@ Refresh behavior:
 - Dashboard and transactions render cached data first and do not call the provider during route render.
 - `GET /api/cron/market-data/[slot]` triggers `daily-auto` refreshes from Vercel Cron at 18:00, 19:00, 20:00, 20:30, 21:00, 22:00, 23:00, 00:00, and 03:00 Thailand time.
 - Slot cron refresh is guarded by `market_refresh_runs`: one success per Bangkok date/slot key per portfolio, with at most two attempts after failed or stale-running jobs.
+- Vercel Hobby cron timing is hourly best-effort, so these slot labels are target windows and not exact minute guarantees.
 - Admin manual refresh uses the existing button/form path, bypasses the scheduled slot limit, records a `manual` run, and preserves the dashboard banner flow.
 
 ## UI Shell, Theme, And Language

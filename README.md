@@ -121,7 +121,7 @@ The production database lives in Neon Postgres. See [docs/DEPLOYMENT.md](docs/DE
 
 The database schema is declared in `src/lib/db/schema.ts`, with SQL migrations in `drizzle/`. Use `npm run db:migrate` after schema changes.
 
-Market refresh runs are tracked in `market_refresh_runs`. Vercel Cron calls slot-specific routes in `Asia/Bangkok`: `/api/cron/market-data/1800`, `/1900`, `/2000`, `/2030` for US market open, `/2100`, `/2200`, `/2300`, `/0000`, and `/0300` for US market close. Each route requires `Authorization: Bearer $CRON_SECRET`, refreshes every portfolio through the guarded `daily-auto` path, and records one run per Bangkok day per portfolio per slot. Admin manual refresh remains available from the app and bypasses the scheduled slot limit.
+Market refresh runs are tracked in `market_refresh_runs`. Vercel Cron calls slot-specific routes in `Asia/Bangkok`: `/api/cron/market-data/1800`, `/1900`, `/2000`, `/2030` for US market open, `/2100`, `/2200`, `/2300`, `/0000`, and `/0300` for US market close. Each route requires `Authorization: Bearer $CRON_SECRET`, refreshes every portfolio through the guarded `daily-auto` path, and records one run per Bangkok day per portfolio per slot. Admin manual refresh remains available from the app and bypasses the scheduled slot limit. Vercel Hobby cron timing is hourly best-effort, so these slots are target windows rather than exact minute guarantees.
 
 ## Notes For Future Work
 
