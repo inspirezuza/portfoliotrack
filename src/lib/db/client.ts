@@ -7,10 +7,12 @@ import * as schema from "./schema";
 const DEFAULT_LOCAL_DATABASE_URL = "postgresql://portfoliotrack:portfoliotrack@127.0.0.1:55432/portfoliotrack";
 
 function getDatabaseUrl() {
+  const localDatabaseUrl = process.env.LOCAL_DATABASE_URL;
+  const hostedDatabaseUrl = process.env.DATABASE_URL;
   const databaseUrl =
-    process.env.LOCAL_DATABASE_URL ||
-    process.env.DATABASE_URL ||
-    (process.env.NODE_ENV === "production" ? "" : DEFAULT_LOCAL_DATABASE_URL);
+    process.env.NODE_ENV === "production"
+      ? hostedDatabaseUrl || localDatabaseUrl || ""
+      : localDatabaseUrl || hostedDatabaseUrl || DEFAULT_LOCAL_DATABASE_URL;
 
   if (!databaseUrl) {
     throw new Error("DATABASE_URL or LOCAL_DATABASE_URL is required to connect to Postgres.");

@@ -66,7 +66,7 @@ Schema source:
 
 Runtime database:
 
-- Local Postgres through `LOCAL_DATABASE_URL` in development, with Neon Postgres through `DATABASE_URL` for hosted deployments. The repo-local Docker database uses `127.0.0.1:55432` by default to avoid conflicts with machine-level Postgres services on `5432`.
+- Local Postgres through `LOCAL_DATABASE_URL` in development, with Neon Postgres through `DATABASE_URL` for hosted deployments. Runtime code prefers `DATABASE_URL` in production and `LOCAL_DATABASE_URL` in development. The repo-local Docker database uses `127.0.0.1:55432` by default to avoid conflicts with machine-level Postgres services on `5432`.
 
 Database connection:
 

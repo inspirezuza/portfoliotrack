@@ -87,10 +87,14 @@ type PendingImportInstrument = Omit<ImportInstrument, "id"> & {
   id: null;
   createInstrumentInput: InstrumentInput;
   createInstrumentKey: string;
+  positionInstrumentId: null;
+};
+
+type PreparedPendingImportInstrument = Omit<PendingImportInstrument, "positionInstrumentId"> & {
   positionInstrumentId: number;
 };
 
-type ResolvedImportInstrument = ImportInstrument | PendingImportInstrument;
+type ResolvedImportInstrument = ImportInstrument | PreparedPendingImportInstrument;
 
 type ImportTransactionInput = Omit<TransactionInput, "instrumentId"> & {
   instrumentId: number | null;
@@ -373,16 +377,6 @@ function getCreateInstrumentKey(input: InstrumentInput) {
   return normalizeLookupValue(input.providerSymbol || input.symbol);
 }
 
-function getPendingPositionInstrumentId(createInstrumentKey: string) {
-  let hash = 0;
-
-  for (const character of createInstrumentKey) {
-    hash = (hash * 31 + character.charCodeAt(0)) % 1000000;
-  }
-
-  return -(hash + 1);
-}
-
 async function buildCreateInstrument(row: ParsedTransactionExcelRow) {
   const symbol = getOptionalCellString(row.values.symbol);
   const providerSymbol = getOptionalCellString(row.values.providerSymbol);
@@ -429,7 +423,7 @@ async function buildCreateInstrument(row: ParsedTransactionExcelRow) {
       providerSymbol: parsedInput.data.providerSymbol,
       createInstrumentInput: parsedInput.data,
       createInstrumentKey,
-      positionInstrumentId: getPendingPositionInstrumentId(createInstrumentKey)
+      positionInstrumentId: null
     } satisfies PendingImportInstrument,
     error: null
   };
@@ -605,7 +599,7 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
   );
   const rows: TransactionImportPreviewRow[] = [];
   const readyRows: ReadyImportRow[] = [];
-  const pendingInstrumentsByKey = new Map<string, PendingImportInstrument>();
+  const pendingInstrumentsByKey = new Map<string, PreparedPendingImportInstrument>();
 
   for (const row of parsedRows) {
     const { action, error: actionError } = parseInstrumentAction(row);
@@ -625,7 +619,12 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
         const existingPendingInstrument = pendingInstrumentsByKey.get(
           createInstrumentResult.instrument.createInstrumentKey
         );
-        const pendingInstrument = existingPendingInstrument ?? createInstrumentResult.instrument;
+        const pendingInstrument =
+          existingPendingInstrument ??
+          ({
+            ...createInstrumentResult.instrument,
+            positionInstrumentId: -(pendingInstrumentsByKey.size + 1)
+          } satisfies PreparedPendingImportInstrument);
 
         resolvedInstrument = pendingInstrument;
         pendingInstrumentsByKey.set(pendingInstrument.createInstrumentKey, pendingInstrument);

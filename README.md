@@ -47,7 +47,7 @@ $env:ADMIN_USERNAME="admin"
 $env:ADMIN_PASSWORD_HASH="<scrypt-hash>"
 ```
 
-Local development prefers `LOCAL_DATABASE_URL`, then falls back to `DATABASE_URL`, then to `postgresql://portfoliotrack:portfoliotrack@127.0.0.1:55432/portfoliotrack` when `NODE_ENV` is not `production`. Keep `DATABASE_URL` for the hosted Neon database.
+Local development prefers `LOCAL_DATABASE_URL`, then falls back to `DATABASE_URL`, then to `postgresql://portfoliotrack:portfoliotrack@127.0.0.1:55432/portfoliotrack` when `NODE_ENV` is not `production`. Production prefers `DATABASE_URL`, with `LOCAL_DATABASE_URL` only as a fallback. Keep `DATABASE_URL` for the hosted Neon database.
 
 Start the repo-local Postgres database:
 
