@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { ButtonLoadingContent, LoadingIndicator, PendingBanner } from "@/components/loading-indicator";
 import { formatQuantity } from "@/lib/format";
 import {
   findExactInstrumentSearchMatch,
@@ -38,6 +38,8 @@ type TransactionFormProps = {
   instruments: TransactionInstrumentOption[];
   editingTransaction?: TransactionListItem | null;
   language: UiLanguage;
+  onCloseEdit?: () => void;
+  onWorkspaceRefresh?: () => Promise<void> | void;
 };
 
 type ApiErrorResponse = {
@@ -176,12 +178,12 @@ function getSynchronizedInstrumentId(
 export function TransactionForm({
   instruments,
   editingTransaction = null,
-  language
+  language,
+  onCloseEdit,
+  onWorkspaceRefresh
 }: TransactionFormProps) {
   const copy = getUiCopy(language);
   const locale = getUiLocale(language);
-  const router = useRouter();
-  const [isRefreshing, startTransition] = useTransition();
   const isEditing = editingTransaction != null;
   const [instrumentOptions, setInstrumentOptions] = useState<TransactionInstrumentOption[]>(instruments);
   const [values, setValues] = useState<TransactionFormValues>(() =>
@@ -205,6 +207,7 @@ export function TransactionForm({
   const [instrumentSuccessMessage, setInstrumentSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCreatingInstrument, setIsCreatingInstrument] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const selectedInstrument =
     instrumentOptions.find((instrument) => String(instrument.id) === values.instrumentId) ?? null;
@@ -229,6 +232,9 @@ export function TransactionForm({
 
   const isDisabled = instrumentOptions.length === 0 || isSubmitting || isRefreshing;
   const isSubmitDisabled = isDisabled || selectedInstrument == null;
+  const submitIdleLabel = isEditing
+    ? copy.transactions.form.updateTransaction
+    : copy.transactions.form.saveTransaction;
   const submitButtonLabel = (() => {
     if (isSubmitting) {
       return isEditing ? copy.transactions.form.updating : copy.transactions.form.saving;
@@ -238,8 +244,9 @@ export function TransactionForm({
       return copy.transactions.form.refreshing;
     }
 
-    return isEditing ? copy.transactions.form.updateTransaction : copy.transactions.form.saveTransaction;
+    return submitIdleLabel;
   })();
+  const isFormBusy = isSubmitting || isRefreshing;
 
   useEffect(() => {
     setInstrumentOptions(instruments);
@@ -359,6 +366,20 @@ export function TransactionForm({
     language
   ]);
 
+  async function refreshWorkspace() {
+    if (!onWorkspaceRefresh) {
+      return;
+    }
+
+    setIsRefreshing(true);
+
+    try {
+      await onWorkspaceRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -415,13 +436,10 @@ export function TransactionForm({
       setSuccessMessage(
         isEditing ? copy.transactions.form.transactionUpdated : copy.transactions.form.transactionSaved
       );
-      startTransition(() => {
-        if (isEditing) {
-          router.push("/transactions");
-        }
-
-        router.refresh();
-      });
+      if (isEditing) {
+        onCloseEdit?.();
+      }
+      await refreshWorkspace();
     } catch (error) {
       const fallbackErrorMessage = isEditing
         ? copy.transactions.form.couldNotUpdate
@@ -458,9 +476,7 @@ export function TransactionForm({
 
   function handleCancelEdit() {
     resetForm();
-    startTransition(() => {
-      router.push("/transactions");
-    });
+    onCloseEdit?.();
   }
 
   async function createAndSelectInstrument(instrumentValues: NewInstrumentFormValues) {
@@ -502,9 +518,7 @@ export function TransactionForm({
         instrumentId: String(createdInstrument.id)
       }));
       setInstrumentSuccessMessage(copy.transactions.form.addedAndSelected(createdInstrument.symbol));
-      startTransition(() => {
-        router.refresh();
-      });
+      await refreshWorkspace();
     } catch (error) {
       setInstrumentErrorMessage(
         error instanceof Error ? error.message : copy.transactions.form.instrumentCouldNotSave
@@ -612,7 +626,7 @@ export function TransactionForm({
   }
 
   return (
-    <article className="surface-card transaction-panel">
+    <article className="surface-card transaction-panel" aria-busy={isFormBusy || isCreatingInstrument}>
       <div className="transaction-panel-header">
         <div>
           <p className="eyebrow">
@@ -632,7 +646,7 @@ export function TransactionForm({
           </div>
         </div>
 
-        <form className="instrument-lookup" onSubmit={handleInstrumentLookupSubmit}>
+        <form className="instrument-lookup" onSubmit={handleInstrumentLookupSubmit} aria-busy={isCreatingInstrument || isSearchingInstruments}>
             <label className="field-group">
               <span className="field-label">{copy.transactions.form.searchInstrument}</span>
               <span className="instrument-lookup-search">
@@ -667,7 +681,7 @@ export function TransactionForm({
               <div className="instrument-lookup-menu">
                 {isSearchingInstruments ? (
                   <div className="instrument-combobox-empty" role="status">
-                    {copy.transactions.form.searching}
+                    <LoadingIndicator label={copy.transactions.form.searching} size="sm" />
                   </div>
                 ) : instrumentLookupResults.length > 0 ? (
                   instrumentLookupResults.map((instrument) => {
@@ -717,7 +731,13 @@ export function TransactionForm({
               className="compact-button instrument-lookup-submit"
               disabled={!selectedInstrumentLookupResult || isCreatingInstrument}
             >
-              {copy.transactions.form.addInstrument}
+              {isCreatingInstrument ? (
+                <ButtonLoadingContent label={copy.transactions.form.addingInstrument}>
+                  {copy.transactions.form.addInstrument}
+                </ButtonLoadingContent>
+              ) : (
+                copy.transactions.form.addInstrument
+              )}
             </button>
             {instrumentErrorMessage ? (
               <p className="form-banner form-banner-error">{instrumentErrorMessage}</p>
@@ -733,7 +753,9 @@ export function TransactionForm({
           <p>{copy.transactions.form.noInstruments}</p>
         </div>
       ) : (
-        <form className="transaction-form" onSubmit={handleSubmit}>
+        <form className="transaction-form" onSubmit={handleSubmit} aria-busy={isFormBusy}>
+          {isFormBusy ? <PendingBanner label={submitButtonLabel} /> : null}
+
           <label className="field-group field-group-wide">
             <span className="field-label">{copy.transactions.form.instrument}</span>
             <div
@@ -966,8 +988,12 @@ export function TransactionForm({
                 {copy.transactions.form.cancelEdit}
               </button>
             ) : null}
-            <button type="submit" className="primary-button" disabled={isSubmitDisabled}>
-              {submitButtonLabel}
+            <button type="submit" className="primary-button" disabled={isSubmitDisabled} aria-busy={isFormBusy}>
+              {isFormBusy ? (
+                <ButtonLoadingContent label={submitButtonLabel}>{submitIdleLabel}</ButtonLoadingContent>
+              ) : (
+                submitButtonLabel
+              )}
             </button>
           </div>
         </form>

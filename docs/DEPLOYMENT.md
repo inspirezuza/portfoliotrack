@@ -17,6 +17,7 @@ DATABASE_URL=postgresql://...
 AUTH_SECRET=<long-random-secret>
 ADMIN_USERNAME=<admin-username>
 ADMIN_PASSWORD_HASH=<scrypt-hash>
+CRON_SECRET=<long-random-secret>
 ```
 
 Generate the password hash locally:
@@ -60,7 +61,7 @@ npm run build
 After deploy:
 
 - Visit the public URL while logged out and confirm dashboard, holdings, transactions, and asset detail pages load read-only.
-- On the first public dashboard/holdings/transactions visit of a Bangkok day, the app may trigger a guarded background market refresh; pages should still render from cached data first.
+- Confirm the Vercel Cron entry exists for `GET /api/cron/market-data` with schedule `0 14 * * *`, which runs at 21:00 in `Asia/Bangkok`.
 - Visit `/login`, sign in as admin, then confirm create/update/delete and refresh controls appear.
 - On `/transactions`, confirm the Dime/Webull broker selector is available in the admin transaction form, the Excel template downloads, ledger export requires admin, and an uploaded template can be previewed.
 - Use `/api/auth/logout` through the header logout button to return to public read-only mode.
@@ -70,5 +71,5 @@ After deploy:
 - Public users can view all current pages and portfolio data.
 - Public users can download the blank transaction import template.
 - Public users cannot call protected write/import/export APIs; they return `401`.
-- Public users can only trigger market-cache writes through the guarded `daily-auto` refresh path. Admin manual refresh is still required for on-demand updates.
+- Scheduled market-cache writes run through the guarded `daily-auto` refresh path from `GET /api/cron/market-data`, authorized by `CRON_SECRET`. Admin manual refresh is still required for on-demand updates.
 - Vercel and Neon are free within their published free-tier limits. Higher traffic, storage, or compute can require a paid plan.

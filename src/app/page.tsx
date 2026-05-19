@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BenchmarkChart } from "@/components/benchmark-chart";
 import { HoldingsAllocationChart } from "@/components/holdings-allocation-chart";
+import { PendingSubmitButton } from "@/components/pending-submit-button";
 import { PortfolioChart } from "@/components/portfolio-chart";
 import { formatCurrency, formatPercentRatio, formatQuantity } from "@/lib/format";
 import { isAdminAuthenticated } from "@/lib/auth/admin";
@@ -245,9 +246,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         {isAdmin ? (
           <form action="/api/market-data/refresh" method="post" className="refresh-form">
             <input type="hidden" name="redirectTo" value="/" />
-            <button type="submit" className="primary-button">
+            <PendingSubmitButton className="primary-button" pendingLabel={copy.dashboard.refreshing}>
               {copy.dashboard.refreshPrices}
-            </button>
+            </PendingSubmitButton>
           </form>
         ) : null}
       </div>
@@ -345,9 +346,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             {isAdmin ? (
               <form action="/api/market-data/refresh" method="post" className="refresh-form">
                 <input type="hidden" name="redirectTo" value="/" />
-                <button type="submit" className="secondary-button">
+                <PendingSubmitButton className="secondary-button" pendingLabel={copy.dashboard.refreshing}>
                   {copy.dashboard.updateMarketData}
-                </button>
+                </PendingSubmitButton>
               </form>
             ) : null}
           </article>

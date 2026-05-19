@@ -4,10 +4,10 @@ import { getSelectedPortfolioId } from "@/lib/portfolio/selection";
 import {
   createTransaction,
   deleteTransaction,
-  listSelectableTransactionInstrumentOptions,
-  listTransactions,
+  getTransactionWorkspace,
   TransactionServiceError,
-  updateTransaction
+  updateTransaction,
+  type TransactionListItem
 } from "@/server/transactions";
 
 function getStatusCode(error: TransactionServiceError) {
@@ -42,20 +42,42 @@ function jsonErrorResponse(
   );
 }
 
+function sortTransactionsByOrder(transactions: TransactionListItem[], order: "asc" | "desc") {
+  if (order === "desc") {
+    return transactions;
+  }
+
+  return [...transactions].sort((left, right) => {
+    const tradeDateComparison = left.tradeDate.localeCompare(right.tradeDate);
+
+    if (tradeDateComparison !== 0) {
+      return tradeDateComparison;
+    }
+
+    const createdAtComparison = left.createdAt.localeCompare(right.createdAt);
+
+    return createdAtComparison !== 0 ? createdAtComparison : left.id - right.id;
+  });
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
+    const editTransactionId = Number(searchParams.get("edit"));
     const order = searchParams.get("order") === "asc" ? "asc" : "desc";
     const portfolioId = await getSelectedPortfolioId();
-
-    const [transactions, instruments] = await Promise.all([
-      listTransactions({ portfolioId, order }),
-      listSelectableTransactionInstrumentOptions({ portfolioId })
-    ]);
+    const workspace = await getTransactionWorkspace({
+      editTransactionId: Number.isInteger(editTransactionId) && editTransactionId > 0 ? editTransactionId : null,
+      portfolioId
+    });
 
     return NextResponse.json({
-      transactions,
-      instruments
+      allInstruments: workspace.allInstruments,
+      editingTransaction: workspace.editingTransaction,
+      formInstruments: workspace.formInstruments,
+      instruments: workspace.instruments,
+      summary: workspace.summary,
+      transactions: sortTransactionsByOrder(workspace.transactions, order)
     });
   } catch (error) {
     if (error instanceof TransactionServiceError) {

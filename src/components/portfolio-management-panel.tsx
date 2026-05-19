@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
+import { ButtonLoadingContent, PendingBanner } from "@/components/loading-indicator";
 import type { PortfolioListItem } from "@/server/portfolios";
 
 type PortfolioApiResponse = {
@@ -31,12 +32,14 @@ export function PortfolioManagementPanel({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const isBusy = isPending || pendingAction != null;
   const selectedPortfolio = useMemo(
     () => portfolios.find((portfolio) => portfolio.id === selectedPortfolioId) ?? portfolios[0] ?? null,
     [portfolios, selectedPortfolioId]
   );
   const normalizedNewName = newName.trim();
-  const isCreateDisabled = isPending || normalizedNewName.length === 0;
+  const isCreateDisabled = isBusy || normalizedNewName.length === 0;
 
   async function requestPortfolio(
     method: "POST" | "PUT" | "DELETE",
@@ -60,7 +63,7 @@ export function PortfolioManagementPanel({
   }
 
   function handleCreate() {
-    if (isPending) {
+    if (isBusy) {
       return;
     }
 
@@ -70,6 +73,7 @@ export function PortfolioManagementPanel({
       return;
     }
 
+    setPendingAction("create");
     startTransition(async () => {
       try {
         setError(null);
@@ -85,6 +89,8 @@ export function PortfolioManagementPanel({
         router.refresh();
       } catch (nextError) {
         setError(nextError instanceof Error ? nextError.message : "Portfolio could not be created.");
+      } finally {
+        setPendingAction(null);
       }
     });
   }
@@ -96,6 +102,7 @@ export function PortfolioManagementPanel({
       return;
     }
 
+    setPendingAction(`rename-${portfolio.id}`);
     startTransition(async () => {
       try {
         setError(null);
@@ -118,11 +125,14 @@ export function PortfolioManagementPanel({
         router.refresh();
       } catch (nextError) {
         setError(nextError instanceof Error ? nextError.message : "Portfolio could not be updated.");
+      } finally {
+        setPendingAction(null);
       }
     });
   }
 
   function handleSetDefault(portfolio: PortfolioListItem) {
+    setPendingAction(`default-${portfolio.id}`);
     startTransition(async () => {
       try {
         setError(null);
@@ -146,6 +156,8 @@ export function PortfolioManagementPanel({
         router.refresh();
       } catch (nextError) {
         setError(nextError instanceof Error ? nextError.message : "Default portfolio could not be updated.");
+      } finally {
+        setPendingAction(null);
       }
     });
   }
@@ -165,6 +177,7 @@ export function PortfolioManagementPanel({
       return;
     }
 
+    setPendingAction(`delete-${portfolio.id}`);
     startTransition(async () => {
       try {
         setError(null);
@@ -183,12 +196,16 @@ export function PortfolioManagementPanel({
         router.refresh();
       } catch (nextError) {
         setError(nextError instanceof Error ? nextError.message : "Portfolio could not be deleted.");
+      } finally {
+        setPendingAction(null);
       }
     });
   }
 
   return (
-    <section className="portfolio-management-panel">
+    <section className="portfolio-management-panel" aria-busy={isBusy}>
+      {isBusy ? <PendingBanner label="Updating portfolio..." /> : null}
+
       <article className="surface-card portfolio-create-card">
         <div>
           <p className="eyebrow">Portfolio</p>
@@ -208,13 +225,17 @@ export function PortfolioManagementPanel({
             <input
               value={newName}
               onChange={(event) => setNewName(event.target.value)}
-              disabled={isPending}
+              disabled={isBusy}
               maxLength={80}
               placeholder="Long-term, Trading, Retirement"
             />
           </label>
           <button type="submit" className="primary-button portfolio-create-button" disabled={isCreateDisabled}>
-            Create
+            {pendingAction === "create" ? (
+              <ButtonLoadingContent label="Creating...">Create</ButtonLoadingContent>
+            ) : (
+              "Create"
+            )}
           </button>
         </form>
 
@@ -239,21 +260,33 @@ export function PortfolioManagementPanel({
               </div>
 
               <div className="portfolio-row-actions">
-                <button type="button" className="secondary-button" onClick={() => handleRename(portfolio)} disabled={isPending}>
-                  Rename
+                <button type="button" className="secondary-button" onClick={() => handleRename(portfolio)} disabled={isBusy}>
+                  {pendingAction === `rename-${portfolio.id}` ? (
+                    <ButtonLoadingContent label="Renaming...">Rename</ButtonLoadingContent>
+                  ) : (
+                    "Rename"
+                  )}
                 </button>
                 {portfolio.isDefault ? null : (
                   <button
                     type="button"
                     className="secondary-button"
                     onClick={() => handleSetDefault(portfolio)}
-                    disabled={isPending}
+                    disabled={isBusy}
                   >
-                    Set default
+                    {pendingAction === `default-${portfolio.id}` ? (
+                      <ButtonLoadingContent label="Saving...">Set default</ButtonLoadingContent>
+                    ) : (
+                      "Set default"
+                    )}
                   </button>
                 )}
-                <button type="button" className="danger-button" onClick={() => handleDelete(portfolio)} disabled={isPending}>
-                  Delete
+                <button type="button" className="danger-button" onClick={() => handleDelete(portfolio)} disabled={isBusy}>
+                  {pendingAction === `delete-${portfolio.id}` ? (
+                    <ButtonLoadingContent label="Deleting...">Delete</ButtonLoadingContent>
+                  ) : (
+                    "Delete"
+                  )}
                 </button>
               </div>
             </div>

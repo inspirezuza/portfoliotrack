@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect } from "react";
 import { getUiCopy } from "@/lib/ui/copy";
 import type { UiLanguage } from "@/lib/ui/translations";
@@ -11,19 +10,22 @@ type TransactionEditModalProps = {
   instruments: TransactionInstrumentOption[];
   editingTransaction: TransactionListItem;
   language: UiLanguage;
+  onClose: () => void;
+  onWorkspaceRefresh: () => Promise<void> | void;
 };
 
 export function TransactionEditModal({
   instruments,
   editingTransaction,
-  language
+  language,
+  onClose,
+  onWorkspaceRefresh
 }: TransactionEditModalProps) {
-  const router = useRouter();
   const copy = getUiCopy(language).transactions.form;
 
   const closeModal = useCallback(() => {
-    router.push("/transactions");
-  }, [router]);
+    onClose();
+  }, [onClose]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -53,7 +55,12 @@ export function TransactionEditModal({
         }
       }}
     >
-      <a className="transaction-edit-backdrop" href="/transactions" aria-label={copy.close} />
+      <button
+        type="button"
+        className="transaction-edit-backdrop"
+        aria-label={copy.close}
+        onClick={closeModal}
+      />
       <div
         className="transaction-edit-dialog"
         role="dialog"
@@ -61,18 +68,21 @@ export function TransactionEditModal({
         aria-label={copy.updateTitle}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <a
+        <button
+          type="button"
           className="transaction-edit-close"
-          href="/transactions"
           aria-label={copy.close}
           title={copy.close}
+          onClick={closeModal}
         >
           <span aria-hidden="true">x</span>
-        </a>
+        </button>
         <TransactionForm
           instruments={instruments}
           editingTransaction={editingTransaction}
           language={language}
+          onCloseEdit={closeModal}
+          onWorkspaceRefresh={onWorkspaceRefresh}
         />
       </div>
     </div>

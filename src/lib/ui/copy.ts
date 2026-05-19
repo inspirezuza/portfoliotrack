@@ -45,12 +45,16 @@ const uiCopy = {
       theme: {
         light: "สว่าง",
         dark: "มืด"
-      }
+      },
+      changingLanguage: "กำลังเปลี่ยนภาษา...",
+      switchingPortfolio: "กำลังเปลี่ยนพอร์ต...",
+      signingOut: "กำลังออกจากระบบ..."
     },
     dashboard: {
       workspace: "พื้นที่ทำงาน",
       title: "ภาพรวม",
       refreshPrices: "รีเฟรชราคา",
+      refreshing: "กำลังรีเฟรช...",
       portfolioSummary: "สรุปพอร์ต",
       portfolioValue: "มูลค่าพอร์ต",
       costBasis: "ต้นทุน",
@@ -260,11 +264,14 @@ const uiCopy = {
       latest: "ล่าสุด",
       selectable: "เลือกได้",
       allInstruments: "เครื่องมือทั้งหมด",
+      syncing: "กำลังอัปเดตรายการ...",
       excel: {
         eyebrow: "Excel",
         title: "นำเข้า/ส่งออกรายการ",
         downloadTemplate: "ดาวน์โหลดเทมเพลต",
         exportLedger: "ส่งออก ledger",
+        downloadingTemplate: "กำลังดาวน์โหลดเทมเพลต...",
+        exportingLedger: "กำลังส่งออก ledger...",
         file: "ไฟล์ Excel",
         selectedFile: "ไฟล์ที่เลือก",
         preview: "พรีวิว",
@@ -291,6 +298,7 @@ const uiCopy = {
         close: "ปิด",
         clearInstrumentSearch: "ล้างการค้นหา instrument",
         addInstrument: "เพิ่ม instrument",
+        addingInstrument: "กำลังเพิ่ม instrument...",
         searchInstrument: "ค้นหา instrument",
         searchInstrumentPlaceholder: "พิมพ์ ASTS03, AAPL หรือชื่อบริษัท",
         searching: "กำลังค้นหา...",
@@ -340,6 +348,7 @@ const uiCopy = {
         deleteCouldNot: "ลบรายการไม่สำเร็จ",
         deleteConfirm: (side: string, quantity: string, symbol: string, date: string) =>
           `ลบ ${side} ${quantity} ${symbol} จากวันที่ ${date}?`,
+        refreshing: "กำลังอัปเดตรายการ...",
         deleting: "กำลังลบ...",
         delete: "ลบ",
         edit: "แก้ไข",
@@ -402,12 +411,16 @@ const uiCopy = {
       theme: {
         light: "Light",
         dark: "Dark"
-      }
+      },
+      changingLanguage: "Changing language...",
+      switchingPortfolio: "Switching portfolio...",
+      signingOut: "Signing out..."
     },
     dashboard: {
       workspace: "Workspace",
       title: "Dashboard",
       refreshPrices: "Refresh prices",
+      refreshing: "Refreshing...",
       portfolioSummary: "Portfolio summary",
       portfolioValue: "Portfolio value",
       costBasis: "Cost basis",
@@ -617,11 +630,14 @@ const uiCopy = {
       latest: "Latest",
       selectable: "Selectable",
       allInstruments: "All instruments",
+      syncing: "Updating transactions...",
       excel: {
         eyebrow: "Excel",
         title: "Import / export transactions",
         downloadTemplate: "Download template",
         exportLedger: "Export ledger",
+        downloadingTemplate: "Downloading template...",
+        exportingLedger: "Exporting ledger...",
         file: "Excel file",
         selectedFile: "Selected file",
         preview: "Preview",
@@ -648,6 +664,7 @@ const uiCopy = {
         close: "Close",
         clearInstrumentSearch: "Clear instrument search",
         addInstrument: "Add instrument",
+        addingInstrument: "Adding instrument...",
         searchInstrument: "Search instrument",
         searchInstrumentPlaceholder: "Type ASTS03, AAPL, or a company name",
         searching: "Searching...",
@@ -698,6 +715,7 @@ const uiCopy = {
         deleteCouldNot: "Transaction could not be deleted.",
         deleteConfirm: (side: string, quantity: string, symbol: string, date: string) =>
           `Delete ${side} ${quantity} ${symbol} from ${date}?`,
+        refreshing: "Updating transactions...",
         deleting: "Deleting...",
         delete: "Delete",
         edit: "Edit",

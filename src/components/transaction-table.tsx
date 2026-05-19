@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
+import { ButtonLoadingContent, PendingBanner } from "@/components/loading-indicator";
 import { formatCurrency, formatQuantity } from "@/lib/format";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
@@ -14,6 +13,9 @@ type TransactionTableProps = {
   editingTransactionId?: number | null;
   language: UiLanguage;
   canEdit?: boolean;
+  onCloseEdit?: () => void;
+  onEdit?: (transaction: TransactionListItem) => void;
+  onWorkspaceRefresh?: () => Promise<void> | void;
 };
 
 type ApiErrorResponse = {
@@ -129,14 +131,16 @@ export function TransactionTable({
   transactions,
   editingTransactionId = null,
   language,
-  canEdit = false
+  canEdit = false,
+  onCloseEdit,
+  onEdit,
+  onWorkspaceRefresh
 }: TransactionTableProps) {
   const copy = getUiCopy(language);
   const locale = getUiLocale(language);
-  const router = useRouter();
-  const [isRefreshing, startTransition] = useTransition();
   const [deletingTransactionId, setDeletingTransactionId] = useState<number | null>(null);
   const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [sort, setSort] = useState<SortState>({ key: "tradeDate", direction: "desc" });
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -197,24 +201,26 @@ export function TransactionTable({
         throw new Error(getDeleteErrorMessage(payload.error, copy.transactions.table.deleteCouldNot));
       }
 
-      startTransition(() => {
-        if (editingTransactionId === transaction.id) {
-          router.push("/transactions");
-        }
+      if (editingTransactionId === transaction.id) {
+        onCloseEdit?.();
+      }
 
-        router.refresh();
-      });
+      if (onWorkspaceRefresh) {
+        setIsRefreshing(true);
+        await onWorkspaceRefresh();
+      }
     } catch (error) {
       setDeleteErrorMessage(
         error instanceof Error ? error.message : copy.transactions.table.deleteCouldNot
       );
     } finally {
       setDeletingTransactionId(null);
+      setIsRefreshing(false);
     }
   }
 
   return (
-    <article className="surface-card transaction-table-card">
+    <article className="surface-card transaction-table-card" aria-busy={isRefreshing || deletingTransactionId !== null}>
       <div className="transaction-panel-header">
         <div>
           <p className="eyebrow">{copy.transactions.table.eyebrow}</p>
@@ -224,6 +230,11 @@ export function TransactionTable({
 
       {deleteErrorMessage ? (
         <p className="form-banner form-banner-error">{deleteErrorMessage}</p>
+      ) : null}
+      {deletingTransactionId != null ? (
+        <PendingBanner label={copy.transactions.table.deleting} />
+      ) : isRefreshing ? (
+        <PendingBanner label={copy.transactions.table.refreshing} />
       ) : null}
 
       {transactions.length === 0 ? (
@@ -333,9 +344,14 @@ export function TransactionTable({
                       {canEdit ? (
                         <td>
                           <div className="table-actions">
-                            <Link className="table-action-link" href={`/transactions?edit=${transaction.id}`}>
+                            <button
+                              type="button"
+                              className="table-action-link"
+                              onClick={() => onEdit?.(transaction)}
+                              disabled={isRefreshing || deletingTransactionId !== null}
+                            >
                               {copy.transactions.table.edit}
-                            </Link>
+                            </button>
                             <button
                               type="button"
                               className="table-action-button table-action-button-danger"
@@ -346,9 +362,13 @@ export function TransactionTable({
                                 deletingTransactionId !== null
                               }
                             >
-                              {deletingTransactionId === transaction.id
-                                ? copy.transactions.table.deleting
-                                : copy.transactions.table.delete}
+                              {deletingTransactionId === transaction.id ? (
+                                <ButtonLoadingContent label={copy.transactions.table.deleting}>
+                                  {copy.transactions.table.delete}
+                                </ButtonLoadingContent>
+                              ) : (
+                                copy.transactions.table.delete
+                              )}
                             </button>
                           </div>
                         </td>

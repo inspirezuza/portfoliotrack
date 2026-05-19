@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { PendingSubmitButton } from "@/components/pending-submit-button";
 import { getAdminSession } from "@/lib/auth/admin";
 
 export const dynamic = "force-dynamic";
@@ -42,9 +43,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             <span className="field-label">Password</span>
             <input name="password" type="password" autoComplete="current-password" required />
           </label>
-          <button type="submit" className="primary-button">
+          <PendingSubmitButton className="primary-button" pendingLabel="Signing in...">
             Sign in
-          </button>
+          </PendingSubmitButton>
         </form>
       </article>
     </section>

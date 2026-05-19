@@ -15,7 +15,7 @@ For the latest layout and visual-design review, read [docs/UX_REVIEW.md](docs/UX
 - Dashboard with portfolio summary cards, price coverage, top holdings, portfolio chart, and S&P 500 benchmark comparison.
 - Per-asset detail route at `/assets/[symbol]` with position metrics, price history, recent transactions, and DR analytics when metadata exists.
 - DR equivalent analytics for instruments with DR metadata, including parent-stock implied price, FX rate, parent quote, and premium/discount.
-- Yahoo Finance quote and historical-price refresh with Neon Postgres caching, cached-first page loads, and guarded once-per-day public background refresh.
+- Yahoo Finance quote and historical-price refresh with Neon Postgres caching, cached-first page loads, and a secured Vercel Cron refresh at 21:00 Thailand time.
 - Local UI preferences for `EN / TH` shell language and `light / dark` theme.
 - Fullscreen application shell optimized for a dense personal finance workspace.
 
@@ -112,7 +112,7 @@ The production database lives in Neon Postgres. See [docs/DEPLOYMENT.md](docs/DE
 
 The database schema is declared in `src/lib/db/schema.ts`, with SQL migrations in `drizzle/`. Use `npm run db:migrate` after schema changes.
 
-Market refresh runs are tracked in `market_refresh_runs`. Public visitors can trigger the guarded `daily-auto` refresh once per Bangkok day per portfolio, with at most two public attempts after transient failures. Admin manual refresh bypasses that daily limit and keeps the dashboard banner flow.
+Market refresh runs are tracked in `market_refresh_runs`. Vercel Cron calls `GET /api/cron/market-data` at `0 14 * * *`, which is 21:00 in `Asia/Bangkok`. The route requires `Authorization: Bearer $CRON_SECRET`, refreshes every portfolio through the guarded `daily-auto` path, and records one run per Bangkok day per portfolio. Admin manual refresh remains available from the app and bypasses the scheduled daily limit.
 
 ## Notes For Future Work
 
@@ -120,7 +120,7 @@ Market refresh runs are tracked in `market_refresh_runs`. Public visitors can tr
 - Excel transaction import is template-only for now: unknown instruments are rejected, duplicate rows are skipped, broker defaults to Dime when omitted, and valid rows are inserted as one batch.
 - Transactions are scoped by selected portfolio; instruments and market price caches are shared across portfolios.
 - Market data comes from Yahoo Finance and can fail or return missing/currency-mismatched data. UI code should preserve clear missing-data states.
-- Dashboard, holdings, and transactions render from cached local data first. Background market-data refreshes are guarded and best-effort so pages keep opening quickly when Yahoo is slow.
+- Dashboard, holdings, and transactions render from cached local data first. Scheduled market-data refreshes are guarded and best-effort so pages keep opening quickly when Yahoo is slow.
 - The main app surface is English-first in `EN` mode. Thai remains only in the explicit `TH` shell labels and should be added back to pages through a deliberate bilingual copy layer if needed.
 - Theme and language preferences are stored in browser `localStorage`, not the database.
 - The development server may print a Windows SWC DLL warning while still compiling and building successfully.

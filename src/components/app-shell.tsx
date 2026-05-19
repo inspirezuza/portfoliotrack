@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import type { ReactNode } from "react";
-import { DailyMarketRefresh } from "@/components/daily-market-refresh";
+import { useTransition, type ReactNode } from "react";
+import { PendingBanner } from "@/components/loading-indicator";
+import { PendingSubmitButton } from "@/components/pending-submit-button";
 import { PortfolioSwitcher } from "@/components/portfolio-switcher";
 import { getUiCopy } from "@/lib/ui/copy";
 import { useUiPreferences } from "@/lib/ui/preferences";
@@ -119,11 +120,11 @@ export function AppShell({
   const pathname = usePathname();
   const router = useRouter();
   const { language, theme, setLanguage, setTheme } = useUiPreferences();
+  const [isLanguagePending, startLanguageTransition] = useTransition();
   const copy = getUiCopy(language).shell;
 
   return (
     <div className="app-shell">
-      <DailyMarketRefresh selectedPortfolioId={selectedPortfolioId} />
       <div className="shell-frame">
         <aside className="shell-sidebar" aria-label={copy.mainNavigation}>
           <Link href="/" className="brand-mark" aria-label={copy.homeLabel}>
@@ -165,6 +166,7 @@ export function AppShell({
                 manageLabel={copy.managePortfolios}
                 portfolios={portfolios}
                 selectedPortfolioId={selectedPortfolioId}
+                switchingLabel={copy.switchingPortfolio}
               />
 
               <div className="preference-group" aria-label={copy.language}>
@@ -177,8 +179,12 @@ export function AppShell({
                     className="preference-button"
                     onClick={() => {
                       setLanguage(item);
-                      router.refresh();
+                      startLanguageTransition(() => {
+                        router.refresh();
+                      });
                     }}
+                    disabled={isLanguagePending}
+                    aria-busy={isLanguagePending && language === item}
                     aria-pressed={language === item}
                   >
                     {item}
@@ -206,13 +212,15 @@ export function AppShell({
 
               {isAdmin ? (
                 <form action="/api/auth/logout" method="post">
-                  <button type="submit" className="auth-button">
+                  <PendingSubmitButton className="auth-button" pendingLabel={copy.signingOut}>
                     Logout
-                  </button>
+                  </PendingSubmitButton>
                 </form>
               ) : null}
             </div>
           </header>
+
+          {isLanguagePending ? <PendingBanner label={copy.changingLanguage} /> : null}
 
           <main className="shell-content">{children}</main>
         </div>

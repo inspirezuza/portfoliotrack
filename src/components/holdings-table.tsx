@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type CSSProperties, useMemo, useState, useTransition } from "react";
 import { InstrumentLogo } from "@/components/instrument-logo";
+import { ButtonLoadingContent, PendingBanner } from "@/components/loading-indicator";
 import { formatCurrency, formatPercentRatio, formatQuantity } from "@/lib/format";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
@@ -326,7 +327,7 @@ export function HoldingsTable({
   const isRefreshBusy = isRefreshRequestPending || isRefreshing;
 
   return (
-    <article className="surface-card holdings-table-card">
+    <article className="surface-card holdings-table-card" aria-busy={isRefreshBusy}>
       <div className="transaction-panel-header">
         <div>
           <p className="eyebrow">{copy.holdings.table.eyebrow}</p>
@@ -339,10 +340,18 @@ export function HoldingsTable({
             onClick={() => void handleRefresh()}
             disabled={isRefreshBusy}
           >
-            {isRefreshBusy ? copy.holdings.table.refreshing : copy.holdings.table.refreshPrices}
+            {isRefreshBusy ? (
+              <ButtonLoadingContent label={copy.holdings.table.refreshing}>
+                {copy.holdings.table.refreshPrices}
+              </ButtonLoadingContent>
+            ) : (
+              copy.holdings.table.refreshPrices
+            )}
           </button>
         ) : null}
       </div>
+
+      {isRefreshBusy ? <PendingBanner label={copy.holdings.table.refreshing} /> : null}
 
       {holdings.length === 0 ? (
         <div className="transaction-empty-state">

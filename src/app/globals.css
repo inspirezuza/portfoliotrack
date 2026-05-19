@@ -281,6 +281,7 @@ html[data-theme="dark"] .shell-main {
 }
 
 .portfolio-switcher {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1162,8 +1163,146 @@ html[data-theme="dark"] .holdings-pie-legend li > span {
   background: rgba(184, 120, 36, 0.1);
 }
 
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes loading-shimmer {
+  0% {
+    background-position: 180% 0;
+  }
+
+  100% {
+    background-position: -180% 0;
+  }
+}
+
+.loading-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  color: inherit;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.loading-indicator-sm {
+  gap: 6px;
+  font-size: 0.78rem;
+}
+
+.loading-spinner {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 999px;
+  opacity: 0.9;
+  animation: loading-spin 720ms linear infinite;
+}
+
+.loading-indicator-sm .loading-spinner {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+}
+
+.button-loading-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.button-loading-idle {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.pending-banner {
+  display: inline-flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid rgba(8, 116, 93, 0.2);
+  border-radius: 999px;
+  padding: 7px 10px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-size: 0.82rem;
+}
+
+.portfolio-switcher-status {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 7px);
+  left: 8px;
+  width: max-content;
+  max-width: min(260px, 80vw);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 10px;
+  color: var(--accent);
+  background: var(--surface-strong);
+  box-shadow: 0 12px 28px rgba(33, 49, 41, 0.12);
+}
+
+.route-loading-shell {
+  animation: none;
+}
+
+.loading-skeleton-card,
+.loading-skeleton-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.55) 45%, transparent 62%),
+    var(--surface-muted);
+  background-size: 220% 100%;
+  animation: loading-shimmer 1.25s ease-in-out infinite;
+}
+
+html[data-theme="dark"] .loading-skeleton-card,
+html[data-theme="dark"] .loading-skeleton-panel {
+  background:
+    linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.09) 45%, transparent 62%),
+    var(--surface-muted);
+  background-size: 220% 100%;
+}
+
+.loading-skeleton-card {
+  min-height: 88px;
+}
+
+.loading-skeleton-card-wide {
+  grid-column: span 2;
+}
+
+.loading-skeleton-panel {
+  min-height: 240px;
+}
+
+.loading-skeleton-panel-tall {
+  min-height: 420px;
+}
+
 .primary-button,
 .secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   border: 0;
   border-radius: 999px;
   min-height: 42px;
@@ -1173,6 +1312,10 @@ html[data-theme="dark"] .holdings-pie-legend li > span {
 }
 
 .compact-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   border: 1px solid var(--line-strong);
   border-radius: 999px;
   min-height: 40px;
@@ -1181,6 +1324,7 @@ html[data-theme="dark"] .holdings-pie-legend li > span {
   background: var(--surface-strong);
   font-size: 0.78rem;
   font-weight: 700;
+  text-decoration: none;
 }
 
 .primary-button {
@@ -1200,6 +1344,10 @@ html[data-theme="dark"] .secondary-button {
 }
 
 .danger-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   border: 1px solid rgba(184, 75, 67, 0.28);
   border-radius: 999px;
   min-height: 42px;
@@ -1208,6 +1356,14 @@ html[data-theme="dark"] .secondary-button {
   background: rgba(184, 75, 67, 0.08);
   font-size: 0.9rem;
   font-weight: 700;
+}
+
+.primary-button:disabled,
+.secondary-button:disabled,
+.compact-button:disabled,
+.danger-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
 }
 
 .portfolio-management-panel,
@@ -1396,6 +1552,9 @@ html[data-theme="dark"] .portfolio-name-field input {
 .transaction-edit-backdrop {
   position: fixed;
   inset: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
   cursor: default;
 }
 
@@ -1422,6 +1581,7 @@ html[data-theme="dark"] .portfolio-name-field input {
   background: var(--surface-strong);
   font-size: 1rem;
   font-weight: 800;
+  font-family: inherit;
   line-height: 1;
   cursor: pointer;
   text-decoration: none;
@@ -2426,8 +2586,10 @@ html[data-theme="dark"] .transaction-table tbody tr:hover td:first-child {
   background: var(--accent-soft);
   font-size: 0.74rem;
   font-weight: 750;
+  font-family: inherit;
   text-decoration: none;
   white-space: nowrap;
+  cursor: pointer;
   transition:
     border-color 150ms ease,
     color 150ms ease,
@@ -2742,6 +2904,19 @@ html[data-theme="dark"] .dr-step {
 
 html[data-theme="dark"] .subtabs .active {
   color: #06100c;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-spinner,
+  .loading-skeleton-card,
+  .loading-skeleton-panel {
+    animation: none;
+  }
+
+  .loading-spinner {
+    border-right-color: currentColor;
+    opacity: 0.55;
+  }
 }
 
 @media (max-width: 1360px) {

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
+import { LoadingIndicator } from "@/components/loading-indicator";
 import type { PortfolioListItem } from "@/server/portfolios";
 
 export function PortfolioSwitcher({
@@ -10,37 +11,46 @@ export function PortfolioSwitcher({
   label,
   manageLabel,
   portfolios,
-  selectedPortfolioId
+  selectedPortfolioId,
+  switchingLabel
 }: {
   canManage: boolean;
   label: string;
   manageLabel: string;
   portfolios: PortfolioListItem[];
   selectedPortfolioId: number;
+  switchingLabel: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [isChangingPortfolio, setIsChangingPortfolio] = useState(false);
+  const isBusy = isPending || isChangingPortfolio;
 
   function handlePortfolioChange(portfolioId: string) {
+    setIsChangingPortfolio(true);
     startTransition(async () => {
-      await fetch("/api/portfolio-selection", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ portfolioId })
-      });
-      router.refresh();
+      try {
+        await fetch("/api/portfolio-selection", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ portfolioId })
+        });
+        router.refresh();
+      } finally {
+        setIsChangingPortfolio(false);
+      }
     });
   }
 
   return (
-    <div className="portfolio-switcher" aria-label={label}>
+    <div className="portfolio-switcher" aria-label={label} aria-busy={isBusy}>
       <select
         className="portfolio-select"
         value={selectedPortfolioId}
         onChange={(event) => handlePortfolioChange(event.target.value)}
-        disabled={isPending || portfolios.length === 0}
+        disabled={isBusy || portfolios.length === 0}
         aria-label={label}
       >
         {portfolios.map((portfolio) => (
@@ -55,6 +65,8 @@ export function PortfolioSwitcher({
           {manageLabel}
         </Link>
       ) : null}
+
+      {isBusy ? <LoadingIndicator className="portfolio-switcher-status" label={switchingLabel} size="sm" /> : null}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
+import { ButtonLoadingContent, PendingBanner } from "@/components/loading-indicator";
 import { formatQuantity } from "@/lib/format";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
@@ -9,6 +10,7 @@ import type { TransactionBroker } from "@/lib/validation/transaction";
 
 type TransactionExcelToolsProps = {
   language: UiLanguage;
+  onWorkspaceRefresh?: () => Promise<void> | void;
 };
 
 type ImportRowStatus = "ready" | "skipped_duplicate" | "error";
@@ -63,7 +65,7 @@ function getRowStatusLabel(status: ImportRowStatus, copy: ReturnType<typeof getU
   }
 }
 
-export function TransactionExcelTools({ language }: TransactionExcelToolsProps) {
+export function TransactionExcelTools({ language, onWorkspaceRefresh }: TransactionExcelToolsProps) {
   const copy = getUiCopy(language).transactions.excel;
   const locale = getUiLocale(language);
   const router = useRouter();
@@ -75,7 +77,10 @@ export function TransactionExcelTools({ language }: TransactionExcelToolsProps) 
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [downloadingKind, setDownloadingKind] = useState<"template" | "ledger" | null>(null);
   const nonReadyRows = preview?.rows.filter((row) => row.status !== "ready").slice(0, 8) ?? [];
+  const isDownloading = downloadingKind != null;
+  const isBusy = isPreviewing || isImporting || isRefreshing || isDownloading;
   const canCommit =
     selectedFile != null &&
     preview != null &&
@@ -84,6 +89,13 @@ export function TransactionExcelTools({ language }: TransactionExcelToolsProps) 
     !isPreviewing &&
     !isImporting &&
     !isRefreshing;
+
+  function showDownloadPending(kind: "template" | "ledger") {
+    setDownloadingKind(kind);
+    window.setTimeout(() => {
+      setDownloadingKind((currentKind) => (currentKind === kind ? null : currentKind));
+    }, 1600);
+  }
 
   async function submitImport(mode: "preview" | "commit") {
     if (!selectedFile) {
@@ -130,9 +142,13 @@ export function TransactionExcelTools({ language }: TransactionExcelToolsProps) 
           fileInputRef.current.value = "";
         }
 
-        startTransition(() => {
-          router.refresh();
-        });
+        if (onWorkspaceRefresh) {
+          await onWorkspaceRefresh();
+        } else {
+          startTransition(() => {
+            router.refresh();
+          });
+        }
       }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : copy.importFailed);
@@ -143,21 +159,57 @@ export function TransactionExcelTools({ language }: TransactionExcelToolsProps) 
   }
 
   return (
-    <article className="surface-card transaction-excel-tools">
+    <article className="surface-card transaction-excel-tools" aria-busy={isBusy}>
       <div className="transaction-panel-header transaction-excel-header">
         <div>
           <p className="eyebrow">{copy.eyebrow}</p>
           <h2 className="section-title">{copy.title}</h2>
         </div>
         <div className="transaction-excel-actions">
-          <a className="compact-button" href="/api/transactions/export?template=true">
-            {copy.downloadTemplate}
+          <a
+            className="compact-button"
+            href="/api/transactions/export?template=true"
+            onClick={() => showDownloadPending("template")}
+            aria-busy={downloadingKind === "template"}
+          >
+            {downloadingKind === "template" ? (
+              <ButtonLoadingContent label={copy.downloadingTemplate}>
+                {copy.downloadTemplate}
+              </ButtonLoadingContent>
+            ) : (
+              copy.downloadTemplate
+            )}
           </a>
-          <a className="compact-button" href="/api/transactions/export">
-            {copy.exportLedger}
+          <a
+            className="compact-button"
+            href="/api/transactions/export"
+            onClick={() => showDownloadPending("ledger")}
+            aria-busy={downloadingKind === "ledger"}
+          >
+            {downloadingKind === "ledger" ? (
+              <ButtonLoadingContent label={copy.exportingLedger}>
+                {copy.exportLedger}
+              </ButtonLoadingContent>
+            ) : (
+              copy.exportLedger
+            )}
           </a>
         </div>
       </div>
+
+      {isBusy ? (
+        <PendingBanner
+          label={
+            downloadingKind === "template"
+              ? copy.downloadingTemplate
+              : downloadingKind === "ledger"
+                ? copy.exportingLedger
+                : isPreviewing
+                  ? copy.previewing
+                  : copy.importing
+          }
+        />
+      ) : null}
 
       <div className="transaction-excel-import">
         <label className="transaction-file-picker">
@@ -184,7 +236,11 @@ export function TransactionExcelTools({ language }: TransactionExcelToolsProps) 
             onClick={() => void submitImport("preview")}
             disabled={!selectedFile || isPreviewing || isImporting || isRefreshing}
           >
-            {isPreviewing ? copy.previewing : copy.preview}
+            {isPreviewing ? (
+              <ButtonLoadingContent label={copy.previewing}>{copy.preview}</ButtonLoadingContent>
+            ) : (
+              copy.preview
+            )}
           </button>
           <button
             type="button"
@@ -192,7 +248,11 @@ export function TransactionExcelTools({ language }: TransactionExcelToolsProps) 
             onClick={() => void submitImport("commit")}
             disabled={!canCommit}
           >
-            {isImporting || isRefreshing ? copy.importing : copy.importReady}
+            {isImporting || isRefreshing ? (
+              <ButtonLoadingContent label={copy.importing}>{copy.importReady}</ButtonLoadingContent>
+            ) : (
+              copy.importReady
+            )}
           </button>
         </div>
       </div>

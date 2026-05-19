@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth/admin";
 import { getSelectedPortfolioId } from "@/lib/portfolio/selection";
-import { runDailyAutoMarketRefresh, runManualMarketRefresh } from "@/server/market-refresh";
+import { runManualMarketRefresh } from "@/server/market-refresh";
 
 function jsonErrorResponse(code: string, message: string, status: number) {
   return NextResponse.json(
@@ -83,13 +83,6 @@ export async function POST(request: Request) {
 
     if (refreshMode === "invalid-json") {
       return jsonErrorResponse("INVALID_JSON", "Refresh request JSON is invalid.", 400);
-    }
-
-    if (refreshMode === "daily-auto") {
-      const portfolioId = await getSelectedPortfolioId();
-      const result = await runDailyAutoMarketRefresh({ portfolioId });
-
-      return NextResponse.json(result);
     }
 
     if (refreshMode != null) {
