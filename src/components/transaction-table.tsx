@@ -86,12 +86,14 @@ function getTransactionSearchText(transaction: TransactionListItem) {
 }
 
 function SortableHeader({
+  align = "left",
   language,
   label,
   sortKey,
   sort,
   onSort
 }: {
+  align?: "left" | "right";
   language: UiLanguage;
   label: string;
   sortKey: TransactionSortKey;
@@ -104,7 +106,11 @@ function SortableHeader({
     isActive && sort.direction === "asc" ? copy.sortDescending : copy.sortAscending;
 
   return (
-    <th scope="col" aria-sort={isActive ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}>
+    <th
+      scope="col"
+      className={align === "right" ? "table-heading-number" : undefined}
+      aria-sort={isActive ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}
+    >
       <button
         type="button"
         className="table-sort-button"
@@ -247,17 +253,29 @@ export function TransactionTable({
           </div>
 
           <div className="transaction-table-wrap">
-            <table className="transaction-table">
+            <table className="transaction-table transaction-ledger-table">
+              <colgroup>
+                <col className="transaction-col-date" />
+                <col className="transaction-col-instrument" />
+                <col className="transaction-col-side" />
+                <col className="transaction-col-broker" />
+                <col className="transaction-col-quantity" />
+                <col className="transaction-col-price" />
+                <col className="transaction-col-fee" />
+                <col className="transaction-col-net" />
+                <col className="transaction-col-notes" />
+                {canEdit ? <col className="transaction-col-actions" /> : null}
+              </colgroup>
               <thead>
                 <tr>
                   <SortableHeader label={copy.transactions.table.columns.date} language={language} sortKey="tradeDate" sort={sort} onSort={handleSort} />
                   <SortableHeader label={copy.transactions.table.columns.instrument} language={language} sortKey="instrument" sort={sort} onSort={handleSort} />
                   <SortableHeader label={copy.transactions.table.columns.side} language={language} sortKey="side" sort={sort} onSort={handleSort} />
                   <SortableHeader label={copy.transactions.table.columns.broker} language={language} sortKey="broker" sort={sort} onSort={handleSort} />
-                  <SortableHeader label={copy.transactions.table.columns.quantity} language={language} sortKey="quantity" sort={sort} onSort={handleSort} />
-                  <SortableHeader label={copy.transactions.table.columns.price} language={language} sortKey="price" sort={sort} onSort={handleSort} />
-                  <SortableHeader label={copy.transactions.table.columns.fee} language={language} sortKey="fee" sort={sort} onSort={handleSort} />
-                  <SortableHeader label={copy.transactions.table.columns.net} language={language} sortKey="netAmount" sort={sort} onSort={handleSort} />
+                  <SortableHeader label={copy.transactions.table.columns.quantity} language={language} sortKey="quantity" sort={sort} onSort={handleSort} align="right" />
+                  <SortableHeader label={copy.transactions.table.columns.price} language={language} sortKey="price" sort={sort} onSort={handleSort} align="right" />
+                  <SortableHeader label={copy.transactions.table.columns.fee} language={language} sortKey="fee" sort={sort} onSort={handleSort} align="right" />
+                  <SortableHeader label={copy.transactions.table.columns.net} language={language} sortKey="netAmount" sort={sort} onSort={handleSort} align="right" />
                   <th scope="col">{copy.transactions.table.columns.notes}</th>
                   {canEdit ? <th scope="col">{copy.transactions.table.columns.actions}</th> : null}
                 </tr>
@@ -311,7 +329,7 @@ export function TransactionTable({
                       </td>
                       <td className="table-number">{formatCurrency(transaction.fee, { currency: transaction.instrument.currency, locale })}</td>
                       <td className="table-number">{formatCurrency(transaction.netAmount, { currency: transaction.instrument.currency, locale })}</td>
-                      <td>{transaction.notes ?? "-"}</td>
+                      <td className="table-notes">{transaction.notes ?? "-"}</td>
                       {canEdit ? (
                         <td>
                           <div className="table-actions">
