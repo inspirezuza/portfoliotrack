@@ -12,27 +12,22 @@ import { languages, type UiTheme } from "@/lib/ui/translations";
 import type { PortfolioListItem } from "@/server/portfolios";
 
 type NavItem = {
-  href: "/" | "/holdings" | "/transactions";
-  label: "dashboard" | "holdings" | "transactions";
+  href: "/" | "/transactions";
+  label: "dashboard" | "transactions";
   icon: NavIconName;
 };
 
-type NavIconName = "dashboard" | "holdings" | "transactions";
+type NavIconName = "dashboard" | "transactions";
 type ThemeIconName = UiTheme;
 
 const navItems: NavItem[] = [
   { href: "/", label: "dashboard", icon: "dashboard" },
-  { href: "/holdings", label: "holdings", icon: "holdings" },
   { href: "/transactions", label: "transactions", icon: "transactions" }
 ];
 
 function isActivePath(pathname: string, href: NavItem["href"]) {
   if (href === "/") {
     return pathname === "/";
-  }
-
-  if (href === "/holdings" && pathname.startsWith("/assets/")) {
-    return true;
   }
 
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -46,14 +41,6 @@ function NavIcon({ name }: { name: NavIconName }) {
         <rect x="13.75" y="3.25" width="7" height="4.9" rx="2.2" />
         <rect x="13.75" y="11.55" width="7" height="9.2" rx="2.2" />
         <rect x="3.25" y="14.25" width="7" height="6.5" rx="2.2" />
-      </>
-    ),
-    holdings: (
-      <>
-        <path d="M11.6 3.3a8.7 8.7 0 1 0 8.7 8.7h-8.7Z" />
-        <path d="M14.3 3.8a8.7 8.7 0 0 1 5.9 5.9h-5.9Z" />
-        <path d="M7.6 12.7h3.1" />
-        <path d="M7.6 16h6.4" />
       </>
     ),
     transactions: (

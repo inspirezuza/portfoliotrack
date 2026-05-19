@@ -4,19 +4,74 @@ import type { TransactionListItem } from "@/server/transactions";
 export const TRANSACTION_EXCEL_SHEET_NAME = "Transactions";
 
 const transactionExcelColumns = [
-  { key: "instrumentId", header: "Instrument ID", width: 14 },
-  { key: "symbol", header: "Symbol", width: 16 },
-  { key: "displayName", header: "Display Name", width: 28 },
-  { key: "market", header: "Market", width: 12 },
-  { key: "currency", header: "Currency", width: 12 },
-  { key: "providerSymbol", header: "Provider Symbol", width: 20 },
-  { key: "tradeDate", header: "Trade Date", width: 14 },
-  { key: "side", header: "Side", width: 10 },
-  { key: "broker", header: "Broker", width: 12, optional: true },
-  { key: "quantity", header: "Quantity", width: 14 },
-  { key: "price", header: "Price", width: 14 },
-  { key: "fee", header: "Fee", width: 12 },
-  { key: "notes", header: "Notes", width: 42 }
+  {
+    key: "instrumentAction",
+    header: "Instrument Action",
+    width: 22,
+    optional: true,
+    description: "Blank/MATCH uses an existing instrument. CREATE can add a missing instrument from Symbol."
+  },
+  {
+    key: "instrumentId",
+    header: "Instrument ID",
+    width: 14,
+    description: "Existing app instrument id. Leave blank when matching by symbol or creating a new instrument."
+  },
+  {
+    key: "symbol",
+    header: "Symbol",
+    width: 16,
+    description: "App symbol, for example AAPL, AAPL80, ASTS03, or PTT.BK."
+  },
+  {
+    key: "displayName",
+    header: "Display Name",
+    width: 28,
+    description: "Optional for CREATE. Yahoo or the symbol will be used when blank."
+  },
+  {
+    key: "market",
+    header: "Market",
+    width: 12,
+    description: "Optional for CREATE. Use US, TH, or leave blank for Yahoo detection."
+  },
+  {
+    key: "instrumentType",
+    header: "Instrument Type",
+    width: 18,
+    optional: true,
+    description: "Optional for CREATE. Examples: EQUITY, ETF, DR."
+  },
+  {
+    key: "currency",
+    header: "Currency",
+    width: 12,
+    description: "Optional for CREATE. Three-letter code such as USD or THB."
+  },
+  {
+    key: "providerSymbol",
+    header: "Provider Symbol",
+    width: 20,
+    description: "Optional provider symbol for market data, for example AAPL or PTT.BK."
+  },
+  {
+    key: "tradeDate",
+    header: "Trade Date",
+    width: 14,
+    description: "Required transaction date in YYYY-MM-DD format."
+  },
+  { key: "side", header: "Side", width: 10, description: "Required. BUY or SELL." },
+  {
+    key: "broker",
+    header: "Broker",
+    width: 12,
+    optional: true,
+    description: "Optional. DIME or WEBULL. Blank defaults to DIME."
+  },
+  { key: "quantity", header: "Quantity", width: 14, description: "Required positive quantity." },
+  { key: "price", header: "Price", width: 14, description: "Required price per unit." },
+  { key: "fee", header: "Fee", width: 12, description: "Optional fee. Blank defaults to 0." },
+  { key: "notes", header: "Notes", width: 42, description: "Optional note for this transaction." }
 ] as const;
 
 export type TransactionExcelColumnKey = (typeof transactionExcelColumns)[number]["key"];
@@ -103,6 +158,16 @@ function getCellValue(cell: ExcelJS.Cell) {
 
 function isEmptyValue(value: unknown) {
   return value == null || (typeof value === "string" && value.trim().length === 0);
+}
+
+function isDescriptionRow(rowNumber: number, values: Record<TransactionExcelColumnKey, unknown>) {
+  if (rowNumber !== 2) {
+    return false;
+  }
+
+  return transactionExcelColumns.some(
+    (column) => values[column.key] === column.description
+  );
 }
 
 function getHeaderColumnMap(worksheet: ExcelJS.Worksheet) {
@@ -192,7 +257,7 @@ export async function parseTransactionExcelWorkbook(buffer: Buffer): Promise<Tra
       })
     ) as Record<TransactionExcelColumnKey, unknown>;
 
-    if (Object.values(values).every(isEmptyValue)) {
+    if (isDescriptionRow(rowNumber, values) || Object.values(values).every(isEmptyValue)) {
       continue;
     }
 
@@ -219,7 +284,11 @@ export async function buildTransactionExcelWorkbook(
 
   worksheet.getRow(1).font = { bold: true };
   worksheet.getRow(1).alignment = { vertical: "middle" };
-  worksheet.views = [{ state: "frozen", ySplit: 1 }];
+  worksheet.getRow(2).values = transactionExcelColumns.map((column) => column.description);
+  worksheet.getRow(2).font = { italic: true, color: { argb: "FF5F6B7A" } };
+  worksheet.getRow(2).alignment = { vertical: "top", wrapText: true };
+  worksheet.getRow(2).height = 48;
+  worksheet.views = [{ state: "frozen", ySplit: 2 }];
   worksheet.autoFilter = {
     from: { row: 1, column: 1 },
     to: { row: 1, column: transactionExcelColumns.length }
@@ -228,9 +297,11 @@ export async function buildTransactionExcelWorkbook(
   for (const transaction of transactions) {
     worksheet.addRow({
       instrumentId: transaction.instrumentId,
+      instrumentAction: "",
       symbol: transaction.instrument.symbol,
       displayName: transaction.instrument.displayName,
       market: transaction.instrument.market,
+      instrumentType: transaction.instrument.instrumentType,
       currency: transaction.instrument.currency,
       providerSymbol: transaction.instrument.providerSymbol,
       tradeDate: transaction.tradeDate,

@@ -9,18 +9,18 @@ PortfolioTrack is a deployable personal portfolio tracker. Public visitors can r
 The app is intentionally simple:
 
 - Single admin login through environment variables and a signed HttpOnly cookie.
-- Public read-only dashboard, holdings, transactions, and asset detail pages.
+- Public read-only dashboard, transactions, and asset detail pages.
 - Multiple portfolios in one app; instruments and market data are shared, while transactions are portfolio-scoped.
-- Template-only Excel transaction import/export for the app ledger.
+- Template-only Excel transaction import/export for the app ledger, with explicit instrument creation support for missing symbols.
 - No broker-specific statement parser, cash balance ledger, tax reporting, or multi-user account database.
-- Neon Postgres stores portfolio and cached market data.
+- Postgres stores portfolio and cached market data; local development uses a normal Postgres connection, while hosted deployments use Neon Postgres.
 
 ## Current Product Surface
 
 Routes:
 
-- `/` dashboard: `src/app/page.tsx`, reads `getDashboardSnapshot({ portfolioId })`.
-- `/holdings`: `src/app/holdings/page.tsx`, renders `SummaryCards` and `HoldingsTable`.
+- `/` dashboard: `src/app/page.tsx`, reads `getDashboardSnapshot({ portfolioId })` and renders summary, charts, leading holdings, the full holdings table, and summary cards.
+- `/holdings`: `src/app/holdings/page.tsx`, redirects to `/`.
 - `/transactions`: `src/app/transactions/page.tsx`, shows ledger data to everyone and admin-only form/actions/Excel tools.
 - `/assets/[symbol]`: `src/app/assets/[symbol]/page.tsx`, reads `getAssetDetail(symbol, { portfolioId })`.
 - `/portfolios`: `src/app/portfolios/page.tsx`, admin-only portfolio management.
@@ -38,7 +38,7 @@ API routes:
 - `POST /api/instruments`: admin-only instrument creation.
 - `GET /api/instruments/search`: admin-only Yahoo instrument search.
 - `POST /api/market-data/refresh`: admin-only explicit market-data refresh for form/manual requests.
-- `GET /api/cron/market-data`: Vercel Cron-only daily refresh, authorized with `CRON_SECRET`, scheduled by `vercel.json` at `0 14 * * *` for 21:00 in `Asia/Bangkok`, and run for every portfolio.
+- `GET /api/cron/market-data/[slot]`: Vercel Cron-only slot refresh, authorized with `CRON_SECRET`, scheduled by `vercel.json` through the evening plus US market open and close in `Asia/Bangkok`, and run for every portfolio.
 - `POST /api/auth/login` and `POST /api/auth/logout`: admin session lifecycle.
 
 ## Source Tree
@@ -49,7 +49,7 @@ Important directories:
 - `src/components/`: UI components used by pages. Chart components are client components because Recharts runs in the browser.
 - `src/server/`: Server-only query/application services. These modules should stay server-only and import from `src/lib/db/runtime`.
 - `src/lib/auth/`: Admin password verification and signed session helpers.
-- `src/lib/db/`: Neon/Drizzle setup, schema, seed script, and precision helpers.
+- `src/lib/db/`: local/Neon Postgres Drizzle setup, schema, seed script, and precision helpers.
 - `src/lib/market/`: Market provider abstraction, Yahoo Finance implementation, and cache refresh orchestration.
 - `src/lib/portfolio/`: Selected-portfolio cookie helpers plus portfolio math for positions and timeline comparison.
 - `src/lib/transactions/`: Transaction UI/search helpers and Excel workbook parsing/generation.
@@ -66,11 +66,11 @@ Schema source:
 
 Runtime database:
 
-- Neon Postgres through `DATABASE_URL`.
+- Local Postgres through `LOCAL_DATABASE_URL` in development, with Neon Postgres through `DATABASE_URL` for hosted deployments. The repo-local Docker database uses `127.0.0.1:55432` by default to avoid conflicts with machine-level Postgres services on `5432`.
 
 Database connection:
 
-- `src/lib/db/client.ts` creates a Neon serverless connection pool with `@neondatabase/serverless`.
+- `src/lib/db/client.ts` creates a node-postgres pool for local database URLs and a Neon serverless pool for hosted Neon URLs.
 - `src/lib/db/runtime.ts` exposes a lazy global process-level database handle for server runtime reuse.
 
 Tables:
@@ -90,7 +90,7 @@ Schema deployment:
 npm run db:migrate
 ```
 
-This runs `drizzle-kit push` against `DATABASE_URL`. The baseline SQL is `drizzle/0000_initial_postgres.sql`; `drizzle/0001_multi_portfolios.sql` adds portfolio support and migrates existing transactions into `Main Portfolio`; `drizzle/0002_market_refresh_runs.sql` adds refresh run tracking for guarded background market updates.
+This runs `drizzle-kit push` against `LOCAL_DATABASE_URL` when set, then `DATABASE_URL`, with a local Docker Postgres fallback in development. The baseline SQL is `drizzle/0000_initial_postgres.sql`; `drizzle/0001_multi_portfolios.sql` adds portfolio support and migrates existing transactions into `Main Portfolio`; `drizzle/0002_market_refresh_runs.sql` adds refresh run tracking for guarded background market updates.
 
 Seed:
 
@@ -123,18 +123,19 @@ Public users can read current app pages and switch portfolios. Admin-only contro
 - `src/server/holdings.ts`: builds selected-portfolio open/closed position snapshots and currency breakdowns.
 - `src/server/transactions.ts`: validates transaction input, enforces selected-portfolio sell quantity, maps service errors, and provides the consolidated transactions workspace loader.
 - `src/server/market-refresh.ts`: separates admin manual refresh from guarded daily cron refresh and records refresh run outcomes.
-- `src/server/transaction-import-export.ts`: builds selected-portfolio Excel exports and evaluates/imports template workbooks against existing instruments, duplicate keys, validation, and position constraints.
+- `src/server/transaction-import-export.ts`: builds selected-portfolio Excel exports and evaluates/imports template workbooks against existing or explicitly created instruments, duplicate keys, validation, and position constraints.
 - `src/server/assets.ts`: `getAssetDetail(symbol, { portfolioId, allowMarketRefresh })`; public pages render cached data only.
 
 ## Transaction Excel Import/Export
 
 - Workbook support is server-side through `exceljs`; keep API routes using `runtime = "nodejs"`.
 - The supported import format is the app template sheet named `Transactions`; broker statement formats are intentionally out of scope.
-- Template columns include instrument identity, trade date, side, optional broker, quantity, price, fee, and notes. Missing broker values default to Dime.
+- Template columns include instrument action, instrument identity, trade date, side, optional broker, quantity, price, fee, and notes. Missing broker values default to Dime.
 - Instrument matching tries instrument id, provider symbol, then app symbol.
+- Set `Instrument Action` to `CREATE` to add a missing instrument from symbol/provider symbol during import; blank or `MATCH` only uses existing instruments.
 - Preview returns row-level `ready`, `skipped_duplicate`, or `error` statuses.
 - Commit re-parses and re-validates the uploaded workbook, rejects files with errors, and inserts ready rows atomically.
-- Missing instruments are row errors; the import flow does not create instruments automatically.
+- Missing instruments are row errors unless the row explicitly requests `Instrument Action = CREATE`.
 - Imports and exports use the selected portfolio. The Excel template does not include a portfolio column.
 
 ## Market Data
@@ -152,10 +153,10 @@ Refresh behavior:
 - Writes only valid same-currency data to Postgres.
 - Records missing/mismatched provider data as structured issues.
 - Deduplicates overlapping in-flight refreshes.
-- Dashboard, holdings, and transactions render cached data first and do not call the provider during route render.
-- `GET /api/cron/market-data` triggers `daily-auto` refreshes from Vercel Cron at 21:00 Thailand time.
-- Daily cron refresh is guarded by `market_refresh_runs`: one success per Bangkok day per portfolio, with at most two attempts after failed or stale-running jobs.
-- Admin manual refresh uses the existing button/form path, bypasses the scheduled daily limit, records a `manual` run, and preserves the dashboard banner flow.
+- Dashboard and transactions render cached data first and do not call the provider during route render.
+- `GET /api/cron/market-data/[slot]` triggers `daily-auto` refreshes from Vercel Cron at 18:00, 19:00, 20:00, 20:30, 21:00, 22:00, 23:00, 00:00, and 03:00 Thailand time.
+- Slot cron refresh is guarded by `market_refresh_runs`: one success per Bangkok date/slot key per portfolio, with at most two attempts after failed or stale-running jobs.
+- Admin manual refresh uses the existing button/form path, bypasses the scheduled slot limit, records a `manual` run, and preserves the dashboard banner flow.
 
 ## UI Shell, Theme, And Language
 
@@ -197,4 +198,4 @@ Notes:
 - If changing portfolio math, verify transaction ordering and sell validation.
 - If changing auth or public/admin behavior, verify both logged-out read-only and logged-in admin flows.
 - If changing market data, preserve currency checks and missing-data states.
-- If changing page performance, keep dashboard/holdings/transactions cached-first; provider refresh should stay outside route render.
+- If changing page performance, keep dashboard/transactions cached-first; provider refresh should stay outside route render.

@@ -1,8 +1,40 @@
 {
   "crons": [
     {
-      "path": "/api/cron/market-data",
+      "path": "/api/cron/market-data/1800",
+      "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/cron/market-data/1900",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/market-data/2000",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/market-data/2030",
+      "schedule": "30 13 * * *"
+    },
+    {
+      "path": "/api/cron/market-data/2100",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/market-data/2200",
+      "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/cron/market-data/2300",
+      "schedule": "0 16 * * *"
+    },
+    {
+      "path": "/api/cron/market-data/0000",
+      "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/cron/market-data/0300",
+      "schedule": "0 20 * * *"
     }
   ]
 }

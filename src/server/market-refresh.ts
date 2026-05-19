@@ -14,6 +14,7 @@ const STALE_RUNNING_MINUTES = 15;
 export type DailyAutoRefreshResponse = {
   status: "started" | "skipped" | "success" | "failed";
   refreshDate: string;
+  refreshSlot?: string;
   reason?: string;
 };
 
@@ -39,6 +40,12 @@ function getBangkokDate(now = new Date()) {
   const valueByType = new Map(parts.map((part) => [part.type, part.value]));
 
   return `${valueByType.get("year")}-${valueByType.get("month")}-${valueByType.get("day")}`;
+}
+
+function getBangkokRefreshDateKey(refreshSlot: string | undefined, now = new Date()) {
+  const refreshDate = getBangkokDate(now);
+
+  return refreshSlot == null ? refreshDate : `${refreshDate}:${refreshSlot}`;
 }
 
 function getDbTimestamp(now = new Date()) {
@@ -106,8 +113,8 @@ async function createManualRun(portfolioId: number) {
   return run;
 }
 
-async function claimDailyAutoRun(portfolioId: number): Promise<DailyAutoClaim> {
-  const refreshDate = getBangkokDate();
+async function claimDailyAutoRun(portfolioId: number, refreshSlot?: string): Promise<DailyAutoClaim> {
+  const refreshDate = getBangkokRefreshDateKey(refreshSlot);
   const now = getDbTimestamp();
   const [insertedRun] = await db
     .insert(marketRefreshRuns)
@@ -219,17 +226,20 @@ export async function runManualMarketRefresh({ portfolioId: portfolioIdInput }: 
 }
 
 export async function runDailyAutoMarketRefresh({
-  portfolioId: portfolioIdInput
+  portfolioId: portfolioIdInput,
+  refreshSlot
 }: {
   portfolioId: number;
+  refreshSlot?: string;
 }): Promise<DailyAutoRefreshResponse> {
   const portfolioId = parsePortfolioId(portfolioIdInput);
-  const claim = await claimDailyAutoRun(portfolioId);
+  const claim = await claimDailyAutoRun(portfolioId, refreshSlot);
 
   if (!claim.claimed) {
     return {
       status: "skipped",
       refreshDate: claim.refreshDate,
+      refreshSlot,
       reason: claim.reason
     };
   }
@@ -240,7 +250,8 @@ export async function runDailyAutoMarketRefresh({
 
     return {
       status: "success",
-      refreshDate: claim.refreshDate
+      refreshDate: claim.refreshDate,
+      refreshSlot
     };
   } catch (error) {
     console.error("Daily auto market refresh failed", error);
@@ -249,6 +260,7 @@ export async function runDailyAutoMarketRefresh({
     return {
       status: "failed",
       refreshDate: claim.refreshDate,
+      refreshSlot,
       reason: "refresh-failed"
     };
   }
