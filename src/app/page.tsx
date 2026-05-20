@@ -144,6 +144,27 @@ function formatRealizedMoney(summary: DashboardSummary, locale: string, sharedCo
     : formatCurrency(0, { currency: DEFAULT_DISPLAY_CURRENCY, locale });
 }
 
+function formatSignedPercentRatio(value: number, locale: string) {
+  const formattedValue = formatPercentRatio(value, { locale });
+
+  return value > 0 ? `+${formattedValue}` : formattedValue;
+}
+
+function formatUnrealizedPnlDetail(summary: DashboardSummary, locale: string, copy: DashboardCopy) {
+  if (
+    summary.totalUnrealizedPnl == null ||
+    summary.totalCostBasis == null ||
+    summary.totalCostBasis <= 0
+  ) {
+    return copy.vsCostBasis;
+  }
+
+  return `${formatSignedPercentRatio(
+    summary.totalUnrealizedPnl / summary.totalCostBasis,
+    locale
+  )} ${copy.vsCostBasis}`;
+}
+
 function getValueTone(value: number | null) {
   if (value == null || value === 0) {
     return "neutral";
@@ -211,7 +232,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const locale = getUiLocale(language);
   const isAdmin = await isAdminAuthenticated();
   const { selectedPortfolio } = await getPortfolioSelection();
-  const { summary, holdingsSnapshot, marketData, timeline } = await getDashboardSnapshot({
+  const { summary, holdingsSnapshot, marketData, performanceSummary, timeline } = await getDashboardSnapshot({
     portfolioId: selectedPortfolio.id,
     ensureFresh: false
   });
@@ -241,7 +262,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     {
       label: copy.dashboard.unrealizedPnl,
       value: formatSummaryMoney(summary, "totalUnrealizedPnl", locale, copy.shared),
-      detail: copy.dashboard.vsCostBasis,
+      detail: formatUnrealizedPnlDetail(summary, locale, copy.dashboard),
       tone: getValueTone(summary.totalUnrealizedPnl)
     },
     {
@@ -324,6 +345,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             benchmarkCurrency={timeline.benchmarkCurrency}
             comparisonBasis={timeline.comparisonBasis}
             language={language}
+            performanceSummary={performanceSummary}
             portfolioCurrency={timeline.portfolioCurrency}
             series={timeline.comparison}
             status={timeline.status}

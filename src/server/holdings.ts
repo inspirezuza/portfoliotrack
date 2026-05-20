@@ -24,7 +24,10 @@ export type HoldingRow = {
   instrumentType: string;
   currency: string;
   providerSymbol: string;
+  underlyingSymbol: string | null;
   underlyingProviderSymbol: string | null;
+  underlyingCurrency: string | null;
+  drRatio: number | null;
   quantity: number;
   averageCost: number;
   totalCost: number;
@@ -37,6 +40,14 @@ export type HoldingRow = {
   marketValue: number | null;
   unrealizedPnl: number | null;
   unrealizedPnlPercent: number | null;
+  valuationCurrency: string;
+  fxRateToValuationCurrency: number | null;
+  totalCostInValuationCurrency: number | null;
+  marketValueInValuationCurrency: number | null;
+  unrealizedPnlInValuationCurrency: number | null;
+  parentAverageCost: number | null;
+  parentLastPrice: number | null;
+  parentLastPriceAsOf: string | null;
   portfolioWeight: number | null;
 };
 
@@ -45,6 +56,7 @@ export type HoldingsSnapshot = {
   openPositionCount: number;
   closedPositionCount: number;
   openPositionCurrency: string | null;
+  valuationCurrency: string;
   totalCostBasis: number | null;
   totalRealizedPnl: number | null;
   totalFees: number | null;
@@ -110,14 +122,42 @@ function getCurrentLocalIsoDate(now = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-function buildHoldingRow({
-  instrument,
-  position,
-  priceSnapshot
+function getFxProviderSymbol(fromCurrency: string, toCurrency: string) {
+  return `${fromCurrency}${toCurrency}=X`;
+}
+
+function getFxRateToValuationCurrency({
+  currency,
+  fxSnapshotsByProviderSymbol,
+  valuationCurrency
 }: {
+  currency: string;
+  fxSnapshotsByProviderSymbol: Map<string, PriceSnapshot>;
+  valuationCurrency: string;
+}) {
+  if (currency === valuationCurrency) {
+    return 1;
+  }
+
+  const snapshot = fxSnapshotsByProviderSymbol.get(getFxProviderSymbol(currency, valuationCurrency));
+
+  return snapshot != null && snapshot.currency === valuationCurrency ? snapshot.price : null;
+}
+
+function buildHoldingRow({
+  fxRateToValuationCurrency,
+  instrument,
+  parentPriceSnapshot,
+  position,
+  priceSnapshot,
+  valuationCurrency
+}: {
+  fxRateToValuationCurrency: number | null;
   instrument: Instrument;
+  parentPriceSnapshot: PriceSnapshot | null;
   position: InstrumentPosition;
   priceSnapshot: PriceSnapshot | null;
+  valuationCurrency: string;
 }): HoldingRow {
   const matchingPriceSnapshot =
     priceSnapshot != null && priceSnapshot.currency === instrument.currency ? priceSnapshot : null;
@@ -130,6 +170,28 @@ function buildHoldingRow({
     unrealizedPnl == null || position.totalCost <= 0
       ? null
       : unrealizedPnl / position.totalCost;
+  const totalCostInValuationCurrency =
+    fxRateToValuationCurrency == null ? null : normalizeMoney(position.totalCost * fxRateToValuationCurrency);
+  const marketValueInValuationCurrency =
+    marketValue == null || fxRateToValuationCurrency == null
+      ? null
+      : normalizeMoney(marketValue * fxRateToValuationCurrency);
+  const unrealizedPnlInValuationCurrency =
+    unrealizedPnl == null || fxRateToValuationCurrency == null
+      ? null
+      : normalizeMoney(unrealizedPnl * fxRateToValuationCurrency);
+  const matchingParentSnapshot =
+    parentPriceSnapshot != null && parentPriceSnapshot.currency === instrument.underlyingCurrency
+      ? parentPriceSnapshot
+      : null;
+  const parentAverageCost =
+    position.averageCost > 0 &&
+    instrument.drRatio != null &&
+    instrument.drRatio > 0 &&
+    instrument.underlyingCurrency != null &&
+    fxRateToValuationCurrency != null
+      ? normalizeMoney((position.averageCost * instrument.drRatio) / fxRateToValuationCurrency)
+      : null;
 
   return {
     instrumentId: instrument.id,
@@ -139,7 +201,10 @@ function buildHoldingRow({
     instrumentType: instrument.instrumentType,
     currency: instrument.currency,
     providerSymbol: instrument.providerSymbol,
+    underlyingSymbol: instrument.underlyingSymbol,
     underlyingProviderSymbol: instrument.underlyingProviderSymbol,
+    underlyingCurrency: instrument.underlyingCurrency,
+    drRatio: instrument.drRatio,
     quantity: position.quantity,
     averageCost: position.averageCost,
     totalCost: position.totalCost,
@@ -152,6 +217,14 @@ function buildHoldingRow({
     marketValue,
     unrealizedPnl,
     unrealizedPnlPercent,
+    valuationCurrency,
+    fxRateToValuationCurrency,
+    totalCostInValuationCurrency,
+    marketValueInValuationCurrency,
+    unrealizedPnlInValuationCurrency,
+    parentAverageCost,
+    parentLastPrice: matchingParentSnapshot?.price ?? null,
+    parentLastPriceAsOf: matchingParentSnapshot?.asOf ?? null,
     portfolioWeight: null
   };
 }
@@ -184,10 +257,23 @@ export async function getHoldingsSnapshot({
   }
 
   const asOfDate = getCurrentLocalIsoDate();
-  const [rows, marketSettings] = await Promise.all([
+  const [rows, marketSettings, instrumentRows, snapshotRows] = await Promise.all([
     listHoldingRows(asOfDate, portfolioId),
-    getMarketSettings()
+    getMarketSettings(),
+    db.select().from(instruments),
+    db.select().from(priceSnapshots)
   ]);
+  const valuationCurrency = marketSettings.baseCurrency;
+  const instrumentById = new Map(instrumentRows.map((instrument) => [instrument.id, instrument]));
+  const fxSnapshotsByProviderSymbol = new Map<string, PriceSnapshot>();
+
+  for (const snapshot of snapshotRows) {
+    const instrument = instrumentById.get(snapshot.instrumentId);
+
+    if (instrument != null) {
+      fxSnapshotsByProviderSymbol.set(instrument.providerSymbol, snapshot);
+    }
+  }
 
   if (rows.length === 0) {
     return {
@@ -195,6 +281,7 @@ export async function getHoldingsSnapshot({
       openPositionCount: 0,
       closedPositionCount: 0,
       openPositionCurrency: null,
+      valuationCurrency,
       totalCostBasis: 0,
       totalRealizedPnl: 0,
       totalFees: 0,
@@ -234,9 +321,19 @@ export async function getHoldingsSnapshot({
       }
 
       return buildHoldingRow({
+        fxRateToValuationCurrency: getFxRateToValuationCurrency({
+          currency: instrumentState.instrument.currency,
+          fxSnapshotsByProviderSymbol,
+          valuationCurrency
+        }),
         instrument: instrumentState.instrument,
+        parentPriceSnapshot:
+          instrumentState.instrument.underlyingProviderSymbol == null
+            ? null
+            : fxSnapshotsByProviderSymbol.get(instrumentState.instrument.underlyingProviderSymbol) ?? null,
         position,
-        priceSnapshot: instrumentState.priceSnapshot
+        priceSnapshot: instrumentState.priceSnapshot,
+        valuationCurrency
       });
     })
     .sort(compareHoldingRows);
@@ -326,44 +423,107 @@ export async function getHoldingsSnapshot({
   );
   const openPositionCurrency = currencyBreakdown.length === 1 ? currencyBreakdown[0].currency : null;
   const singleCurrencyBreakdown = openPositionCurrency == null ? null : currencyBreakdown[0];
+  const canUseValuationTotals = holdings.every((holding) =>
+    holding.totalCostInValuationCurrency != null &&
+    (holding.marketValue == null || holding.marketValueInValuationCurrency != null)
+  );
+  const totalCostBasisInValuationCurrency =
+    holdings.length === 0
+      ? 0
+      : canUseValuationTotals
+        ? normalizeMoney(
+            holdings.reduce((total, holding) => total + (holding.totalCostInValuationCurrency ?? 0), 0)
+          )
+        : null;
+  const totalMarketValueInValuationCurrency =
+    holdings.length === 0
+      ? 0
+      : canUseValuationTotals && holdings.every((holding) => holding.marketValueInValuationCurrency != null)
+        ? normalizeMoney(
+            holdings.reduce((total, holding) => total + (holding.marketValueInValuationCurrency ?? 0), 0)
+          )
+        : null;
+  const totalUnrealizedPnlInValuationCurrency =
+    holdings.length === 0
+      ? 0
+      : canUseValuationTotals && holdings.every((holding) => holding.unrealizedPnlInValuationCurrency != null)
+        ? normalizeMoney(
+            holdings.reduce((total, holding) => total + (holding.unrealizedPnlInValuationCurrency ?? 0), 0)
+          )
+        : null;
   const totalMarketValue =
-    singleCurrencyBreakdown == null
+    singleCurrencyBreakdown == null && totalMarketValueInValuationCurrency == null
       ? holdings.length === 0
         ? 0
         : null
-      : singleCurrencyBreakdown.totalMarketValue;
+      : singleCurrencyBreakdown?.totalMarketValue ?? totalMarketValueInValuationCurrency;
   const totalUnrealizedPnl =
-    singleCurrencyBreakdown == null
+    singleCurrencyBreakdown == null && totalUnrealizedPnlInValuationCurrency == null
       ? holdings.length === 0
         ? 0
         : null
-      : singleCurrencyBreakdown.totalUnrealizedPnl;
+      : singleCurrencyBreakdown?.totalUnrealizedPnl ?? totalUnrealizedPnlInValuationCurrency;
   const totalCostBasis =
-    singleCurrencyBreakdown == null
+    singleCurrencyBreakdown == null && totalCostBasisInValuationCurrency == null
       ? holdings.length === 0
         ? 0
         : null
-      : singleCurrencyBreakdown.totalCostBasis;
+      : singleCurrencyBreakdown?.totalCostBasis ?? totalCostBasisInValuationCurrency;
   const totalRealizedPnl =
     realizedBreakdown.length === 1
       ? realizedBreakdown[0].totalRealizedPnl
       : positions.size === 0
         ? 0
-        : null;
+        : realizedBreakdown.every((entry) =>
+            getFxRateToValuationCurrency({
+              currency: entry.currency,
+              fxSnapshotsByProviderSymbol,
+              valuationCurrency
+            }) != null
+          )
+          ? normalizeMoney(
+              realizedBreakdown.reduce((total, entry) => {
+                const rate = getFxRateToValuationCurrency({
+                  currency: entry.currency,
+                  fxSnapshotsByProviderSymbol,
+                  valuationCurrency
+                }) ?? 0;
+
+                return total + entry.totalRealizedPnl * rate;
+              }, 0)
+            )
+          : null;
   const totalFees =
     realizedBreakdown.length === 1
       ? realizedBreakdown[0].totalFees
       : positions.size === 0
         ? 0
-        : null;
+        : realizedBreakdown.every((entry) =>
+            getFxRateToValuationCurrency({
+              currency: entry.currency,
+              fxSnapshotsByProviderSymbol,
+              valuationCurrency
+            }) != null
+          )
+          ? normalizeMoney(
+              realizedBreakdown.reduce((total, entry) => {
+                const rate = getFxRateToValuationCurrency({
+                  currency: entry.currency,
+                  fxSnapshotsByProviderSymbol,
+                  valuationCurrency
+                }) ?? 0;
+
+                return total + entry.totalFees * rate;
+              }, 0)
+            )
+          : null;
   const holdingsWithWeights = holdings.map((holding) => ({
     ...holding,
     portfolioWeight:
-      singleCurrencyBreakdown != null &&
       totalMarketValue != null &&
       totalMarketValue > 0 &&
-      holding.marketValue != null
-        ? holding.marketValue / totalMarketValue
+      (singleCurrencyBreakdown != null ? holding.marketValue != null : holding.marketValueInValuationCurrency != null)
+        ? (singleCurrencyBreakdown != null ? holding.marketValue ?? 0 : holding.marketValueInValuationCurrency ?? 0) / totalMarketValue
         : null
   }));
 
@@ -371,7 +531,8 @@ export async function getHoldingsSnapshot({
     holdings: holdingsWithWeights,
     openPositionCount: holdingsWithWeights.length,
     closedPositionCount: Array.from(positions.values()).filter((position) => position.quantity === 0).length,
-    openPositionCurrency,
+    openPositionCurrency: openPositionCurrency ?? (totalCostBasis == null ? null : valuationCurrency),
+    valuationCurrency,
     totalCostBasis,
     totalRealizedPnl,
     totalFees,

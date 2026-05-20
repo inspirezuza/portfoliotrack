@@ -127,15 +127,15 @@ const uiCopy = {
         latestGap: "Gap ล่าสุด",
         gap: "Gap",
         modes: {
-          INDEXED: "Indexed",
+          INDEXED: "TWR",
           GAP: "Gap",
           DRAWDOWN: "Drawdown"
         },
         modeCopy: {
           INDEXED: {
-            portfolioName: "พอร์ต",
-            benchmarkName: "Benchmark",
-            yAxisLabel: "Return"
+            portfolioName: "Portfolio TWR",
+            benchmarkName: "Benchmark return",
+            yAxisLabel: "TWR"
           },
           GAP: {
             portfolioName: "Portfolio gap",
@@ -155,10 +155,32 @@ const uiCopy = {
           nativeCurrency: (currency: string) => `ผลตอบแทน benchmark ${currency}, เทียบเป็น %`,
           performanceReturn: "ผลตอบแทน"
         },
+        absoluteSummary: {
+          label: "สรุปผลตอบแทนแบบ absolute",
+          absoluteReturn: "Absolute return",
+          totalPnl: "Total P&L",
+          netInvested: "Net invested",
+          timeWeighted: "ผลตอบแทนกราฟ",
+          timeWeightedValue: "TWR",
+          note: "หมายเหตุ",
+          hints: {
+            absoluteReturn: "ผลตอบแทนจากมุมเงินจริง คำนวณจาก Total P&L หารด้วย net invested ที่เป็นบวก",
+            totalPnl: "Realized P&L รวมกับ unrealized P&L โดยใช้ fee จาก logic สถานะเดิม",
+            netInvested: "เงินซื้อสุทธิ หัก proceeds จากการขาย",
+            timeWeighted: "กราฟใช้ time-weighted return ที่ปรับ cash flow แล้ว และตั้งต้นที่ 100",
+            note: "เหตุผลที่ absolute return อาจยังแสดงไม่ได้"
+          },
+          unavailable: {
+            noTransactions: "เพิ่มรายการซื้อขายเพื่อคำนวณ absolute return",
+            mixedCurrency: "หยุดคำนวณ absolute return เมื่อรายการซื้อขายมีหลายสกุลเงิน",
+            missingMarketValue: "absolute return ต้องใช้มูลค่าตลาดล่าสุดของ holdings ที่ยังเปิดอยู่",
+            noPositiveNetInvested: "absolute return ต้องมี net invested เป็นบวก"
+          }
+        },
         unavailable: {
           noTransactions: "เพิ่มรายการซื้อขายเพื่อเริ่มกราฟ benchmark",
-          mixedCurrency: "ปิดการเปรียบเทียบ benchmark เมื่อสถานะที่เปิดอยู่มีหลายสกุลเงิน",
-          missingPortfolioHistory: "ประวัติราคาไม่ครบสำหรับหุ้นที่ถืออยู่",
+          mixedCurrency: "ปิดการเปรียบเทียบ benchmark เมื่อประวัติรายการซื้อขายมีหลายสกุลเงิน",
+          missingPortfolioHistory: "ประวัติราคาไม่ครบสำหรับ performance ของทั้งพอร์ต",
           currencyMismatchFallback: "สกุลเงินของ benchmark ไม่ตรงกับสกุลเงินของพอร์ต",
           currencyMismatch: (symbol: string, currency: string) => `${symbol} ไม่ได้ quote เป็น ${currency}`,
           missingBenchmarkFallback: "ตั้งค่า benchmark เพื่อเปิดการเปรียบเทียบ",
@@ -173,8 +195,8 @@ const uiCopy = {
         rangeSummary: "สรุปช่วงมูลค่าพอร์ต",
         unavailable: {
           noTransactions: "เพิ่มรายการซื้อขายเพื่อเริ่มกราฟพอร์ต",
-          mixedCurrency: "หยุดกราฟพอร์ตไว้เมื่อสถานะที่เปิดอยู่มีหลายสกุลเงิน",
-          missingPortfolioHistory: "ประวัติราคาไม่ครบสำหรับหุ้นที่ถืออยู่",
+          mixedCurrency: "หยุดกราฟพอร์ตไว้เมื่อประวัติรายการซื้อขายมีหลายสกุลเงิน",
+          missingPortfolioHistory: "ประวัติราคาไม่ครบสำหรับ performance ของทั้งพอร์ต",
           default: "ยังไม่มีข้อมูลกราฟพอร์ต"
         }
       }
@@ -493,15 +515,15 @@ const uiCopy = {
         latestGap: "Latest gap",
         gap: "Gap",
         modes: {
-          INDEXED: "Indexed",
+          INDEXED: "TWR",
           GAP: "Gap",
           DRAWDOWN: "Drawdown"
         },
         modeCopy: {
           INDEXED: {
-            portfolioName: "Portfolio",
-            benchmarkName: "Benchmark",
-            yAxisLabel: "Return"
+            portfolioName: "Portfolio TWR",
+            benchmarkName: "Benchmark return",
+            yAxisLabel: "TWR"
           },
           GAP: {
             portfolioName: "Portfolio gap",
@@ -521,10 +543,32 @@ const uiCopy = {
           nativeCurrency: (currency: string) => `${currency} benchmark return, compared by %`,
           performanceReturn: "Performance return"
         },
+        absoluteSummary: {
+          label: "Absolute performance summary",
+          absoluteReturn: "Absolute return",
+          totalPnl: "Total P&L",
+          netInvested: "Net invested",
+          timeWeighted: "Chart return",
+          timeWeightedValue: "TWR",
+          note: "Note",
+          hints: {
+            absoluteReturn: "Money-result return from total P&L divided by positive net invested capital.",
+            totalPnl: "Realized P&L plus unrealized P&L, with fees included in the existing position math.",
+            netInvested: "Buy cash outflow minus sell proceeds.",
+            timeWeighted: "The chart uses cash-flow-adjusted time-weighted return, indexed from 100.",
+            note: "Why absolute return may be unavailable."
+          },
+          unavailable: {
+            noTransactions: "Add transactions to calculate absolute return.",
+            mixedCurrency: "Absolute return is paused for mixed transaction currencies.",
+            missingMarketValue: "Absolute return needs current market value for open holdings.",
+            noPositiveNetInvested: "Absolute return needs positive net invested capital."
+          }
+        },
         unavailable: {
           noTransactions: "Add a transaction to start the benchmark chart.",
-          mixedCurrency: "Benchmark comparison is disabled for mixed open-position currencies.",
-          missingPortfolioHistory: "Price history is incomplete for current holdings.",
+          mixedCurrency: "Benchmark comparison is disabled for mixed transaction currencies.",
+          missingPortfolioHistory: "Price history is incomplete for full-portfolio performance.",
           currencyMismatchFallback: "The benchmark currency does not match the portfolio currency.",
           currencyMismatch: (symbol: string, currency: string) => `${symbol} is not quoted in ${currency}.`,
           missingBenchmarkFallback: "Set a benchmark to enable comparison.",
@@ -539,8 +583,8 @@ const uiCopy = {
         rangeSummary: "Portfolio value range summary",
         unavailable: {
           noTransactions: "Add a transaction to start the portfolio chart.",
-          mixedCurrency: "Portfolio chart is paused for mixed open-position currencies.",
-          missingPortfolioHistory: "Price history is incomplete for current holdings.",
+          mixedCurrency: "Portfolio chart is paused for mixed transaction currencies.",
+          missingPortfolioHistory: "Price history is incomplete for full-portfolio performance.",
           default: "No portfolio chart data yet."
         }
       }

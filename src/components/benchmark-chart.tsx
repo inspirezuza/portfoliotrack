@@ -11,7 +11,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
-import { formatPercentRatio } from "@/lib/format";
+import { formatCurrency, formatPercentRatio } from "@/lib/format";
 import type {
   BenchmarkComparisonBasis,
   BenchmarkTimelinePoint,
@@ -25,9 +25,23 @@ type BenchmarkChartProps = {
   benchmarkCurrency: string | null;
   comparisonBasis: BenchmarkComparisonBasis | null;
   language: UiLanguage;
+  performanceSummary: BenchmarkPerformanceSummary;
   portfolioCurrency: string | null;
   series: BenchmarkTimelinePoint[];
   status: PortfolioBenchmarkTimelineStatus;
+};
+
+type BenchmarkPerformanceSummary = {
+  status:
+    | "ready"
+    | "no-transactions"
+    | "mixed-currency"
+    | "missing-market-value"
+    | "no-positive-net-invested";
+  currency: string | null;
+  totalPnl: number | null;
+  netInvested: number | null;
+  absoluteReturn: number | null;
 };
 
 type TimeframeKey = "1D" | "5D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "START" | "ALL";
@@ -114,6 +128,26 @@ function formatPercentagePoint(value: number) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)} pp`;
 }
 
+function formatPerformanceMoney(value: number | null, currency: string | null, locale: string) {
+  if (value == null || currency == null) {
+    return "-";
+  }
+
+  return formatCurrency(value, { currency, locale });
+}
+
+function formatAbsoluteReturn(value: number | null, locale: string) {
+  if (value == null) {
+    return "-";
+  }
+
+  return formatPercentRatio(value, {
+    locale,
+    maximumFractionDigits: 1,
+    minimumFractionDigits: 1
+  });
+}
+
 function formatModeValue(value: number, mode: PerformanceMode, locale: string) {
   if (mode === "INDEXED") {
     return formatIndexedReturn(value, locale);
@@ -146,6 +180,35 @@ function getBasisLabel({
   }
 
   return copy.basis.performanceReturn;
+}
+
+function getAbsoluteSummaryMessage({
+  copy,
+  status
+}: {
+  copy: ReturnType<typeof getUiCopy>["charts"]["benchmark"];
+  status: BenchmarkPerformanceSummary["status"];
+}) {
+  switch (status) {
+    case "mixed-currency":
+      return copy.absoluteSummary.unavailable.mixedCurrency;
+    case "missing-market-value":
+      return copy.absoluteSummary.unavailable.missingMarketValue;
+    case "no-positive-net-invested":
+      return copy.absoluteSummary.unavailable.noPositiveNetInvested;
+    case "no-transactions":
+      return copy.absoluteSummary.unavailable.noTransactions;
+    default:
+      return null;
+  }
+}
+
+function getValueClassName(value: number | null) {
+  if (value == null || value === 0) {
+    return "";
+  }
+
+  return value > 0 ? "value-positive" : "value-negative";
 }
 
 function getUnavailableMessage({
@@ -371,6 +434,7 @@ export function BenchmarkChart({
   benchmarkCurrency,
   comparisonBasis,
   language,
+  performanceSummary,
   portfolioCurrency,
   series,
   status
@@ -382,6 +446,11 @@ export function BenchmarkChart({
   const [selection, setSelection] = useState<SelectionRange | null>(null);
   const isDraggingRef = useRef(false);
   const hasSeries = series.length > 0;
+  const absoluteSummaryMessage = getAbsoluteSummaryMessage({
+    copy: copy.charts.benchmark,
+    status: performanceSummary.status
+  });
+  const shouldShowAbsoluteSummary = performanceSummary.status !== "no-transactions";
   const visibleSeries = useMemo(() => getVisibleSeries(series, timeframe), [series, timeframe]);
   const chartData = useMemo<ChartPoint[]>(() => {
     const firstPoint = visibleSeries[0] ?? null;
@@ -560,6 +629,39 @@ export function BenchmarkChart({
           </div>
         </div>
       </div>
+
+      {shouldShowAbsoluteSummary ? (
+        <div className="chart-stat-strip" aria-label={copy.charts.benchmark.absoluteSummary.label}>
+          <div title={copy.charts.benchmark.absoluteSummary.hints.absoluteReturn}>
+            <span>{copy.charts.benchmark.absoluteSummary.absoluteReturn}</span>
+            <strong className={getValueClassName(performanceSummary.absoluteReturn)}>
+              {formatAbsoluteReturn(performanceSummary.absoluteReturn, locale)}
+            </strong>
+          </div>
+          <div title={copy.charts.benchmark.absoluteSummary.hints.totalPnl}>
+            <span>{copy.charts.benchmark.absoluteSummary.totalPnl}</span>
+            <strong className={getValueClassName(performanceSummary.totalPnl)}>
+              {formatPerformanceMoney(performanceSummary.totalPnl, performanceSummary.currency, locale)}
+            </strong>
+          </div>
+          <div title={copy.charts.benchmark.absoluteSummary.hints.netInvested}>
+            <span>{copy.charts.benchmark.absoluteSummary.netInvested}</span>
+            <strong>
+              {formatPerformanceMoney(performanceSummary.netInvested, performanceSummary.currency, locale)}
+            </strong>
+          </div>
+          <div title={copy.charts.benchmark.absoluteSummary.hints.timeWeighted}>
+            <span>{copy.charts.benchmark.absoluteSummary.timeWeighted}</span>
+            <strong>{copy.charts.benchmark.absoluteSummary.timeWeightedValue}</strong>
+          </div>
+          {absoluteSummaryMessage == null ? null : (
+            <div title={copy.charts.benchmark.absoluteSummary.hints.note}>
+              <span>{copy.charts.benchmark.absoluteSummary.note}</span>
+              <strong>{absoluteSummaryMessage}</strong>
+            </div>
+          )}
+        </div>
+      ) : null}
 
       {hasSeries ? (
         <div className="chart-workspace">

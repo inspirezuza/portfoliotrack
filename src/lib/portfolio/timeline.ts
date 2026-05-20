@@ -1,7 +1,6 @@
 import { normalizeMoney } from "@/lib/db/precision";
 import {
   applyTransaction,
-  calculatePositions,
   sortTransactionsChronologically,
   type InstrumentPosition
 } from "@/lib/portfolio/positions";
@@ -262,12 +261,14 @@ function buildPortfolioValueSeries({
 
     let totalValue = 0;
     let canValuePortfolio = true;
+    let hasOpenPosition = false;
 
     for (const position of positions.values()) {
       if (position.quantity <= 0) {
         continue;
       }
 
+      hasOpenPosition = true;
       const close = advancePriceState(priceStates.get(position.instrumentId), date);
 
       if (close == null) {
@@ -278,7 +279,7 @@ function buildPortfolioValueSeries({
       totalValue = normalizeMoney(totalValue + position.quantity * close);
     }
 
-    if (canValuePortfolio) {
+    if (canValuePortfolio && (hasOpenPosition || pendingCashFlow !== 0)) {
       series.push({
         date,
         interval: anchor.interval,
@@ -428,32 +429,23 @@ export function buildPortfolioBenchmarkTimeline({
 
     return instrument != null && row.currency === instrument.currency && row.observedAt.slice(0, 10) <= today;
   });
-  const currentPositions = calculatePositions(nonFutureTransactions);
-  const openPositions = Array.from(currentPositions.values()).filter((position) => position.quantity > 0);
-  const openInstrumentIds = new Set(openPositions.map((position) => position.instrumentId));
-  const relevantTransactions = nonFutureTransactions.filter((transaction) =>
-    openInstrumentIds.has(transaction.instrumentId)
-  );
   const baselineDate =
-    relevantTransactions
-      .map((transaction) => transaction.tradeDate)
-      .sort((left, right) => left.localeCompare(right))[0] ??
     nonFutureTransactions
       .map((transaction) => transaction.tradeDate)
       .sort((left, right) => left.localeCompare(right))[0];
-  const openHoldingCurrencies = Array.from(
+  const portfolioCurrencies = Array.from(
     new Set(
-      openPositions
-        .map((position) => instrumentsById.get(position.instrumentId)?.currency ?? null)
+      nonFutureTransactions
+        .map((transaction) => instrumentsById.get(transaction.instrumentId)?.currency ?? null)
         .filter((currency): currency is string => currency != null)
     )
   );
 
-  if (baselineDate == null || relevantTransactions.length === 0) {
+  if (baselineDate == null) {
     return {
       status: "missing-portfolio-history",
       baselineDate,
-      portfolioCurrency: openHoldingCurrencies.length === 1 ? openHoldingCurrencies[0] : null,
+      portfolioCurrency: portfolioCurrencies.length === 1 ? portfolioCurrencies[0] : null,
       benchmarkSymbol,
       benchmarkCurrency: null,
       comparisonBasis: null,
@@ -463,7 +455,7 @@ export function buildPortfolioBenchmarkTimeline({
   }
 
   const portfolioCurrency =
-    openHoldingCurrencies.length === 1 ? openHoldingCurrencies[0] : null;
+    portfolioCurrencies.length === 1 ? portfolioCurrencies[0] : null;
 
   if (portfolioCurrency == null) {
     return {
@@ -478,7 +470,7 @@ export function buildPortfolioBenchmarkTimeline({
     };
   }
 
-  const relevantInstrumentIds = new Set(openInstrumentIds);
+  const relevantInstrumentIds = new Set(nonFutureTransactions.map((transaction) => transaction.instrumentId));
   const portfolioHistoricalPrices = validHistoricalPrices.filter((row) =>
     relevantInstrumentIds.has(row.instrumentId) && row.priceDate >= baselineDate
   );
@@ -487,7 +479,7 @@ export function buildPortfolioBenchmarkTimeline({
   );
   const portfolioValuationSeries = buildPortfolioValueSeries({
     baselineDate,
-    transactions: relevantTransactions,
+    transactions: nonFutureTransactions,
     historicalPrices: portfolioHistoricalPrices,
     intradayPrices: portfolioIntradayPrices
   });

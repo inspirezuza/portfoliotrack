@@ -15,11 +15,13 @@ import { yahooProvider } from "@/lib/market/yahoo-provider";
 import { parsePortfolioId } from "@/server/portfolios";
 
 const DEFAULT_BENCHMARK_SYMBOL = "SPY";
+const DEFAULT_BASE_CURRENCY = "THB";
 const DEFAULT_MARKET_REFRESH_MINUTES = 30;
 const DEFAULT_AUTO_REFRESH_TIMEOUT_MS = 3500;
 
 export type MarketSettings = {
   benchmarkSymbol: string | null;
+  baseCurrency: string;
   marketRefreshMinutes: number;
 };
 
@@ -91,9 +93,11 @@ export async function getMarketSettings(): Promise<MarketSettings> {
   const settings = await db.select().from(appSettings);
   const settingsMap = new Map(settings.map((setting) => [setting.key, setting.value]));
   const benchmarkSymbol = settingsMap.get("benchmarkSymbol")?.trim() || DEFAULT_BENCHMARK_SYMBOL;
+  const baseCurrency = settingsMap.get("baseCurrency")?.trim().toUpperCase() || DEFAULT_BASE_CURRENCY;
 
   return {
     benchmarkSymbol,
+    baseCurrency,
     marketRefreshMinutes: parseRefreshMinutes(settingsMap.get("marketRefreshMinutes"))
   };
 }
@@ -325,7 +329,7 @@ async function buildRefreshContext({
   includeBenchmark?: boolean;
 }): Promise<RefreshContext> {
   const portfolioId = parsePortfolioId(portfolioIdInput);
-  const [{ benchmarkSymbol, marketRefreshMinutes }, instrumentRows, transactionRows] = await Promise.all([
+  const [{ baseCurrency, benchmarkSymbol, marketRefreshMinutes }, instrumentRows, transactionRows] = await Promise.all([
     getMarketSettings(),
     db.select().from(instruments),
     db
@@ -369,6 +373,18 @@ async function buildRefreshContext({
         instrument,
         historyStartDate
       });
+
+      if (instrument.currency !== baseCurrency) {
+        const fxProviderSymbol = `${instrument.currency}${baseCurrency}=X`;
+        const fxInstrument = instrumentRows.find((row) => row.providerSymbol === fxProviderSymbol);
+
+        if (fxInstrument != null) {
+          refreshTargets.set(fxInstrument.id, {
+            instrument: fxInstrument,
+            historyStartDate
+          });
+        }
+      }
     }
   }
 
