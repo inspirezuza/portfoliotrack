@@ -4,7 +4,7 @@ import { drizzle as drizzleNodePostgres } from "drizzle-orm/node-postgres";
 import { Pool as NodePostgresPool } from "pg";
 import * as schema from "./schema";
 
-const DEFAULT_LOCAL_DATABASE_URL = "postgresql://portfoliotrack:portfoliotrack@127.0.0.1:55432/portfoliotrack";
+const DEFAULT_LOCAL_DATABASE_URL = "postgresql://postgres@localhost:5432/portfoliotrack";
 
 function getDatabaseUrl() {
   const localDatabaseUrl = process.env.LOCAL_DATABASE_URL;

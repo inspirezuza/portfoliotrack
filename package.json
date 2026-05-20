@@ -9,8 +9,8 @@
     "test": "node --import tsx --test \"tests/**/*.test.ts\"",
     "verify": "npm run lint && npm run test && npm run build",
     "lint": "eslint .",
-    "db:local:up": "docker compose up -d postgres",
-    "db:local:down": "docker compose down",
+    "db:local:up": "echo Use the machine-level PostgreSQL service from pgAdmin on localhost:5432, then run npm run db:migrate.",
+    "db:local:down": "echo Stop the machine-level PostgreSQL service from Windows Services if you need to stop local Postgres.",
     "db:migrate": "drizzle-kit push",
     "db:seed": "tsx src/lib/db/seed.ts",
     "auth:hash": "node scripts/generate-admin-password-hash.mjs"

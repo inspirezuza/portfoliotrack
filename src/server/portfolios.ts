@@ -45,7 +45,13 @@ function mapPortfolio(portfolio: Portfolio): PortfolioListItem {
 }
 
 function isUniqueConstraintError(error: unknown) {
-  return error instanceof Error && "code" in error && error.code === "23505";
+  if (error instanceof Error && "code" in error && error.code === "23505") {
+    return true;
+  }
+
+  const cause = error instanceof Error ? error.cause : null;
+
+  return cause instanceof Error && "code" in cause && cause.code === "23505";
 }
 
 export function parsePortfolioId(input: unknown) {
