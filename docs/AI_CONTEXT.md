@@ -19,7 +19,7 @@ The app is intentionally simple:
 
 Routes:
 
-- `/` dashboard: `src/app/page.tsx`, reads `getDashboardSnapshot({ portfolioId })` and renders summary, charts, leading holdings, the full holdings table, and summary cards.
+- `/` dashboard: `src/app/page.tsx`, reads `getDashboardSnapshot({ portfolioId })` and renders summary, absolute-return metrics, charts, leading holdings, the full holdings table, and summary cards.
 - `/holdings`: `src/app/holdings/page.tsx`, redirects to `/`.
 - `/transactions`: `src/app/transactions/page.tsx`, shows ledger data to everyone and admin-only form/actions/Excel tools.
 - `/assets/[symbol]`: `src/app/assets/[symbol]/page.tsx`, reads `getAssetDetail(symbol, { portfolioId })`.
@@ -66,7 +66,7 @@ Schema source:
 
 Runtime database:
 
-- Local Postgres through `LOCAL_DATABASE_URL` in development, with Neon Postgres through `DATABASE_URL` for hosted deployments. Runtime code prefers `DATABASE_URL` in production and `LOCAL_DATABASE_URL` in development. The repo-local Docker database uses `127.0.0.1:55432` by default to avoid conflicts with machine-level Postgres services on `5432`.
+- Local Postgres through `LOCAL_DATABASE_URL` in development, with Neon Postgres through `DATABASE_URL` for hosted deployments. Runtime code prefers `DATABASE_URL` in production and `LOCAL_DATABASE_URL` in development. Local development uses the machine-level PostgreSQL service that pgAdmin connects to on `localhost:5432`.
 
 Database connection:
 
@@ -90,7 +90,7 @@ Schema deployment:
 npm run db:migrate
 ```
 
-This runs `drizzle-kit push` against `LOCAL_DATABASE_URL` when set, then `DATABASE_URL`, with a local Docker Postgres fallback in development. The baseline SQL is `drizzle/0000_initial_postgres.sql`; `drizzle/0001_multi_portfolios.sql` adds portfolio support and migrates existing transactions into `Main Portfolio`; `drizzle/0002_market_refresh_runs.sql` adds refresh run tracking for guarded background market updates.
+This runs `drizzle-kit push` against `LOCAL_DATABASE_URL` when set, then `DATABASE_URL`, with a machine-level local Postgres fallback in development. The baseline SQL is `drizzle/0000_initial_postgres.sql`; `drizzle/0001_multi_portfolios.sql` adds portfolio support and migrates existing transactions into `Main Portfolio`; `drizzle/0002_market_refresh_runs.sql` adds refresh run tracking for guarded background market updates.
 
 Seed:
 
@@ -98,7 +98,13 @@ Seed:
 npm run db:seed
 ```
 
-The seed includes benchmark/settings data and DR metadata for `AAPL80`.
+The seed includes benchmark/settings data, local demo portfolios, mock transactions, cached prices, USDTHB snapshots, and DR metadata for `AAPL80`. It is intended to make new tickets easy to test locally without manually creating transactions or market data first.
+
+Local seed portfolio coverage:
+
+- `Main Portfolio`: Thai/DR-style holdings, including ASTS03 and cached prices.
+- `US Stocks Demo`: US listed holdings valued back into the THB base currency through USDTHB snapshots.
+- `Closed Trades Demo`: realized-P&L and closed-position behavior.
 
 ## Auth And Permissions
 
@@ -154,6 +160,12 @@ Refresh behavior:
 - Records missing/mismatched provider data as structured issues.
 - Deduplicates overlapping in-flight refreshes.
 - Dashboard and transactions render cached data first and do not call the provider during route render.
+
+Performance behavior:
+
+- `src/lib/portfolio/timeline.ts` replays all non-future transactions in the selected portfolio, including closed positions, for the benchmark chart.
+- The benchmark chart is cash-flow-adjusted TWR-style performance indexed from `100`; gap is portfolio TWR minus benchmark price return, and drawdown is from each series high watermark.
+- `src/server/dashboard.ts` also returns an absolute performance summary: total P&L, net invested, and absolute return when net invested is positive. IRR/MWR is intentionally deferred until the app has explicit deposit, withdrawal, dividend, tax, and FX cash-flow records.
 - `GET /api/cron/market-data/[slot]` triggers `daily-auto` refreshes from Vercel Cron at 18:00, 19:00, 20:00, 20:30, 21:00, 22:00, 23:00, 00:00, and 03:00 Thailand time.
 - Slot cron refresh is guarded by `market_refresh_runs`: one success per Bangkok date/slot key per portfolio, with at most two attempts after failed or stale-running jobs.
 - Vercel Hobby cron timing is hourly best-effort, so these slot labels are target windows and not exact minute guarantees.
@@ -197,6 +209,7 @@ Notes:
 - Do not silently reset or overwrite existing uncommitted changes.
 - If changing schema, update `src/lib/db/schema.ts`, `drizzle/*.sql`, and `src/lib/db/seed.ts` when needed.
 - If changing portfolio math, verify transaction ordering and sell validation.
+- If changing performance math, keep absolute return and TWR separate; do not treat SPY comparison as FX-converted or money-weighted.
 - If changing auth or public/admin behavior, verify both logged-out read-only and logged-in admin flows.
 - If changing market data, preserve currency checks and missing-data states.
 - If changing page performance, keep dashboard/transactions cached-first; provider refresh should stay outside route render.

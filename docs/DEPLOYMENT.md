@@ -53,13 +53,14 @@ The committed SQL files are in `drizzle/` for review and manual database setup i
 For local development, keep Neon credentials out of the dev loop and set `LOCAL_DATABASE_URL` instead:
 
 ```powershell
-npm run db:local:up
-$env:LOCAL_DATABASE_URL="postgresql://portfoliotrack:portfoliotrack@127.0.0.1:55432/portfoliotrack"
+$env:LOCAL_DATABASE_URL="postgresql://postgres:<your-postgres-password>@localhost:5432/portfoliotrack"
 npm run db:migrate
 npm run db:seed
 ```
 
-The app prefers `LOCAL_DATABASE_URL` in development. The repo-local Docker database listens on `127.0.0.1:55432` so it does not conflict with a machine-level Postgres service on `5432`. Hosted Vercel environments should continue using `DATABASE_URL`.
+The app prefers `LOCAL_DATABASE_URL` in development. Local development uses the machine-level PostgreSQL service that pgAdmin connects to on `localhost:5432`. Hosted Vercel environments should continue using `DATABASE_URL`.
+
+The seed script is local-test oriented: it creates demo portfolios, transactions, prices, FX snapshots, DR metadata, and settings so dashboard, holdings, asset detail, import-adjacent flows, US stock valuation, and realized/closed-trade behavior can be checked without manual setup.
 
 ## 4. Deploy
 

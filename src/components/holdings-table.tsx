@@ -75,6 +75,24 @@ function formatHoldingPercent(value: number | null, locale: string, emptyLabel: 
   return formatPercentRatio(value, { locale });
 }
 
+function formatSignedHoldingPercent(value: number | null, locale: string, emptyLabel: string) {
+  if (value == null) {
+    return <span className="data-pending">{emptyLabel}</span>;
+  }
+
+  const formattedValue = formatPercentRatio(value, { locale });
+
+  return value > 0 ? `+${formattedValue}` : formattedValue;
+}
+
+function getPnlToneClass(value: number | null) {
+  if (value == null || value === 0) {
+    return undefined;
+  }
+
+  return value > 0 ? "value-positive" : "value-negative";
+}
+
 function formatHoldingDateTime(value: string, locale: string) {
   const date = new Date(value);
 
@@ -90,6 +108,18 @@ function formatHoldingDateTime(value: string, locale: string) {
     timeZone: "Asia/Bangkok",
     year: "numeric"
   }).format(date);
+}
+
+function formatParentMoney(value: number | null, currency: string | null, locale: string) {
+  if (value == null || currency == null) {
+    return null;
+  }
+
+  return formatCurrency(value, {
+    currency,
+    locale,
+    maximumFractionDigits: 4
+  });
 }
 
 function compareNullableNumber(left: number | null, right: number | null) {
@@ -250,33 +280,50 @@ export function HoldingsTable({
 
     return currencies.size === 1 ? visibleHoldings[0]?.currency ?? null : null;
   }, [visibleHoldings]);
+  const visibleSummaryCurrency =
+    visibleCurrency ?? visibleHoldings[0]?.valuationCurrency ?? null;
 
   const visibleSummary = useMemo(
     () =>
       visibleHoldings.reduce(
         (summary, holding) => ({
-          totalCost: summary.totalCost + holding.totalCost,
+          totalCost:
+            summary.totalCost == null ||
+            (visibleCurrency == null && holding.totalCostInValuationCurrency == null)
+              ? null
+              : summary.totalCost +
+                (visibleCurrency == null ? holding.totalCostInValuationCurrency ?? 0 : holding.totalCost),
           marketValue:
-            summary.marketValue == null || holding.marketValue == null
+            summary.marketValue == null ||
+            (visibleCurrency == null
+              ? holding.marketValueInValuationCurrency == null
+              : holding.marketValue == null)
               ? null
-              : summary.marketValue + holding.marketValue,
+              : summary.marketValue +
+                (visibleCurrency == null ? holding.marketValueInValuationCurrency ?? 0 : holding.marketValue ?? 0),
           unrealizedPnl:
-            summary.unrealizedPnl == null || holding.unrealizedPnl == null
+            summary.unrealizedPnl == null ||
+            (visibleCurrency == null
+              ? holding.unrealizedPnlInValuationCurrency == null
+              : holding.unrealizedPnl == null)
               ? null
-              : summary.unrealizedPnl + holding.unrealizedPnl,
+              : summary.unrealizedPnl +
+                (visibleCurrency == null
+                  ? holding.unrealizedPnlInValuationCurrency ?? 0
+                  : holding.unrealizedPnl ?? 0),
           portfolioWeight:
             summary.portfolioWeight == null || holding.portfolioWeight == null
               ? null
               : summary.portfolioWeight + holding.portfolioWeight
         }),
         {
-          totalCost: 0,
+          totalCost: 0 as number | null,
           marketValue: 0 as number | null,
           unrealizedPnl: 0 as number | null,
           portfolioWeight: 0 as number | null
         }
       ),
-    [visibleHoldings]
+    [visibleCurrency, visibleHoldings]
   );
 
   function handleSort(sortKey: HoldingSortKey) {
@@ -456,11 +503,29 @@ export function HoldingsTable({
                       </td>
                       <td className="table-number">{formatQuantity(holding.quantity, { locale })}</td>
                       <td className="table-number">
-                        {formatCurrency(holding.averageCost, {
-                          currency: holding.currency,
-                          locale,
-                          maximumFractionDigits: 4
-                        })}
+                        <div className="holdings-value-stack">
+                          <span>
+                            {formatCurrency(holding.averageCost, {
+                              currency: holding.currency,
+                              locale,
+                              maximumFractionDigits: 4
+                            })}
+                          </span>
+                          {formatParentMoney(
+                            holding.parentAverageCost,
+                            holding.underlyingCurrency,
+                            locale
+                          ) == null ? null : (
+                            <span className="table-subtext dr-parent-metric">
+                              {holding.underlyingSymbol ?? "Parent"} avg{" "}
+                              {formatParentMoney(
+                                holding.parentAverageCost,
+                                holding.underlyingCurrency,
+                                locale
+                              )}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="table-number">
                         {formatCurrency(holding.totalCost, { currency: holding.currency, locale })}
@@ -482,6 +547,20 @@ export function HoldingsTable({
                               )}
                             </span>
                           ) : null}
+                          {formatParentMoney(
+                            holding.parentLastPrice,
+                            holding.underlyingCurrency,
+                            locale
+                          ) == null ? null : (
+                            <span className="table-subtext dr-parent-metric">
+                              {holding.underlyingSymbol ?? "Parent"} last{" "}
+                              {formatParentMoney(
+                                holding.parentLastPrice,
+                                holding.underlyingCurrency,
+                                locale
+                              )}
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="table-number">
@@ -495,15 +574,7 @@ export function HoldingsTable({
                       <td className="table-number">
                         <div className="holdings-value-stack">
                           <span
-                            className={
-                              holding.unrealizedPnl == null
-                                ? undefined
-                                : holding.unrealizedPnl > 0
-                                  ? "value-positive"
-                                  : holding.unrealizedPnl < 0
-                                    ? "value-negative"
-                                    : undefined
-                            }
+                            className={getPnlToneClass(holding.unrealizedPnl)}
                           >
                             {formatHoldingMoney(
                               holding.unrealizedPnl,
@@ -512,8 +583,8 @@ export function HoldingsTable({
                               copy.shared.waiting
                             )}
                           </span>
-                          <span className="table-subtext">
-                            {formatHoldingPercent(
+                          <span className={`holdings-pnl-percent ${getPnlToneClass(holding.unrealizedPnlPercent) ?? ""}`.trim()}>
+                            {formatSignedHoldingPercent(
                               holding.unrealizedPnlPercent,
                               locale,
                               copy.shared.waiting
@@ -554,7 +625,7 @@ export function HoldingsTable({
                     <td className="table-number">
                       {formatSummaryMoney(
                         visibleSummary.totalCost,
-                        visibleCurrency,
+                        visibleSummaryCurrency,
                         locale,
                         copy.shared.mixed
                       )}
@@ -563,26 +634,18 @@ export function HoldingsTable({
                     <td className="table-number">
                       {formatSummaryMoney(
                         visibleSummary.marketValue,
-                        visibleCurrency,
+                        visibleSummaryCurrency,
                         locale,
                         copy.shared.mixed
                       )}
                     </td>
                     <td className="table-number">
                       <span
-                        className={
-                          visibleSummary.unrealizedPnl == null
-                            ? undefined
-                            : visibleSummary.unrealizedPnl > 0
-                              ? "value-positive"
-                              : visibleSummary.unrealizedPnl < 0
-                                ? "value-negative"
-                                : undefined
-                        }
+                        className={getPnlToneClass(visibleSummary.unrealizedPnl)}
                       >
                         {formatSummaryMoney(
                           visibleSummary.unrealizedPnl,
-                          visibleCurrency,
+                          visibleSummaryCurrency,
                           locale,
                           copy.shared.mixed
                         )}

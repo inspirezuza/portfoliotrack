@@ -11,7 +11,7 @@ For the latest layout and visual-design review, read [docs/UX_REVIEW.md](docs/UX
 - Multiple portfolios in one app, with public portfolio switching and admin-only portfolio management.
 - Admin-only Excel transaction workflow: download the app template, export the ledger, preview imports, create missing instruments when requested, skip duplicates, and commit valid rows atomically.
 - Fee-aware average cost, total cost basis, realized P&L, unrealized P&L, and total fees.
-- Dashboard with portfolio summary cards, price coverage, top holdings, full holdings table, portfolio chart, and S&P 500 benchmark comparison.
+- Dashboard with portfolio summary cards, price coverage, top holdings, full holdings table, portfolio value chart, absolute-return summary, and full-portfolio time-weighted S&P 500 benchmark comparison.
 - Per-asset detail route at `/assets/[symbol]` with position metrics, price history, recent transactions, and DR analytics when metadata exists.
 - DR equivalent analytics for instruments with DR metadata, including parent-stock implied price, FX rate, parent quote, and premium/discount.
 - Yahoo Finance quote and historical-price refresh with Neon Postgres caching, cached-first page loads, and secured Vercel Cron refresh slots through the evening plus US market open and close.
@@ -41,18 +41,18 @@ npm install
 Create `.env.local` or set shell variables with:
 
 ```powershell
-$env:LOCAL_DATABASE_URL="postgresql://portfoliotrack:portfoliotrack@127.0.0.1:55432/portfoliotrack"
+$env:LOCAL_DATABASE_URL="postgresql://postgres:<your-postgres-password>@localhost:5432/portfoliotrack"
 $env:AUTH_SECRET="<long-random-secret>"
 $env:ADMIN_USERNAME="admin"
 $env:ADMIN_PASSWORD_HASH="<scrypt-hash>"
 ```
 
-Local development prefers `LOCAL_DATABASE_URL`, then falls back to `DATABASE_URL`, then to `postgresql://portfoliotrack:portfoliotrack@127.0.0.1:55432/portfoliotrack` when `NODE_ENV` is not `production`. Production prefers `DATABASE_URL`, with `LOCAL_DATABASE_URL` only as a fallback. Keep `DATABASE_URL` for the hosted Neon database.
+Local development prefers `LOCAL_DATABASE_URL`, then falls back to `DATABASE_URL`, then to `postgresql://postgres@localhost:5432/portfoliotrack` when `NODE_ENV` is not `production`. Production prefers `DATABASE_URL`, with `LOCAL_DATABASE_URL` only as a fallback. Keep `DATABASE_URL` for the hosted Neon database.
 
-Start the repo-local Postgres database:
+Make sure the machine-level PostgreSQL service used by pgAdmin is running:
 
 ```powershell
-npm run db:local:up
+Get-Service postgresql-x64-17
 ```
 
 Generate an admin password hash:
@@ -93,10 +93,10 @@ Public visitors can view the app read-only and switch between portfolios. Sign i
 - `npm run build` builds the production app and runs type/lint checks through Next.
 - `npm run start` serves the production build.
 - `npm run lint` runs ESLint.
-- `npm run db:local:up` starts the repo-local Postgres container on `127.0.0.1:55432`.
-- `npm run db:local:down` stops the repo-local Postgres container.
+- `npm run db:local:up` reminds you to use the machine-level PostgreSQL service on `localhost:5432`.
+- `npm run db:local:down` reminds you to stop the machine-level PostgreSQL service from Windows Services if needed.
 - `npm run db:migrate` pushes the Drizzle schema to the configured Postgres database.
-- `npm run db:seed` inserts sample instruments and settings.
+- `npm run db:seed` inserts demo portfolios, instruments, transactions, prices, FX snapshots, DR metadata, and settings for local testing.
 - `npm run auth:hash` prints a scrypt password hash for `ADMIN_PASSWORD_HASH`.
 
 ## Project Map
@@ -128,7 +128,10 @@ Market refresh runs are tracked in `market_refresh_runs`. Vercel Cron calls slot
 - The test suite covers the transaction selection helper, position math, validation, and timeout utility. Run `npm run test` before changing those flows.
 - Excel transaction import is template-only for now: unknown instruments can be created with `Instrument Action = CREATE`, duplicate rows are skipped, broker defaults to Dime when omitted, and valid rows are inserted as one batch.
 - Transactions are scoped by selected portfolio; instruments and market price caches are shared across portfolios.
+- Local seed data includes a Thai/DR demo, a US stock demo with THB reporting through USDTHB snapshots, and a closed-trades demo so new tickets can be tested without hand-building data first.
 - Market data comes from Yahoo Finance and can fail or return missing/currency-mismatched data. UI code should preserve clear missing-data states.
+- Dashboard performance separates money-result metrics from strategy-return metrics: absolute return uses total P&L divided by positive net invested capital, while the benchmark chart uses cash-flow-adjusted TWR indexed from `100` and includes closed positions in the replay.
+- SPY benchmark comparison is price-return based and compared by percentage; it is not total-return, FX-converted, or money-weighted. IRR/MWR needs an explicit cash-flow ledger before it can be trustworthy.
 - Dashboard and transactions render from cached local data first. Scheduled market-data refreshes are guarded and best-effort so pages keep opening quickly when Yahoo is slow.
 - The main app surface is English-first in `EN` mode. Thai remains only in the explicit `TH` shell labels and should be added back to pages through a deliberate bilingual copy layer if needed.
 - Theme and language preferences are stored in browser `localStorage`, not the database.
