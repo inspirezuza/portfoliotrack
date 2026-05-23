@@ -35,6 +35,7 @@ type SharedCopy = ReturnType<typeof getUiCopy>["shared"];
 
 const REFRESH_BANNER_MAX_AGE_MINUTES = 5;
 const DEFAULT_DISPLAY_CURRENCY = "THB";
+const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 function formatAgeLabel(minutes: number | null, copy: DashboardCopy) {
   if (minutes == null) {
@@ -52,23 +53,36 @@ function formatAgeLabel(minutes: number | null, copy: DashboardCopy) {
   return copy.age.hoursAgo(Math.floor(minutes / 60));
 }
 
-function formatDateLabel(value: string | null, locale: string, emptyLabel: string) {
+function parseCacheDate(value: string) {
+  return new Date(DATE_ONLY_PATTERN.test(value) ? `${value}T00:00:00+07:00` : value);
+}
+
+function formatCacheDateParts(value: string | null, locale: string, emptyLabel: string) {
   if (value == null) {
-    return emptyLabel;
+    return { date: emptyLabel, time: null };
   }
 
-  const date = new Date(value);
+  const date = parseCacheDate(value);
 
   if (Number.isNaN(date.getTime())) {
-    return value;
+    return { date: value, time: null };
   }
 
-  return new Intl.DateTimeFormat(locale, {
+  const dateLabel = new Intl.DateTimeFormat(locale, {
     day: "2-digit",
     month: "short",
-    year: "numeric",
-    timeZone: "Asia/Bangkok"
+    timeZone: "Asia/Bangkok",
+    year: "numeric"
   }).format(date);
+
+  return {
+    date: dateLabel,
+    time: new Intl.DateTimeFormat(locale, {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "Asia/Bangkok"
+    }).format(date)
+  };
 }
 
 function formatCacheDateLabel(value: string | null, locale: string, emptyLabel: string) {
@@ -76,7 +90,7 @@ function formatCacheDateLabel(value: string | null, locale: string, emptyLabel: 
     return emptyLabel;
   }
 
-  const date = new Date(value);
+  const date = parseCacheDate(value);
 
   if (Number.isNaN(date.getTime())) {
     return value;
@@ -241,7 +255,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const leadingHoldings = holdingsSnapshot.holdings.slice(0, 5);
   const marketCurrency = summary.openPositionCurrency ?? DEFAULT_DISPLAY_CURRENCY;
   const marketValueLabel = formatDashboardMoney(summary.totalMarketValue, marketCurrency, locale);
-  const latestPriceLabel = formatDateLabel(
+  const latestPriceLabel = formatCacheDateParts(
     marketData.latestMarketDataAsOf,
     locale,
     copy.dashboard.noPriceCache
@@ -384,7 +398,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
               <div>
                 <span>{copy.dashboard.latestCache}</span>
-                <strong>{latestPriceLabel}</strong>
+                <strong className="cache-date-stack">
+                  <span>{latestPriceLabel.date}</span>
+                  {latestPriceLabel.time == null ? null : (
+                    <time dateTime={marketData.latestMarketDataAsOf ?? undefined}>
+                      {latestPriceLabel.time}
+                    </time>
+                  )}
+                </strong>
               </div>
             </div>
 
