@@ -409,14 +409,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
             </div>
 
-            {isAdmin ? (
-              <form action="/api/market-data/refresh" method="post" className="refresh-form">
-                <input type="hidden" name="redirectTo" value="/" />
-                <PendingSubmitButton className="secondary-button" pendingLabel={copy.dashboard.refreshing}>
-                  {copy.dashboard.updateMarketData}
-                </PendingSubmitButton>
-              </form>
-            ) : null}
+            <form action="/api/market-data/refresh" method="post" className="refresh-form">
+              <input type="hidden" name="redirectTo" value="/" />
+              <PendingSubmitButton className="secondary-button" pendingLabel={copy.dashboard.refreshing}>
+                {copy.dashboard.updateMarketData}
+              </PendingSubmitButton>
+            </form>
           </article>
 
           <article className="surface-card holdings-preview-card">
