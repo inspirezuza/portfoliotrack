@@ -725,6 +725,8 @@ export function TransactionForm({
                         <span className="instrument-combobox-meta">
                           {existingInstrument ? copy.transactions.form.saved : copy.transactions.form.add}
                           {copy.shared.separator}
+                          {instrument.instrumentType}
+                          {copy.shared.separator}
                           {instrument.market}
                           {copy.shared.separator}
                           {instrument.currency}
@@ -849,6 +851,8 @@ export function TransactionForm({
                           <span className="instrument-combobox-name">{instrument.displayName}</span>
                           <span className="instrument-combobox-meta">
                             {instrument.market}
+                            {copy.shared.separator}
+                            {instrument.instrumentType}
                             {copy.shared.separator}
                             {instrument.currency}
                             {instrument.providerSymbol

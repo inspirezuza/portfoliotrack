@@ -156,54 +156,57 @@ export function AppShell({
                 switchingLabel={copy.switchingPortfolio}
               />
 
-              <div className="preference-group" aria-label={copy.language}>
-                {languages.map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    data-preference-kind="language"
-                    data-preference-value={item}
-                    className="preference-button"
-                    onClick={() => {
-                      setLanguage(item);
-                      startLanguageTransition(() => {
-                        router.refresh();
-                      });
-                    }}
-                    disabled={isLanguagePending}
-                    aria-busy={isLanguagePending && language === item}
-                    aria-pressed={language === item}
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
+              <div className="shell-utility-actions">
+                <div className="preference-group" aria-label={copy.language}>
+                  {languages.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      data-preference-kind="language"
+                      data-preference-value={item}
+                      className="preference-button"
+                      onClick={() => {
+                        setLanguage(item);
+                        startLanguageTransition(() => {
+                          router.refresh();
+                        });
+                      }}
+                      disabled={isLanguagePending}
+                      aria-busy={isLanguagePending && language === item}
+                      aria-pressed={language === item}
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
 
-              <div className="preference-group" aria-label={copy.themeLabel}>
-                {(["light", "dark"] satisfies UiTheme[]).map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    data-preference-kind="theme"
-                    data-preference-value={item}
-                    className="preference-button preference-icon-button"
-                    onClick={() => setTheme(item)}
-                    aria-pressed={theme === item}
-                    aria-label={copy.theme[item]}
-                    title={copy.theme[item]}
-                  >
-                    <ThemeIcon name={item} />
-                  </button>
-                ))}
-              </div>
+                <div className="preference-group" aria-label={copy.themeLabel}>
+                  {(["light", "dark"] satisfies UiTheme[]).map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      data-preference-kind="theme"
+                      data-preference-value={item}
+                      className="preference-button preference-icon-button"
+                      onClick={() => setTheme(item)}
+                      aria-pressed={theme === item}
+                      aria-label={copy.theme[item]}
+                      title={copy.theme[item]}
+                    >
+                      <ThemeIcon name={item} />
+                    </button>
+                  ))}
+                </div>
 
-              {isAdmin ? (
-                <form action="/api/auth/logout" method="post">
-                  <PendingSubmitButton className="auth-button" pendingLabel={copy.signingOut}>
-                    Logout
-                  </PendingSubmitButton>
-                </form>
-              ) : null}
+                {isAdmin ? (
+                  <form action="/api/auth/logout" method="post" className="auth-form">
+                    <PendingSubmitButton className="auth-button" pendingLabel={copy.signingOut}>
+                      <span className="auth-button-full">Logout</span>
+                      <span className="auth-button-short" aria-hidden="true" />
+                    </PendingSubmitButton>
+                  </form>
+                ) : null}
+              </div>
             </div>
           </header>
 

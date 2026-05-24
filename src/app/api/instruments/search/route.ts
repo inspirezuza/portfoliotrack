@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth/admin";
 import YahooFinance from "yahoo-finance2";
 import { withOperationTimeout } from "@/lib/async/timeout";
+import { getInstrumentTypeFromYahooQuoteType } from "@/lib/instruments/instrument-types";
 import { getKnownDrMetadata } from "@/lib/instruments/dr-metadata";
 
 const yahooFinance = new YahooFinance({
@@ -54,17 +55,6 @@ function getMarket(providerSymbol: string, exchange?: string, market?: string) {
   }
 
   return exchange ?? "OTHER";
-}
-
-function getInstrumentType(quoteType?: string) {
-  switch (quoteType) {
-    case "ETF":
-      return "ETF";
-    case "MUTUALFUND":
-      return "FUND";
-    default:
-      return "EQUITY";
-  }
 }
 
 export async function GET(request: Request) {
@@ -147,7 +137,9 @@ export async function GET(request: Request) {
               symbol,
               displayName,
               market: getMarket(quote.symbol, quote.exchange, quote.market),
-              instrumentType: knownDrMetadata?.instrumentType ?? getInstrumentType(quote.quoteType ?? searchQuote.quoteType),
+              instrumentType:
+                knownDrMetadata?.instrumentType ??
+                getInstrumentTypeFromYahooQuoteType(quote.quoteType ?? searchQuote.quoteType),
               currency: quote.currency,
               providerSymbol: quote.symbol,
               exchangeName: searchQuote.exchDisp ?? quote.exchange ?? null,

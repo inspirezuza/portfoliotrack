@@ -3,6 +3,7 @@ import "server-only";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { normalizeMoney } from "@/lib/db/precision";
 import { db } from "@/lib/db/runtime";
+import { normalizeInstrumentType } from "@/lib/instruments/instrument-types";
 import { getKnownDrMetadata } from "@/lib/instruments/dr-metadata";
 import { sortInstrumentOptions } from "@/lib/transactions/instrument-selection";
 import {
@@ -278,7 +279,7 @@ export async function createInstrument(input: unknown) {
         symbol: parsedInput.symbol,
         displayName: parsedInput.displayName,
         market: parsedInput.market,
-        instrumentType: knownDrMetadata?.instrumentType ?? parsedInput.instrumentType,
+        instrumentType: knownDrMetadata?.instrumentType ?? normalizeInstrumentType(parsedInput.instrumentType),
         currency: parsedInput.currency,
         providerSymbol: parsedInput.providerSymbol,
         underlyingSymbol: knownDrMetadata?.underlyingSymbol ?? null,

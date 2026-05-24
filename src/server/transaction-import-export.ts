@@ -6,6 +6,10 @@ import { withOperationTimeout } from "@/lib/async/timeout";
 import { db } from "@/lib/db/runtime";
 import { instruments, transactions, type Instrument, type NewTransaction } from "@/lib/db/schema";
 import { normalizeMoney, normalizePrice, normalizeQuantity } from "@/lib/db/precision";
+import {
+  getInstrumentTypeFromYahooQuoteType,
+  normalizeInstrumentType
+} from "@/lib/instruments/instrument-types";
 import { getKnownDrMetadata } from "@/lib/instruments/dr-metadata";
 import {
   applyTransaction,
@@ -245,17 +249,6 @@ function getMarket(providerSymbol: string, exchange?: string, market?: string) {
   return exchange ?? "OTHER";
 }
 
-function getInstrumentType(quoteType?: string) {
-  switch (quoteType) {
-    case "ETF":
-      return "ETF";
-    case "MUTUALFUND":
-      return "FUND";
-    default:
-      return "EQUITY";
-  }
-}
-
 function getProviderSymbolCandidates({
   symbol,
   providerSymbol,
@@ -325,7 +318,10 @@ async function getYahooInstrumentInput({
         symbol: resolvedSymbol,
         displayName: displayName || quote.longName || quote.shortName || resolvedSymbol,
         market: market || getMarket(quote.symbol, quote.exchange, quote.market),
-        instrumentType: instrumentType || knownDrMetadata?.instrumentType || getInstrumentType(quote.quoteType),
+        instrumentType:
+          normalizeInstrumentType(instrumentType) ||
+          knownDrMetadata?.instrumentType ||
+          getInstrumentTypeFromYahooQuoteType(quote.quoteType),
         currency: currency || quote.currency,
         providerSymbol: quote.symbol.toUpperCase()
       };
@@ -367,7 +363,7 @@ function getFallbackInstrumentInput({
     symbol: displaySymbol,
     displayName: displayName || displaySymbol,
     market: inferredMarket,
-    instrumentType: instrumentType || knownDrMetadata?.instrumentType || "EQUITY",
+    instrumentType: normalizeInstrumentType(instrumentType) || knownDrMetadata?.instrumentType || "EQUITY",
     currency: currency || (inferredMarket === "TH" ? "THB" : "USD"),
     providerSymbol: providerSymbol || (inferredMarket === "TH" ? `${displaySymbol}.BK` : displaySymbol)
   };
@@ -820,7 +816,7 @@ function buildInstrumentInsertValue(input: InstrumentInput) {
     symbol: input.symbol,
     displayName: input.displayName,
     market: input.market,
-    instrumentType: knownDrMetadata?.instrumentType ?? input.instrumentType,
+    instrumentType: knownDrMetadata?.instrumentType ?? normalizeInstrumentType(input.instrumentType),
     currency: input.currency,
     providerSymbol: input.providerSymbol,
     underlyingSymbol: knownDrMetadata?.underlyingSymbol ?? null,

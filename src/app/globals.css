@@ -227,6 +227,7 @@ html[data-theme="dark"] .shell-main {
 .shell-header,
 .brand-lockup,
 .shell-actions,
+.shell-utility-actions,
 .preference-group {
   display: flex;
   align-items: center;
@@ -275,6 +276,14 @@ html[data-theme="dark"] .shell-main {
 }
 
 .shell-actions {
+  min-width: 0;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.shell-utility-actions {
+  min-width: 0;
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: 8px;
@@ -283,8 +292,11 @@ html[data-theme="dark"] .shell-main {
 .portfolio-switcher {
   position: relative;
   display: flex;
+  flex: 0 1 auto;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  max-width: 100%;
   padding: 3px;
   border-radius: 999px;
   background: rgba(18, 31, 25, 0.045);
@@ -294,6 +306,8 @@ html[data-theme="dark"] .shell-main {
   border: 0;
   border-radius: 999px;
   min-height: 34px;
+  min-width: 0;
+  width: 100%;
   max-width: 220px;
   padding: 7px 28px 7px 10px;
   color: var(--ink);
@@ -309,6 +323,7 @@ html[data-theme="dark"] .shell-main {
   font-size: 0.78rem;
   font-weight: 750;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .preference-group {
@@ -372,6 +387,20 @@ html[data-theme="dark"] .shell-main {
   font-weight: 750;
   line-height: 1;
   text-decoration: none;
+}
+
+.auth-form {
+  flex: 0 0 auto;
+}
+
+.auth-button-short {
+  display: none;
+}
+
+.auth-button-short::before,
+.auth-button-short::after {
+  content: "";
+  position: absolute;
 }
 
 .auth-button:hover {
@@ -3189,13 +3218,15 @@ html[data-theme="dark"] .subtabs .active {
   .shell-frame {
     grid-template-columns: 1fr;
     border-radius: 0;
+    overflow: visible;
+    backdrop-filter: none;
   }
 
   .shell-sidebar {
     flex-direction: row;
     justify-content: space-between;
     gap: 8px;
-    padding: 9px 10px;
+    padding: 7px 10px;
     border-right: 0;
     border-bottom: 1px solid var(--line);
   }
@@ -3244,50 +3275,141 @@ html[data-theme="dark"] .subtabs .active {
   }
 
   .shell-header {
-    align-items: center;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    gap: 8px;
-    min-height: 54px;
-    padding: 8px 10px;
+    display: block;
+    min-height: 0;
+    padding: 7px 10px 8px;
+    background: color-mix(in srgb, var(--surface-strong) 92%, transparent);
   }
 
   .brand-lockup {
-    min-width: 0;
-    flex: 1 1 auto;
-  }
-
-  .brand-name {
-    max-width: 128px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    display: none;
   }
 
   .shell-actions {
-    width: auto;
+    display: grid;
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+  }
+
+  .portfolio-switcher {
+    width: 100%;
+    gap: 4px;
+    padding: 2px;
+  }
+
+  .portfolio-select {
+    max-width: none;
+    min-height: 36px;
+    padding: 7px 24px 7px 10px;
+    font-size: 0.76rem;
+  }
+
+  .portfolio-manage-link {
+    flex: 0 0 auto;
+    padding: 8px 8px;
+    font-size: 0.74rem;
+  }
+
+  .shell-utility-actions {
     flex: 0 0 auto;
     flex-wrap: nowrap;
-    justify-content: flex-end;
-    gap: 6px;
-    margin-left: auto;
+    gap: 5px;
   }
 
   .preference-group {
     flex: 0 0 auto;
+    gap: 3px;
+    padding: 2px;
   }
 
   .preference-button {
-    min-width: 34px;
+    min-width: 32px;
     min-height: 36px;
-    padding: 6px 8px;
+    padding: 6px 7px;
     font-size: 0.74rem;
   }
 
   .preference-icon-button {
-    width: 36px;
-    min-width: 36px;
+    width: 34px;
+    min-width: 34px;
     padding: 0;
+  }
+
+  .auth-button {
+    min-width: 38px;
+    min-height: 36px;
+    padding: 7px 8px;
+    font-size: 0.72rem;
+  }
+
+  .auth-button-full {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .auth-button-short {
+    position: relative;
+    display: inline-block;
+    width: 15px;
+    height: 15px;
+    border: 2px solid currentColor;
+    border-left: 0;
+    border-radius: 3px;
+  }
+
+  .auth-button-short::before {
+    top: 5px;
+    left: -7px;
+    width: 11px;
+    height: 2px;
+    border-radius: 999px;
+    background: currentColor;
+  }
+
+  .auth-button-short::after {
+    top: 2px;
+    left: -8px;
+    width: 7px;
+    height: 7px;
+    border-bottom: 2px solid currentColor;
+    border-left: 2px solid currentColor;
+    transform: rotate(45deg);
+  }
+
+  .workstation-page,
+  .workstation-main-stack,
+  .workstation-side-stack,
+  .transactions-page,
+  .feature-stack,
+  .transaction-panel,
+  .transaction-table-card,
+  .holdings-table-card,
+  .asset-detail-page,
+  .chart-card,
+  .asset-sidebar-card {
+    gap: 10px;
+  }
+
+  .workstation-topbar {
+    gap: 10px;
+    padding: 0 0 2px;
+  }
+
+  .workstation-topbar h1 {
+    font-size: 1.34rem;
+    line-height: 1.05;
+  }
+
+  .workstation-topbar p:not(.eyebrow) {
+    margin-top: 4px;
+    line-height: 1.35;
   }
 
   .transactions-workspace .workstation-topbar {
@@ -3351,15 +3473,34 @@ html[data-theme="dark"] .subtabs .active {
   .chart-control-stack {
     justify-items: stretch;
     min-width: 0;
+    gap: 7px;
   }
 
   .chart-mode-row {
     justify-content: flex-start;
+    gap: 6px;
   }
 
   .chart-view-modes,
   .chart-timeframes {
+    width: 100%;
     justify-content: flex-start;
+  }
+
+  .chart-return-basis-group {
+    width: 100%;
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .chart-view-modes button {
+    flex: 1 1 78px;
+    min-width: 0;
+  }
+
+  .chart-timeframes button {
+    flex: 1 1 48px;
+    min-width: 0;
   }
 
   .shell-content {
@@ -3379,12 +3520,62 @@ html[data-theme="dark"] .subtabs .active {
   .summary-card-grid,
   .transaction-summary-strip,
   .asset-performance-grid,
+  .compact-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .metric-card-hero,
+  .dashboard-status-card:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .metric-card {
+    min-height: 76px;
+    padding: 11px;
+  }
+
+  .metric-value {
+    margin-top: 5px;
+    font-size: 1.08rem;
+  }
+
+  .metric-value-xl {
+    font-size: 2.2rem;
+  }
+
+  .metric-label,
+  .metric-detail {
+    font-size: 0.76rem;
+  }
+
+  .dashboard-holdings-status {
+    padding: 7px;
+    border-radius: var(--radius-md);
+  }
+
+  .dashboard-status-card {
+    min-height: 66px;
+  }
+
+  .transaction-summary-strip {
+    padding: 7px;
+  }
+
+  .transaction-summary-strip div {
+    min-height: 54px;
+    padding: 9px 10px;
+  }
+
+  .transaction-summary-strip strong {
+    font-size: 1.05rem;
+  }
+
   .dr-formula-grid,
   .route-grid,
   .portfolio-create-card,
   .portfolio-create-form,
-  .transaction-form,
-  .compact-stat-grid {
+  .transaction-form {
     grid-template-columns: 1fr;
   }
 
@@ -3396,14 +3587,6 @@ html[data-theme="dark"] .subtabs .active {
   .portfolio-create-card .form-success-message,
   .portfolio-create-card .form-error-message {
     grid-column: 1;
-  }
-
-  .metric-card-hero {
-    flex-direction: column;
-  }
-
-  .metric-value-xl {
-    font-size: clamp(1.9rem, 12vw, 2.8rem);
   }
 
   .primary-button,
@@ -3425,6 +3608,42 @@ html[data-theme="dark"] .subtabs .active {
 
   .table-search {
     width: 100%;
+  }
+
+  .table-toolbar {
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .table-filter-group {
+    width: 100%;
+    border-radius: 16px;
+  }
+
+  .table-filter-button {
+    flex: 1 1 auto;
+  }
+
+  .transaction-table-wrap {
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    box-shadow:
+      inset -18px 0 18px -22px rgba(18, 31, 25, 0.86),
+      inset 0 1px 0 rgba(255, 255, 255, 0.72),
+      0 1px 0 rgba(18, 31, 25, 0.04);
+  }
+
+  .transaction-table-wrap::after {
+    content: none;
+  }
+
+  .transaction-table th,
+  .transaction-table tfoot th,
+  .transaction-table tfoot td {
+    position: static;
+    backdrop-filter: none;
   }
 
   .transaction-form-footer {
@@ -3471,11 +3690,35 @@ html[data-theme="dark"] .subtabs .active {
   }
 
   .detail-list div {
-    align-items: flex-start;
+    display: grid;
+    grid-template-columns: minmax(0, 0.48fr) minmax(0, 0.52fr);
+    align-items: start;
   }
 
   .detail-list dd {
-    max-width: 65%;
+    max-width: none;
+  }
+
+  .login-page {
+    min-height: auto;
+    place-items: start stretch;
+  }
+
+  .portfolio-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 0;
+  }
+
+  .portfolio-row-actions {
+    justify-content: stretch;
+  }
+
+  .portfolio-row-actions .secondary-button,
+  .portfolio-row-actions .danger-button {
+    flex: 1 1 92px;
+    width: auto;
   }
 }
 

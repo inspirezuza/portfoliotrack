@@ -40,7 +40,7 @@ const transactionExcelColumns = [
     header: "Instrument Type",
     width: 18,
     optional: true,
-    description: "Optional for CREATE. Examples: EQUITY, ETF, DR."
+    description: "Optional for CREATE. Examples: EQUITY, ETF, FUND, DR. Leave blank to detect from Yahoo."
   },
   {
     key: "currency",
