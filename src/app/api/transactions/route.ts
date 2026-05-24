@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth/admin";
+import { getSelectedPortfolioId } from "@/lib/portfolio/selection";
 import {
   createTransaction,
   deleteTransaction,
@@ -45,10 +46,11 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const order = searchParams.get("order") === "asc" ? "asc" : "desc";
+    const portfolioId = await getSelectedPortfolioId();
 
     const [transactions, instruments] = await Promise.all([
-      listTransactions({ order }),
-      listSelectableTransactionInstrumentOptions()
+      listTransactions({ portfolioId, order }),
+      listSelectableTransactionInstrumentOptions({ portfolioId })
     ]);
 
     return NextResponse.json({
@@ -73,7 +75,8 @@ export async function POST(request: Request) {
     }
 
     const payload = await request.json();
-    const transaction = await createTransaction(payload);
+    const portfolioId = await getSelectedPortfolioId();
+    const transaction = await createTransaction(payload, { portfolioId });
 
     return NextResponse.json({ transaction }, { status: 201 });
   } catch (error) {
@@ -107,7 +110,8 @@ export async function PUT(request: Request) {
     }
 
     const { id, ...transactionPayload } = payload as Record<string, unknown>;
-    const transaction = await updateTransaction(id, transactionPayload);
+    const portfolioId = await getSelectedPortfolioId();
+    const transaction = await updateTransaction(id, transactionPayload, { portfolioId });
 
     return NextResponse.json({ transaction });
   } catch (error) {
@@ -140,7 +144,8 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const deletedTransaction = await deleteTransaction((payload as Record<string, unknown>).id);
+    const portfolioId = await getSelectedPortfolioId();
+    const deletedTransaction = await deleteTransaction((payload as Record<string, unknown>).id, { portfolioId });
 
     return NextResponse.json({ transaction: deletedTransaction });
   } catch (error) {

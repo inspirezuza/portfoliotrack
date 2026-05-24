@@ -1,6 +1,6 @@
 # PortfolioTrack
 
-PortfolioTrack is a deployable personal portfolio tracker built with Next.js, Neon Postgres, Drizzle ORM, and Yahoo Finance market data. It tracks manual stock and DR transactions, calculates fee-aware positions and P&L, caches market prices in Postgres, and shows dashboard, holdings, transactions, and per-asset detail views.
+PortfolioTrack is a deployable personal portfolio tracker built with Next.js, Neon Postgres, Drizzle ORM, and Yahoo Finance market data. It tracks manual stock and DR transactions across multiple portfolios, calculates fee-aware positions and P&L, caches market prices in Postgres, and shows dashboard, holdings, transactions, and per-asset detail views.
 
 For deeper repository context aimed at AI coding agents, read [docs/AI_CONTEXT.md](docs/AI_CONTEXT.md).
 For the latest layout and visual-design review, read [docs/UX_REVIEW.md](docs/UX_REVIEW.md).
@@ -8,6 +8,7 @@ For the latest layout and visual-design review, read [docs/UX_REVIEW.md](docs/UX
 ## Current Capabilities
 
 - Manual `BUY` and `SELL` transaction entry with server-side validation.
+- Multiple portfolios in one app, with public portfolio switching and admin-only portfolio management.
 - Admin-only Excel transaction workflow: download the app template, export the ledger, preview imports, skip duplicates, and commit valid rows atomically.
 - Fee-aware average cost, total cost basis, realized P&L, unrealized P&L, and total fees.
 - Current holdings table with market value, price freshness, and asset detail links.
@@ -53,6 +54,8 @@ Generate an admin password hash:
 npm run auth:hash -- "your-admin-password"
 ```
 
+When pasting the generated hash into `.env` files, escape each `$` as `\$` so Next.js does not treat hash segments as environment variable references.
+
 Push the database schema to Neon:
 
 ```powershell
@@ -73,7 +76,7 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-Public visitors can view the app read-only. Sign in at `/login` to unlock transaction editing, Excel import/export, instrument search, and market-data refresh.
+Public visitors can view the app read-only and switch between portfolios. Sign in at `/login` to unlock portfolio management, transaction editing, Excel import/export, instrument search, and market-data refresh.
 
 ## Scripts
 
@@ -91,11 +94,11 @@ Public visitors can view the app read-only. Sign in at `/login` to unlock transa
 
 - `src/app/` contains Next.js routes, layouts, pages, and API route handlers.
 - `src/components/` contains reusable UI components used by the app pages.
-- `src/server/` contains server-only query and application-service functions for dashboard, holdings, transactions, and assets.
+- `src/server/` contains server-only query and application-service functions for portfolios, dashboard, holdings, transactions, and assets.
 - `src/lib/auth/` contains the signed admin session and password verification helpers.
 - `src/lib/db/` contains Neon connection setup, Drizzle schema, seed script, and number precision helpers.
 - `src/lib/market/` contains the market-data provider abstraction and Yahoo Finance implementation.
-- `src/lib/portfolio/` contains portfolio position and timeline calculations.
+- `src/lib/portfolio/` contains selected-portfolio helpers plus position and timeline calculations.
 - `src/lib/transactions/` contains transaction-specific helpers, including Excel workbook parsing and generation.
 - `src/lib/ui/` contains local shell preference and translation helpers.
 - `src/lib/validation/` contains Zod schemas for incoming data.
@@ -107,12 +110,13 @@ Public visitors can view the app read-only. Sign in at `/login` to unlock transa
 
 The production database lives in Neon Postgres. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full free-tier Vercel + Neon setup.
 
-The database schema is declared in `src/lib/db/schema.ts`, with the initial SQL baseline in `drizzle/`. Use `npm run db:migrate` after schema changes.
+The database schema is declared in `src/lib/db/schema.ts`, with SQL migrations in `drizzle/`. Use `npm run db:migrate` after schema changes.
 
 ## Notes For Future Work
 
 - The test suite covers the transaction selection helper, position math, validation, and timeout utility. Run `npm run test` before changing those flows.
 - Excel transaction import is template-only for now: unknown instruments are rejected, duplicate rows are skipped, and valid rows are inserted as one batch.
+- Transactions are scoped by selected portfolio; instruments and market price caches are shared across portfolios.
 - Market data comes from Yahoo Finance and can fail or return missing/currency-mismatched data. UI code should preserve clear missing-data states.
 - Automatic market-data refreshes are best-effort with short timeouts so pages can keep showing cached local data when Yahoo is slow.
 - The main app surface is English-first in `EN` mode. Thai remains only in the explicit `TH` shell labels and should be added back to pages through a deliberate bilingual copy layer if needed.

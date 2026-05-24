@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc, eq, lte } from "drizzle-orm";
+import { and, asc, eq, lte } from "drizzle-orm";
 import { normalizeMoney } from "@/lib/db/precision";
 import { applyKnownDrMetadata } from "@/lib/instruments/dr-metadata";
 import { ensureFreshMarketDataCache, getMarketSettings, getPriceAgeMinutes, isMarketDataStale } from "@/lib/market/provider";
@@ -8,6 +8,7 @@ import { calculatePositions, type InstrumentPosition } from "@/lib/portfolio/pos
 import { db } from "@/lib/db/runtime";
 import { instruments, priceSnapshots, transactions, type Instrument, type PriceSnapshot } from "@/lib/db/schema";
 import { toChronologicalPositionTransaction } from "@/server/transactions";
+import { parsePortfolioId } from "@/server/portfolios";
 
 type HoldingJoinedRow = {
   instrument: Instrument;
@@ -155,7 +156,7 @@ function buildHoldingRow({
   };
 }
 
-async function listHoldingRows(asOfDate: string): Promise<HoldingJoinedRow[]> {
+async function listHoldingRows(asOfDate: string, portfolioId: number): Promise<HoldingJoinedRow[]> {
   return db
     .select({
       instrument: instruments,
@@ -165,22 +166,26 @@ async function listHoldingRows(asOfDate: string): Promise<HoldingJoinedRow[]> {
     .from(transactions)
     .innerJoin(instruments, eq(transactions.instrumentId, instruments.id))
     .leftJoin(priceSnapshots, eq(priceSnapshots.instrumentId, instruments.id))
-    .where(lte(transactions.tradeDate, asOfDate))
+    .where(and(eq(transactions.portfolioId, portfolioId), lte(transactions.tradeDate, asOfDate)))
     .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id));
 }
 
 export async function getHoldingsSnapshot({
+  portfolioId: portfolioIdInput,
   ensureFresh = true
 }: {
+  portfolioId: number;
   ensureFresh?: boolean;
-} = {}): Promise<HoldingsSnapshot> {
+}): Promise<HoldingsSnapshot> {
+  const portfolioId = parsePortfolioId(portfolioIdInput);
+
   if (ensureFresh) {
-    await ensureFreshMarketDataCache({ includeBenchmark: true });
+    await ensureFreshMarketDataCache({ portfolioId, includeBenchmark: true });
   }
 
   const asOfDate = getCurrentLocalIsoDate();
   const [rows, marketSettings] = await Promise.all([
-    listHoldingRows(asOfDate),
+    listHoldingRows(asOfDate, portfolioId),
     getMarketSettings()
   ]);
 
@@ -386,7 +391,7 @@ export async function getHoldingsSnapshot({
   };
 }
 
-export async function getHoldings() {
-  const snapshot = await getHoldingsSnapshot();
+export async function getHoldings({ portfolioId }: { portfolioId: number }) {
+  const snapshot = await getHoldingsSnapshot({ portfolioId });
   return snapshot.holdings;
 }

@@ -280,6 +280,36 @@ html[data-theme="dark"] .shell-main {
   gap: 8px;
 }
 
+.portfolio-switcher {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(18, 31, 25, 0.045);
+}
+
+.portfolio-select {
+  border: 0;
+  border-radius: 999px;
+  min-height: 34px;
+  max-width: 220px;
+  padding: 7px 28px 7px 10px;
+  color: var(--ink);
+  background: var(--surface-strong);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.portfolio-manage-link {
+  padding: 8px 10px;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
 .preference-group {
   gap: 4px;
   padding: 3px;
@@ -1167,6 +1197,74 @@ html[data-theme="dark"] .secondary-button {
   width: 100%;
   color: #fff;
   background: var(--accent);
+}
+
+.danger-button {
+  border: 1px solid rgba(184, 75, 67, 0.28);
+  border-radius: 999px;
+  min-height: 42px;
+  padding: 10px 14px;
+  color: var(--danger);
+  background: rgba(184, 75, 67, 0.08);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.portfolio-management-panel,
+.portfolio-list {
+  display: grid;
+  gap: 14px;
+}
+
+.portfolio-create-card {
+  display: grid;
+  gap: 16px;
+}
+
+.portfolio-create-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.portfolio-create-form input {
+  width: 100%;
+}
+
+.portfolio-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+
+.portfolio-row:first-child {
+  border-top: 0;
+}
+
+.portfolio-row > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.portfolio-row span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.portfolio-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.portfolio-row-actions .secondary-button,
+.portfolio-row-actions .danger-button {
+  width: auto;
 }
 
 .route-grid {

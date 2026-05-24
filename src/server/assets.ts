@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { OperationTimeoutError, withOperationTimeout } from "@/lib/async/timeout";
 import { normalizeMoney } from "@/lib/db/precision";
 import { db } from "@/lib/db/runtime";
@@ -21,6 +21,7 @@ import { getMarketDataProvider, getMarketSettings, getPriceAgeMinutes, isMarketD
 import type { MarketIntradayInterval, MarketIntradaySeries, MarketQuoteSnapshot } from "@/lib/market/types";
 import { calculatePositionForInstrument } from "@/lib/portfolio/positions";
 import { toChronologicalPositionTransaction } from "@/server/transactions";
+import { parsePortfolioId } from "@/server/portfolios";
 
 type AssetHistoryRefreshResult = {
   attempted: boolean;
@@ -619,7 +620,7 @@ async function refreshAssetIntraday({
   };
 }
 
-async function getAssetRows(symbol: string) {
+async function getAssetRows(symbol: string, portfolioId: number) {
   const [instrument] = await db.select().from(instruments).where(eq(instruments.symbol, symbol));
 
   if (instrument == null) {
@@ -630,7 +631,7 @@ async function getAssetRows(symbol: string) {
     db
       .select()
       .from(transactions)
-      .where(eq(transactions.instrumentId, instrument.id))
+      .where(and(eq(transactions.portfolioId, portfolioId), eq(transactions.instrumentId, instrument.id)))
       .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id)),
     db.select().from(priceSnapshots).where(eq(priceSnapshots.instrumentId, instrument.id)).then((rows) => rows[0] ?? null),
     db.select().from(historicalPrices).where(eq(historicalPrices.instrumentId, instrument.id)),
@@ -649,13 +650,16 @@ async function getAssetRows(symbol: string) {
 export async function getAssetDetail(
   symbol: string,
   {
+    portfolioId: portfolioIdInput,
     allowMarketRefresh = false
   }: {
+    portfolioId: number;
     allowMarketRefresh?: boolean;
-  } = {}
+  }
 ): Promise<AssetDetail | null> {
+  const portfolioId = parsePortfolioId(portfolioIdInput);
   const normalizedSymbol = symbol.trim().toUpperCase();
-  const initialRows = await getAssetRows(normalizedSymbol);
+  const initialRows = await getAssetRows(normalizedSymbol, portfolioId);
 
   if (initialRows == null) {
     return null;
@@ -734,7 +738,7 @@ export async function getAssetDetail(
   ]);
   const didRefreshAnyMarketData =
     quoteRefreshResult.attempted || historyRefreshResult.attempted || intradayRefreshResult.attempted;
-  const latestRows = didRefreshAnyMarketData ? await getAssetRows(normalizedSymbol) : initialRows;
+  const latestRows = didRefreshAnyMarketData ? await getAssetRows(normalizedSymbol, portfolioId) : initialRows;
 
   if (latestRows == null) {
     return null;

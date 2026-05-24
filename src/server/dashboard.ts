@@ -20,6 +20,7 @@ import {
   type HoldingsSnapshot,
   type RealizedBreakdown
 } from "@/server/holdings";
+import { parsePortfolioId } from "@/server/portfolios";
 
 export type DashboardSummary = {
   openPositionCount: number;
@@ -54,17 +55,21 @@ function isTimelineIntradayInterval(value: string): value is TimelineIntradayPri
 }
 
 export async function getDashboardSnapshot({
+  portfolioId: portfolioIdInput,
   ensureFresh = true
 }: {
+  portfolioId: number;
   ensureFresh?: boolean;
-} = {}): Promise<DashboardSnapshot> {
+}): Promise<DashboardSnapshot> {
+  const portfolioId = parsePortfolioId(portfolioIdInput);
+
   if (ensureFresh) {
-    await ensureFreshMarketDataCache({ includeBenchmark: true });
+    await ensureFreshMarketDataCache({ portfolioId, includeBenchmark: true });
   }
 
   const [holdingsSnapshot, marketSettings, transactionRows, instrumentRows, historicalPriceRows, intradayPriceRows] =
     await Promise.all([
-      getHoldingsSnapshot({ ensureFresh: false }),
+      getHoldingsSnapshot({ portfolioId, ensureFresh: false }),
       getMarketSettings(),
       db
         .select({
@@ -78,6 +83,7 @@ export async function getDashboardSnapshot({
           id: transactions.id
         })
         .from(transactions)
+        .where(eq(transactions.portfolioId, portfolioId))
         .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id)),
       db.select().from(instruments),
       db.select().from(historicalPrices),
@@ -167,7 +173,7 @@ export async function getDashboardSnapshot({
   };
 }
 
-export async function getDashboardSummary() {
-  const snapshot = await getDashboardSnapshot();
+export async function getDashboardSummary({ portfolioId }: { portfolioId: number }) {
+  const snapshot = await getDashboardSnapshot({ portfolioId });
   return snapshot.summary;
 }

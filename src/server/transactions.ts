@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { normalizeMoney } from "@/lib/db/precision";
 import { db } from "@/lib/db/runtime";
 import { getKnownDrMetadata } from "@/lib/instruments/dr-metadata";
@@ -19,11 +19,13 @@ import {
 } from "@/lib/portfolio/positions";
 import { instrumentInputSchema } from "@/lib/validation/instrument";
 import { transactionInputSchema, type TransactionInput } from "@/lib/validation/transaction";
+import { parsePortfolioId } from "@/server/portfolios";
 
 export type TransactionListOrder = "asc" | "desc";
 
 export type TransactionListItem = {
   id: number;
+  portfolioId: number;
   instrumentId: number;
   tradeDate: string;
   side: "BUY" | "SELL";
@@ -132,6 +134,7 @@ function mapTransactionListItem(row: {
 
   return {
     id: row.transaction.id,
+    portfolioId: row.transaction.portfolioId,
     instrumentId: row.transaction.instrumentId,
     tradeDate: row.transaction.tradeDate,
     side: row.transaction.side as "BUY" | "SELL",
@@ -218,8 +221,9 @@ function parseTransactionId(input: unknown) {
   return id;
 }
 
-function buildInsertValues(input: TransactionInput): NewTransaction {
+function buildInsertValues(input: TransactionInput, portfolioId: number): NewTransaction {
   return {
+    portfolioId,
     instrumentId: input.instrumentId,
     tradeDate: input.tradeDate,
     side: input.side,
@@ -242,7 +246,7 @@ function getPendingTransactionOrderMarker() {
   return new Date().toISOString().replace("T", " ").slice(0, 19);
 }
 
-async function getJoinedTransactionById(id: number) {
+async function getJoinedTransactionById(id: number, portfolioId: number) {
   const [row] = await db
     .select({
       transaction: transactions,
@@ -250,7 +254,7 @@ async function getJoinedTransactionById(id: number) {
     })
     .from(transactions)
     .innerJoin(instruments, eq(transactions.instrumentId, instruments.id))
-    .where(eq(transactions.id, id));
+    .where(and(eq(transactions.id, id), eq(transactions.portfolioId, portfolioId)));
 
   return row ? mapTransactionListItem(row) : null;
 }
@@ -296,8 +300,9 @@ export async function createInstrument(input: unknown) {
   }
 }
 
-export async function createTransaction(input: unknown) {
+export async function createTransaction(input: unknown, { portfolioId: portfolioIdInput }: { portfolioId: number }) {
   const parsedInput = parseTransactionInput(input);
+  const portfolioId = parsePortfolioId(portfolioIdInput);
 
   const insertedTransactionId = await db.transaction(async (tx) => {
     const [instrument] = await tx
@@ -327,7 +332,7 @@ export async function createTransaction(input: unknown) {
           createdAt: transactions.createdAt
         })
         .from(transactions)
-        .where(eq(transactions.instrumentId, parsedInput.instrumentId))
+        .where(and(eq(transactions.portfolioId, portfolioId), eq(transactions.instrumentId, parsedInput.instrumentId)))
         .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id));
       const existingTransactions = existingTransactionRows.map(toChronologicalPositionTransaction);
 
@@ -360,13 +365,13 @@ export async function createTransaction(input: unknown) {
 
     const [insertedRow] = await tx
       .insert(transactions)
-      .values(buildInsertValues(parsedInput))
+      .values(buildInsertValues(parsedInput, portfolioId))
       .returning({ id: transactions.id });
 
     return insertedRow.id;
   });
 
-  const insertedTransaction = await getJoinedTransactionById(insertedTransactionId);
+  const insertedTransaction = await getJoinedTransactionById(insertedTransactionId, portfolioId);
 
   if (!insertedTransaction) {
     throw new TransactionServiceError(
@@ -378,9 +383,14 @@ export async function createTransaction(input: unknown) {
   return insertedTransaction;
 }
 
-export async function updateTransaction(idInput: unknown, input: unknown) {
+export async function updateTransaction(
+  idInput: unknown,
+  input: unknown,
+  { portfolioId: portfolioIdInput }: { portfolioId: number }
+) {
   const id = parseTransactionId(idInput);
   const parsedInput = parseTransactionInput(input);
+  const portfolioId = parsePortfolioId(portfolioIdInput);
 
   await db.transaction(async (tx) => {
     const [existingTransaction] = await tx
@@ -388,7 +398,7 @@ export async function updateTransaction(idInput: unknown, input: unknown) {
         id: transactions.id
       })
       .from(transactions)
-      .where(eq(transactions.id, id));
+      .where(and(eq(transactions.id, id), eq(transactions.portfolioId, portfolioId)));
 
     if (!existingTransaction) {
       throw new TransactionServiceError(
@@ -423,6 +433,7 @@ export async function updateTransaction(idInput: unknown, input: unknown) {
         createdAt: transactions.createdAt
       })
       .from(transactions)
+      .where(eq(transactions.portfolioId, portfolioId))
       .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id));
 
     const editedTransactions = transactionRows.map((transaction) => {
@@ -458,13 +469,13 @@ export async function updateTransaction(idInput: unknown, input: unknown) {
 
     await tx.update(transactions)
       .set({
-        ...buildInsertValues(parsedInput),
+        ...buildInsertValues(parsedInput, portfolioId),
         updatedAt: getPendingTransactionOrderMarker()
       })
-      .where(eq(transactions.id, id));
+      .where(and(eq(transactions.id, id), eq(transactions.portfolioId, portfolioId)));
   });
 
-  const updatedTransaction = await getJoinedTransactionById(id);
+  const updatedTransaction = await getJoinedTransactionById(id, portfolioId);
 
   if (!updatedTransaction) {
     throw new TransactionServiceError(
@@ -476,8 +487,12 @@ export async function updateTransaction(idInput: unknown, input: unknown) {
   return updatedTransaction;
 }
 
-export async function deleteTransaction(idInput: unknown) {
+export async function deleteTransaction(
+  idInput: unknown,
+  { portfolioId: portfolioIdInput }: { portfolioId: number }
+) {
   const id = parseTransactionId(idInput);
+  const portfolioId = parsePortfolioId(portfolioIdInput);
 
   await db.transaction(async (tx) => {
     const transactionRows = await tx
@@ -492,6 +507,7 @@ export async function deleteTransaction(idInput: unknown) {
         createdAt: transactions.createdAt
       })
       .from(transactions)
+      .where(eq(transactions.portfolioId, portfolioId))
       .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id));
 
     const hasMatchingTransaction = transactionRows.some((transaction) => transaction.id === id);
@@ -521,19 +537,22 @@ export async function deleteTransaction(idInput: unknown) {
       throw error;
     }
 
-    await tx.delete(transactions).where(eq(transactions.id, id));
+    await tx.delete(transactions).where(and(eq(transactions.id, id), eq(transactions.portfolioId, portfolioId)));
   });
 
   return { id };
 }
 
 export async function listTransactions({
+  portfolioId: portfolioIdInput,
   instrumentId,
   order = "desc"
 }: {
+  portfolioId: number;
   instrumentId?: number;
   order?: TransactionListOrder;
-} = {}) {
+}) {
+  const portfolioId = parsePortfolioId(portfolioIdInput);
   const query = db
     .select({
       transaction: transactions,
@@ -544,19 +563,24 @@ export async function listTransactions({
 
   const rows =
     instrumentId == null
-      ? await query.orderBy(...getTransactionOrder(order))
+      ? await query
+          .where(eq(transactions.portfolioId, portfolioId))
+          .orderBy(...getTransactionOrder(order))
       : await query
-          .where(eq(transactions.instrumentId, instrumentId))
+          .where(and(eq(transactions.portfolioId, portfolioId), eq(transactions.instrumentId, instrumentId)))
           .orderBy(...getTransactionOrder(order));
 
   return rows.map(mapTransactionListItem);
 }
 
 export async function listTransactionInstrumentOptions({
+  portfolioId: portfolioIdInput,
   activeOnly = true
 }: {
+  portfolioId: number;
   activeOnly?: boolean;
-} = {}): Promise<TransactionInstrumentOption[]> {
+}): Promise<TransactionInstrumentOption[]> {
+  const portfolioId = parsePortfolioId(portfolioIdInput);
   const instrumentRows = activeOnly
     ? await db
         .select()
@@ -577,6 +601,7 @@ export async function listTransactionInstrumentOptions({
       createdAt: transactions.createdAt
     })
     .from(transactions)
+    .where(eq(transactions.portfolioId, portfolioId))
     .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id));
 
   const positions = calculatePositions(positionRows.map(toChronologicalPositionTransaction));
@@ -588,8 +613,8 @@ export async function listTransactionInstrumentOptions({
   });
 }
 
-export async function listSelectableTransactionInstrumentOptions() {
-  const instruments = await listTransactionInstrumentOptions({ activeOnly: false });
+export async function listSelectableTransactionInstrumentOptions({ portfolioId }: { portfolioId: number }) {
+  const instruments = await listTransactionInstrumentOptions({ portfolioId, activeOnly: false });
 
   return instruments.filter(isTransactionInstrumentSelectable);
 }

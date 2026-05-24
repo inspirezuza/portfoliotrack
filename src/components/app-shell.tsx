@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
+import { PortfolioSwitcher } from "@/components/portfolio-switcher";
 import { getUiCopy } from "@/lib/ui/copy";
 import { useUiPreferences } from "@/lib/ui/preferences";
 import { languages, type UiTheme } from "@/lib/ui/translations";
+import type { PortfolioListItem } from "@/server/portfolios";
 
 type NavItem = {
   href: "/" | "/holdings" | "/transactions";
@@ -102,7 +104,17 @@ function ThemeIcon({ name }: { name: ThemeIconName }) {
   );
 }
 
-export function AppShell({ children, isAdmin }: { children: ReactNode; isAdmin: boolean }) {
+export function AppShell({
+  children,
+  isAdmin,
+  portfolios,
+  selectedPortfolioId
+}: {
+  children: ReactNode;
+  isAdmin: boolean;
+  portfolios: PortfolioListItem[];
+  selectedPortfolioId: number;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const { language, theme, setLanguage, setTheme } = useUiPreferences();
@@ -145,6 +157,14 @@ export function AppShell({ children, isAdmin }: { children: ReactNode; isAdmin: 
             </div>
 
             <div className="shell-actions">
+              <PortfolioSwitcher
+                canManage={isAdmin}
+                label={copy.portfolioLabel}
+                manageLabel={copy.managePortfolios}
+                portfolios={portfolios}
+                selectedPortfolioId={selectedPortfolioId}
+              />
+
               <div className="preference-group" aria-label={copy.language}>
                 {languages.map((item) => (
                   <button

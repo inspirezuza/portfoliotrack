@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/app-shell";
 import { getAdminSession } from "@/lib/auth/admin";
+import { getPortfolioSelection } from "@/lib/portfolio/selection";
 import { UiPreferencesProvider } from "@/lib/ui/preferences";
 import { getServerUiLanguage } from "@/lib/ui/server";
 import { getHtmlLanguage } from "@/lib/ui/translations";
@@ -23,6 +24,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const language = await getServerUiLanguage();
   const htmlLanguage = getHtmlLanguage(language);
   const session = await getAdminSession();
+  const portfolioSelection = await getPortfolioSelection();
 
   return (
     <html
@@ -47,7 +49,13 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       </head>
       <body className={inter.variable}>
         <UiPreferencesProvider initialLanguage={language}>
-          <AppShell isAdmin={session != null}>{children}</AppShell>
+          <AppShell
+            isAdmin={session != null}
+            portfolios={portfolioSelection.portfolios}
+            selectedPortfolioId={portfolioSelection.selectedPortfolio.id}
+          >
+            {children}
+          </AppShell>
         </UiPreferencesProvider>
       </body>
     </html>

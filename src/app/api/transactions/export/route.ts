@@ -1,4 +1,5 @@
 import { isAdminAuthenticated } from "@/lib/auth/admin";
+import { getSelectedPortfolioId } from "@/lib/portfolio/selection";
 import { buildTransactionExport } from "@/server/transaction-import-export";
 
 export const runtime = "nodejs";
@@ -20,7 +21,8 @@ export async function GET(request: Request) {
       );
     }
 
-    const exportFile = await buildTransactionExport({ template });
+    const portfolioId = await getSelectedPortfolioId();
+    const exportFile = await buildTransactionExport({ portfolioId, template });
 
     return new Response(new Uint8Array(exportFile.buffer), {
       headers: {

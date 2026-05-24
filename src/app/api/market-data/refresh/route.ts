@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth/admin";
+import { getSelectedPortfolioId } from "@/lib/portfolio/selection";
 import { refreshMarketDataCache } from "@/lib/market/provider";
 
 function jsonErrorResponse(code: string, message: string, status: number) {
@@ -73,7 +74,8 @@ export async function POST(request: Request) {
       formSearchParams = await getFormSearchParams(request);
     }
 
-    const result = await refreshMarketDataCache();
+    const portfolioId = await getSelectedPortfolioId();
+    const result = await refreshMarketDataCache({ portfolioId });
 
     if (formSearchParams != null && formSearchParams.has("redirectTo")) {
       const redirectUrl = buildRedirectUrl(request, formSearchParams);

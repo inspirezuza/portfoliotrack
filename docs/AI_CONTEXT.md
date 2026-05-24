@@ -4,12 +4,13 @@ This document is for AI coding agents or future maintainers who need to understa
 
 ## High-Level Summary
 
-PortfolioTrack is a deployable personal portfolio tracker. Public visitors can read the portfolio, while an admin session unlocks transaction editing, Excel import/export, instrument search, and market-data refresh. Users manually enter or template-import stock and DR transactions, the server calculates positions from the ledger, and the app enriches holdings with cached Yahoo Finance market data.
+PortfolioTrack is a deployable personal portfolio tracker. Public visitors can read and switch portfolios, while an admin session unlocks portfolio management, transaction editing, Excel import/export, instrument search, and market-data refresh. Users manually enter or template-import stock and DR transactions, the server calculates positions from the selected portfolio ledger, and the app enriches holdings with cached Yahoo Finance market data.
 
 The app is intentionally simple:
 
 - Single admin login through environment variables and a signed HttpOnly cookie.
 - Public read-only dashboard, holdings, transactions, and asset detail pages.
+- Multiple portfolios in one app; instruments and market data are shared, while transactions are portfolio-scoped.
 - Template-only Excel transaction import/export for the app ledger.
 - No broker-specific statement parser, cash balance ledger, tax reporting, or multi-user account database.
 - Neon Postgres stores portfolio and cached market data.
@@ -18,14 +19,17 @@ The app is intentionally simple:
 
 Routes:
 
-- `/` dashboard: `src/app/page.tsx`, reads `getDashboardSnapshot()`.
+- `/` dashboard: `src/app/page.tsx`, reads `getDashboardSnapshot({ portfolioId })`.
 - `/holdings`: `src/app/holdings/page.tsx`, renders `SummaryCards` and `HoldingsTable`.
 - `/transactions`: `src/app/transactions/page.tsx`, shows ledger data to everyone and admin-only form/actions/Excel tools.
-- `/assets/[symbol]`: `src/app/assets/[symbol]/page.tsx`, reads `getAssetDetail(symbol)`.
+- `/assets/[symbol]`: `src/app/assets/[symbol]/page.tsx`, reads `getAssetDetail(symbol, { portfolioId })`.
+- `/portfolios`: `src/app/portfolios/page.tsx`, admin-only portfolio management.
 - `/login`: `src/app/login/page.tsx`, signs in the single admin account.
 
 API routes:
 
+- `GET|POST|PUT|DELETE /api/portfolios`: public list plus admin-only create/update/delete.
+- `POST /api/portfolio-selection`: public selected-portfolio cookie update.
 - `GET /api/transactions`: public read for transactions and selectable instruments.
 - `POST|PUT|DELETE /api/transactions`: admin-only transaction changes.
 - `GET /api/transactions/export?template=true`: public Excel template download.
@@ -46,7 +50,7 @@ Important directories:
 - `src/lib/auth/`: Admin password verification and signed session helpers.
 - `src/lib/db/`: Neon/Drizzle setup, schema, seed script, and precision helpers.
 - `src/lib/market/`: Market provider abstraction, Yahoo Finance implementation, and cache refresh orchestration.
-- `src/lib/portfolio/`: Portfolio math for positions and timeline comparison.
+- `src/lib/portfolio/`: Selected-portfolio cookie helpers plus portfolio math for positions and timeline comparison.
 - `src/lib/transactions/`: Transaction UI/search helpers and Excel workbook parsing/generation.
 - `src/lib/ui/`: Browser local UI preferences and shell translation helpers.
 - `src/lib/validation/`: Zod schemas for incoming payloads.
@@ -71,7 +75,8 @@ Database connection:
 Tables:
 
 - `instruments`: symbols, names, market/type/currency, provider symbol, active flag, and nullable DR metadata.
-- `transactions`: manual ledger rows ordered by `tradeDate`, `createdAt`, then `id`.
+- `portfolios`: named portfolios with one default row.
+- `transactions`: portfolio-scoped manual ledger rows ordered by `tradeDate`, `createdAt`, then `id`.
 - `priceSnapshots`: latest quote per instrument, unique by `instrumentId`.
 - `historicalPrices`: daily close history, unique by `(instrumentId, priceDate)`.
 - `intradayPrices`: intraday close data, unique by `(instrumentId, interval, observedAt)`.
@@ -83,7 +88,7 @@ Schema deployment:
 npm run db:migrate
 ```
 
-This runs `drizzle-kit push` against `DATABASE_URL`. The baseline SQL is `drizzle/0000_initial_postgres.sql`.
+This runs `drizzle-kit push` against `DATABASE_URL`. The baseline SQL is `drizzle/0000_initial_postgres.sql`; `drizzle/0001_multi_portfolios.sql` adds portfolio support and migrates existing transactions into `Main Portfolio`.
 
 Seed:
 
@@ -107,15 +112,16 @@ Generate the password hash with:
 npm run auth:hash -- "your-admin-password"
 ```
 
-Public users can read current app pages. Admin-only controls include transaction create/update/delete, Excel ledger export/import, add/search instrument, and market-data refresh. Protected API writes and protected exports return `401` when the admin session cookie is missing or invalid.
+Public users can read current app pages and switch portfolios. Admin-only controls include portfolio create/update/delete, transaction create/update/delete, Excel ledger export/import, add/search instrument, and market-data refresh. Protected API writes and protected exports return `401` when the admin session cookie is missing or invalid.
 
 ## Server Modules
 
-- `src/server/dashboard.ts`: `getDashboardSnapshot({ ensureFresh })`; public pages pass `false`, admin pages pass `true`.
-- `src/server/holdings.ts`: builds open/closed position snapshots and currency breakdowns.
-- `src/server/transactions.ts`: validates transaction input, enforces sell quantity, and maps service errors.
-- `src/server/transaction-import-export.ts`: builds Excel exports and evaluates/imports template workbooks against existing instruments, duplicate keys, validation, and position constraints.
-- `src/server/assets.ts`: `getAssetDetail(symbol, { allowMarketRefresh })`; public pages render cached data only.
+- `src/server/portfolios.ts`: validates, lists, creates, updates, defaults, and deletes portfolios.
+- `src/server/dashboard.ts`: `getDashboardSnapshot({ portfolioId, ensureFresh })`; public pages pass `false`, admin pages pass `true`.
+- `src/server/holdings.ts`: builds selected-portfolio open/closed position snapshots and currency breakdowns.
+- `src/server/transactions.ts`: validates transaction input, enforces selected-portfolio sell quantity, and maps service errors.
+- `src/server/transaction-import-export.ts`: builds selected-portfolio Excel exports and evaluates/imports template workbooks against existing instruments, duplicate keys, validation, and position constraints.
+- `src/server/assets.ts`: `getAssetDetail(symbol, { portfolioId, allowMarketRefresh })`; public pages render cached data only.
 
 ## Transaction Excel Import/Export
 
@@ -126,6 +132,7 @@ Public users can read current app pages. Admin-only controls include transaction
 - Preview returns row-level `ready`, `skipped_duplicate`, or `error` statuses.
 - Commit re-parses and re-validates the uploaded workbook, rejects files with errors, and inserts ready rows atomically.
 - Missing instruments are row errors; the import flow does not create instruments automatically.
+- Imports and exports use the selected portfolio. The Excel template does not include a portfolio column.
 
 ## Market Data
 
@@ -137,7 +144,7 @@ Provider abstraction:
 
 Refresh behavior:
 
-- Finds instruments with transaction history plus the benchmark instrument.
+- Finds instruments with transaction history in the selected portfolio plus the benchmark instrument.
 - Fetches latest quotes, daily history, and intraday bars.
 - Writes only valid same-currency data to Postgres.
 - Records missing/mismatched provider data as structured issues.
@@ -146,8 +153,9 @@ Refresh behavior:
 
 ## UI Shell, Theme, And Language
 
-- `src/app/layout.tsx` wraps the app in `UiPreferencesProvider` and passes admin session state to `AppShell`.
-- `src/components/app-shell.tsx` contains sidebar navigation, brand lockup, language/theme buttons, and admin login/logout controls.
+- `src/app/layout.tsx` wraps the app in `UiPreferencesProvider` and passes admin session plus selected-portfolio state to `AppShell`.
+- `src/components/app-shell.tsx` contains sidebar navigation, brand lockup, portfolio selector, language/theme buttons, and admin login/logout controls.
+- `src/components/portfolio-switcher.tsx` updates `portfoliotrack.portfolioId`; invalid or deleted selected portfolios fall back to the default portfolio.
 - Theme/language preferences live in browser `localStorage`, not the database.
 - The main app surface is English-first in `EN` mode. Thai remains only in explicit `TH` shell labels unless a deliberate bilingual copy layer is added later.
 
