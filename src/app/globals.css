@@ -1324,6 +1324,63 @@ html[data-theme="dark"] .secondary-button {
   gap: 14px 12px;
 }
 
+.transaction-edit-modal {
+  position: fixed;
+  z-index: 80;
+  inset: 0;
+  display: grid;
+  align-items: start;
+  justify-items: center;
+  overflow-y: auto;
+  padding: clamp(16px, 4vw, 42px) 12px;
+  background: rgba(18, 31, 25, 0.48);
+  backdrop-filter: blur(10px);
+}
+
+.transaction-edit-dialog {
+  position: relative;
+  width: min(960px, 100%);
+}
+
+.transaction-edit-dialog .transaction-panel {
+  box-shadow: 0 24px 80px rgba(18, 31, 25, 0.32);
+}
+
+.transaction-edit-dialog .transaction-panel-header {
+  padding-right: 44px;
+}
+
+.transaction-edit-close {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  right: 12px;
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--surface-strong);
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.transaction-edit-close:hover,
+.transaction-edit-close:focus-visible {
+  color: var(--ink);
+  border-color: var(--accent);
+  outline: none;
+}
+
+.transaction-edit-close:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .transaction-panel {
   padding: 16px;
 }
@@ -2643,6 +2700,16 @@ html[data-theme="dark"] .subtabs .active {
   .transaction-form-footer {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .transaction-edit-modal {
+    align-items: stretch;
+    padding: 8px;
+  }
+
+  .transaction-edit-close {
+    top: 10px;
+    right: 10px;
   }
 
   .instrument-manager-header {
