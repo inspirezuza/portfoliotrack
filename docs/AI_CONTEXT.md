@@ -129,11 +129,12 @@ Public users can read current app pages and switch portfolios. Admin-only contro
 
 - Workbook support is server-side through `exceljs`; keep API routes using `runtime = "nodejs"`.
 - The supported import format is the app template sheet named `Transactions`; broker statement formats are intentionally out of scope.
-- Template columns include instrument identity, trade date, side, optional broker, quantity, price, fee, and notes. Missing broker values default to Dime.
+- Template columns include an instrument action, instrument identity, trade date, side, optional broker, quantity, price, fee, and notes. Missing broker values default to Dime.
 - Instrument matching tries instrument id, provider symbol, then app symbol.
+- `Instrument Action` supports blank/`MATCH` for existing instruments and `CREATE` for adding a missing instrument from `Symbol`; `UPDATE` and `DELETE` are intentionally rejected in transaction imports.
 - Preview returns row-level `ready`, `skipped_duplicate`, or `error` statuses.
 - Commit re-parses and re-validates the uploaded workbook, rejects files with errors, and inserts ready rows atomically.
-- Missing instruments are row errors; the import flow does not create instruments automatically.
+- Missing instruments are row errors unless the row uses `Instrument Action = CREATE`; create rows are inserted before their transactions inside the same database transaction.
 - Imports and exports use the selected portfolio. The Excel template does not include a portfolio column.
 
 ## Market Data

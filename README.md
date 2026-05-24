@@ -117,7 +117,7 @@ Market refresh runs are tracked in `market_refresh_runs`. Public visitors can tr
 ## Notes For Future Work
 
 - The test suite covers the transaction selection helper, position math, validation, and timeout utility. Run `npm run test` before changing those flows.
-- Excel transaction import is template-only for now: unknown instruments are rejected, duplicate rows are skipped, broker defaults to Dime when omitted, and valid rows are inserted as one batch.
+- Excel transaction import is template-only for now: duplicate rows are skipped, broker defaults to Dime when omitted, and valid rows are inserted as one batch. Unknown instruments can be created during import by setting `Instrument Action` to `CREATE` and filling at least `Symbol`; `UPDATE` and `DELETE` are intentionally out of scope for transaction imports.
 - Transactions are scoped by selected portfolio; instruments and market price caches are shared across portfolios.
 - Market data comes from Yahoo Finance and can fail or return missing/currency-mismatched data. UI code should preserve clear missing-data states.
 - Dashboard, holdings, and transactions render from cached local data first. Background market-data refreshes are guarded and best-effort so pages keep opening quickly when Yahoo is slow.
