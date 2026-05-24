@@ -9,7 +9,7 @@ PortfolioTrack is a deployable personal portfolio tracker. Public visitors can r
 The app is intentionally simple:
 
 - Single admin login through environment variables and a signed HttpOnly cookie.
-- Public read-only dashboard, holdings, transactions, and asset detail pages.
+- Public read-only dashboard, transactions, and asset detail pages.
 - Multiple portfolios in one app; instruments and market data are shared, while transactions are portfolio-scoped.
 - Template-only Excel transaction import/export for the app ledger.
 - No broker-specific statement parser, cash balance ledger, tax reporting, or multi-user account database.
@@ -19,8 +19,8 @@ The app is intentionally simple:
 
 Routes:
 
-- `/` dashboard: `src/app/page.tsx`, reads `getDashboardSnapshot({ portfolioId })`.
-- `/holdings`: `src/app/holdings/page.tsx`, renders `SummaryCards` and `HoldingsTable`.
+- `/` dashboard: `src/app/page.tsx`, reads `getDashboardSnapshot({ portfolioId })` and renders charts, holdings status, `HoldingsTable`, and `SummaryCards`.
+- `/holdings`: `src/app/holdings/page.tsx`, redirects to `/` so older links land on the consolidated dashboard.
 - `/transactions`: `src/app/transactions/page.tsx`, shows ledger data to everyone and admin-only form/actions/Excel tools.
 - `/assets/[symbol]`: `src/app/assets/[symbol]/page.tsx`, reads `getAssetDetail(symbol, { portfolioId })`.
 - `/portfolios`: `src/app/portfolios/page.tsx`, admin-only portfolio management.
@@ -151,8 +151,8 @@ Refresh behavior:
 - Writes only valid same-currency data to Postgres.
 - Records missing/mismatched provider data as structured issues.
 - Deduplicates overlapping in-flight refreshes.
-- Dashboard, holdings, and transactions render cached data first and do not call the provider during route render.
-- `DailyMarketRefresh` in the app shell triggers a public `daily-auto` refresh after page render on dashboard, holdings, and transactions.
+- Dashboard and transactions render cached data first and do not call the provider during route render.
+- `DailyMarketRefresh` in the app shell triggers a public `daily-auto` refresh after page render on dashboard and transactions.
 - Public `daily-auto` refresh is guarded by `market_refresh_runs`: one success per Bangkok day per portfolio, with at most two attempts after failed or stale-running jobs.
 - Admin manual refresh uses the existing button/form path, bypasses the public daily limit, records a `manual` run, and preserves the dashboard banner flow.
 
@@ -196,4 +196,4 @@ Notes:
 - If changing portfolio math, verify transaction ordering and sell validation.
 - If changing auth or public/admin behavior, verify both logged-out read-only and logged-in admin flows.
 - If changing market data, preserve currency checks and missing-data states.
-- If changing page performance, keep dashboard/holdings/transactions cached-first; provider refresh should stay outside route render.
+- If changing page performance, keep dashboard/transactions cached-first; provider refresh should stay outside route render.

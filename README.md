@@ -1,6 +1,6 @@
 # PortfolioTrack
 
-PortfolioTrack is a deployable personal portfolio tracker built with Next.js, Neon Postgres, Drizzle ORM, and Yahoo Finance market data. It tracks manual stock and DR transactions across multiple portfolios, calculates fee-aware positions and P&L, caches market prices in Postgres, and shows dashboard, holdings, transactions, and per-asset detail views.
+PortfolioTrack is a deployable personal portfolio tracker built with Next.js, Neon Postgres, Drizzle ORM, and Yahoo Finance market data. It tracks manual stock and DR transactions across multiple portfolios, calculates fee-aware positions and P&L, caches market prices in Postgres, and shows dashboard, transactions, and per-asset detail views.
 
 For deeper repository context aimed at AI coding agents, read [docs/AI_CONTEXT.md](docs/AI_CONTEXT.md).
 For the latest layout and visual-design review, read [docs/UX_REVIEW.md](docs/UX_REVIEW.md).
@@ -11,8 +11,8 @@ For the latest layout and visual-design review, read [docs/UX_REVIEW.md](docs/UX
 - Multiple portfolios in one app, with public portfolio switching and admin-only portfolio management.
 - Admin-only Excel transaction workflow: download the app template, export the ledger, preview imports, skip duplicates, and commit valid rows atomically.
 - Fee-aware average cost, total cost basis, realized P&L, unrealized P&L, and total fees.
-- Current holdings table with market value, price freshness, and asset detail links.
-- Dashboard with portfolio summary cards, price coverage, top holdings, portfolio chart, and S&P 500 benchmark comparison.
+- Dashboard with portfolio summary cards, price coverage, top holdings, full holdings table, portfolio chart, and S&P 500 benchmark comparison.
+- Current holdings table with market value, price freshness, and asset detail links at the bottom of the dashboard.
 - Per-asset detail route at `/assets/[symbol]` with position metrics, price history, recent transactions, and DR analytics when metadata exists.
 - DR equivalent analytics for instruments with DR metadata, including parent-stock implied price, FX rate, parent quote, and premium/discount.
 - Yahoo Finance quote and historical-price refresh with Neon Postgres caching, cached-first page loads, and guarded once-per-day public background refresh.
@@ -120,7 +120,7 @@ Market refresh runs are tracked in `market_refresh_runs`. Public visitors can tr
 - Excel transaction import is template-only for now: unknown instruments are rejected, duplicate rows are skipped, broker defaults to Dime when omitted, and valid rows are inserted as one batch.
 - Transactions are scoped by selected portfolio; instruments and market price caches are shared across portfolios.
 - Market data comes from Yahoo Finance and can fail or return missing/currency-mismatched data. UI code should preserve clear missing-data states.
-- Dashboard, holdings, and transactions render from cached local data first. Background market-data refreshes are guarded and best-effort so pages keep opening quickly when Yahoo is slow.
+- Dashboard and transactions render from cached local data first. Background market-data refreshes are guarded and best-effort so pages keep opening quickly when Yahoo is slow.
 - The main app surface is English-first in `EN` mode. Thai remains only in the explicit `TH` shell labels and should be added back to pages through a deliberate bilingual copy layer if needed.
 - Theme and language preferences are stored in browser `localStorage`, not the database.
 - The development server may print a Windows SWC DLL warning while still compiling and building successfully.

@@ -9,7 +9,7 @@ type DailyMarketRefreshResponse = {
   reason?: string;
 };
 
-const REFRESHABLE_PATHS = new Set(["/", "/holdings", "/transactions"]);
+const REFRESHABLE_PATHS = new Set(["/", "/transactions"]);
 
 function getBangkokDate(now = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
