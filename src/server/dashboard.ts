@@ -281,6 +281,7 @@ export async function getDashboardSnapshot({
     [holdingsSnapshot.latestPriceAsOf, benchmarkSnapshot?.asOf ?? null]
       .filter((value): value is string => value != null)
       .sort((left, right) => right.localeCompare(left))[0] ?? null;
+  const transactionInstrumentIds = new Set(transactionRows.map((transaction) => transaction.instrumentId));
   const fxHistoricalRowsByCurrency = new Map<string, Array<{ priceDate: string; close: number }>>();
   const fxIntradayRowsByCurrency = new Map<string, Array<{ observedAt: string; close: number }>>();
 
@@ -348,7 +349,10 @@ export async function getDashboardSnapshot({
     })
     .filter((row): row is typeof transactionRows[number] => row != null);
   const convertedHistoricalPriceRows = historicalPriceRows
-    .filter((row) => !fxInstrumentIds.includes(row.instrumentId))
+    .filter((row) =>
+      !fxInstrumentIds.includes(row.instrumentId) &&
+      (row.instrumentId !== benchmarkInstrument?.id || transactionInstrumentIds.has(row.instrumentId))
+    )
     .map((row) => {
       const instrument = instrumentById.get(row.instrumentId);
 
@@ -368,7 +372,10 @@ export async function getDashboardSnapshot({
     })
     .filter((row): row is typeof historicalPriceRows[number] => row != null);
   const convertedIntradayPriceRows = intradayPriceRows
-    .filter((row) => !fxInstrumentIds.includes(row.instrumentId))
+    .filter((row) =>
+      !fxInstrumentIds.includes(row.instrumentId) &&
+      (row.instrumentId !== benchmarkInstrument?.id || transactionInstrumentIds.has(row.instrumentId))
+    )
     .map((row) => {
       const instrument = instrumentById.get(row.instrumentId);
 
@@ -391,6 +398,34 @@ export async function getDashboardSnapshot({
     ...instrument,
     currency: fxInstrumentIds.includes(instrument.id) ? instrument.currency : valuationCurrency
   }));
+  const benchmarkHistoricalPriceRows = benchmarkInstrument == null
+    ? []
+    : historicalPriceRows.filter((row) =>
+        row.instrumentId === benchmarkInstrument.id && row.currency === benchmarkInstrument.currency
+      );
+  const convertedHistoricalPriceKeys = new Set(
+    convertedHistoricalPriceRows.map((row) => `${row.instrumentId}:${row.priceDate}:${row.currency}`)
+  );
+  const timelineHistoricalPriceRows = [
+    ...convertedHistoricalPriceRows,
+    ...benchmarkHistoricalPriceRows.filter(
+      (row) => !convertedHistoricalPriceKeys.has(`${row.instrumentId}:${row.priceDate}:${row.currency}`)
+    )
+  ];
+  const benchmarkIntradayPriceRows = benchmarkInstrument == null
+    ? []
+    : intradayPriceRows.filter((row) =>
+        row.instrumentId === benchmarkInstrument.id && row.currency === benchmarkInstrument.currency
+      );
+  const convertedIntradayPriceKeys = new Set(
+    convertedIntradayPriceRows.map((row) => `${row.instrumentId}:${row.observedAt}:${row.currency}:${row.interval}`)
+  );
+  const timelineIntradayPriceRows = [
+    ...convertedIntradayPriceRows,
+    ...benchmarkIntradayPriceRows.filter(
+      (row) => !convertedIntradayPriceKeys.has(`${row.instrumentId}:${row.observedAt}:${row.currency}:${row.interval}`)
+    )
+  ];
   const performanceSummary = buildPerformanceSummary({
     holdingsSnapshot,
     instrumentRows: convertedInstrumentRows,
@@ -412,13 +447,13 @@ export async function getDashboardSnapshot({
       createdAt: row.createdAt,
       id: row.id
     })),
-    historicalPrices: convertedHistoricalPriceRows.map((row) => ({
+    historicalPrices: timelineHistoricalPriceRows.map((row) => ({
       instrumentId: row.instrumentId,
       priceDate: row.priceDate,
       close: row.close,
       currency: row.currency
     })),
-    intradayPrices: convertedIntradayPriceRows
+    intradayPrices: timelineIntradayPriceRows
       .filter((row): row is typeof row & { interval: TimelineIntradayPrice["interval"] } =>
         isTimelineIntradayInterval(row.interval)
       )
@@ -430,6 +465,7 @@ export async function getDashboardSnapshot({
         interval: row.interval
       })),
     benchmarkInstrumentId: benchmarkInstrument?.id ?? null,
+    benchmarkCurrency: benchmarkInstrument?.currency ?? null,
     benchmarkSymbol: marketSettings.benchmarkSymbol
   });
 

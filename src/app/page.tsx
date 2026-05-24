@@ -355,6 +355,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       <section className="workstation-grid">
         <div className="workstation-main-stack">
           <BenchmarkChart
+            absoluteSeries={timeline.absoluteComparison}
             benchmarkSymbol={timeline.benchmarkSymbol}
             benchmarkCurrency={timeline.benchmarkCurrency}
             comparisonBasis={timeline.comparisonBasis}

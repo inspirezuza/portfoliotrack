@@ -4,6 +4,7 @@ import { asc, eq, inArray } from "drizzle-orm";
 import { OperationTimeoutError, withOperationTimeout } from "@/lib/async/timeout";
 import { db } from "@/lib/db/runtime";
 import { appSettings, historicalPrices, instruments, intradayPrices, priceSnapshots, transactions } from "@/lib/db/schema";
+import { applyKnownDrMetadata } from "@/lib/instruments/dr-metadata";
 import type {
   MarketDataProvider,
   MarketHistoricalSeries,
@@ -364,8 +365,29 @@ async function buildRefreshContext({
       ? null
       : instrumentRows.find((instrument) => instrument.symbol === benchmarkSymbol) ?? null;
   const refreshTargets = new Map<number, RefreshTarget>();
+  const instrumentRowsByProviderSymbol = new Map(
+    instrumentRows.map((instrument) => [instrument.providerSymbol, applyKnownDrMetadata(instrument)] as const)
+  );
 
-  for (const instrument of instrumentRows) {
+  function addRefreshTargetByProviderSymbol(providerSymbol: string | null, historyStartDate: string) {
+    if (providerSymbol == null) {
+      return;
+    }
+
+    const instrument = instrumentRowsByProviderSymbol.get(providerSymbol);
+
+    if (instrument == null) {
+      return;
+    }
+
+    refreshTargets.set(instrument.id, {
+      instrument,
+      historyStartDate
+    });
+  }
+
+  for (const instrumentRow of instrumentRows) {
+    const instrument = applyKnownDrMetadata(instrumentRow);
     const historyStartDate = earliestTradeDateByInstrument.get(instrument.id) ?? null;
 
     if (historyStartDate != null) {
@@ -375,16 +397,11 @@ async function buildRefreshContext({
       });
 
       if (instrument.currency !== baseCurrency) {
-        const fxProviderSymbol = `${instrument.currency}${baseCurrency}=X`;
-        const fxInstrument = instrumentRows.find((row) => row.providerSymbol === fxProviderSymbol);
-
-        if (fxInstrument != null) {
-          refreshTargets.set(fxInstrument.id, {
-            instrument: fxInstrument,
-            historyStartDate
-          });
-        }
+        addRefreshTargetByProviderSymbol(`${instrument.currency}${baseCurrency}=X`, historyStartDate);
       }
+
+      addRefreshTargetByProviderSymbol(instrument.underlyingProviderSymbol, historyStartDate);
+      addRefreshTargetByProviderSymbol(instrument.fxProviderSymbol, historyStartDate);
     }
   }
 

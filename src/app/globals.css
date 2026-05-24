@@ -705,11 +705,28 @@ html[data-theme="dark"] .route-card {
   min-width: min(520px, 100%);
 }
 
+.chart-mode-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  justify-content: flex-end;
+}
+
 .chart-view-modes,
 .chart-timeframes {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
+  justify-content: flex-end;
+}
+
+.chart-return-basis-group {
+  border-left: 1px solid var(--line);
+  padding-left: 8px;
+}
+
+.chart-view-modes.chart-return-basis {
   justify-content: flex-end;
 }
 
@@ -1651,16 +1668,16 @@ html[data-theme="dark"] .portfolio-name-field input {
 }
 
 .transaction-excel-tools {
-  gap: 12px;
+  gap: 14px;
   padding: 16px;
 }
 
 .transaction-excel-header {
   align-items: center;
+  gap: 16px;
 }
 
 .transaction-excel-actions,
-.transaction-excel-import,
 .transaction-excel-import-actions {
   display: flex;
   align-items: center;
@@ -1672,46 +1689,110 @@ html[data-theme="dark"] .portfolio-name-field input {
   justify-content: flex-end;
 }
 
-.transaction-file-picker {
+.transaction-excel-import {
   display: grid;
-  min-width: min(100%, 320px);
-  gap: 6px;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 70%, transparent), transparent 58%),
+    var(--surface-muted);
+}
+
+.transaction-excel-import-actions {
+  justify-content: flex-end;
+}
+
+.transaction-file-picker {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  gap: 7px;
   color: var(--ink);
   font-size: 0.8rem;
   font-weight: 650;
+  cursor: pointer;
+}
+
+.transaction-file-picker-label {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 750;
+}
+
+.transaction-file-picker-control {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 6px 12px 6px 7px;
+  background: var(--surface-strong);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+
+.transaction-file-picker:focus-within .transaction-file-picker-control,
+.transaction-file-picker:hover .transaction-file-picker-control {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.transaction-file-picker-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  border-radius: 999px;
+  padding: 6px 11px;
+  color: #fff;
+  background: var(--accent);
+  font-size: 0.76rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+html[data-theme="dark"] .transaction-file-picker-button {
+  color: #06100c;
+}
+
+.transaction-file-picker strong {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transaction-file-picker[data-has-file="true"] strong {
+  color: var(--ink);
+}
+
+.transaction-file-picker[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.68;
 }
 
 .transaction-file-picker input {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  border: 1px solid var(--line-strong);
-  border-radius: 14px;
-  padding: 10px 12px;
-  color: var(--ink);
-  background: var(--surface);
-}
-
-.transaction-excel-import {
-  justify-content: space-between;
+  height: 100%;
+  opacity: 0;
+  cursor: inherit;
 }
 
 .transaction-excel-import-button {
   width: auto;
-}
-
-.transaction-excel-file {
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
-  min-width: 0;
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 650;
-}
-
-.transaction-excel-file strong {
-  min-width: 0;
-  color: var(--ink);
-  overflow-wrap: anywhere;
 }
 
 .transaction-excel-preview {
@@ -2100,7 +2181,7 @@ html[data-theme="dark"] .portfolio-name-field input {
     inset 0 0 0 1px rgba(255, 255, 255, 0.38),
     0 1px 0 rgba(18, 31, 25, 0.04);
   scrollbar-color: rgba(77, 90, 83, 0.46) transparent;
-  scrollbar-gutter: stable both-edges;
+  scrollbar-gutter: auto;
 }
 
 .transaction-table-wrap::after {
@@ -2800,6 +2881,27 @@ html[data-theme="dark"] .holdings-weight-bar {
   gap: 9px;
 }
 
+.instrument-cell-link {
+  border-radius: 12px;
+  color: inherit;
+  text-decoration: none;
+  transition:
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.instrument-cell-link:hover,
+.instrument-cell-link:focus-visible {
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 6px var(--accent-soft);
+  outline: none;
+}
+
+.instrument-cell-link:hover strong,
+.instrument-cell-link:focus-visible strong {
+  color: var(--accent);
+}
+
 .instrument-cell-copy {
   display: grid;
   min-width: 0;
@@ -3193,16 +3295,26 @@ html[data-theme="dark"] .subtabs .active {
   }
 
   .transaction-excel-header,
-  .transaction-excel-import,
   .transaction-excel-actions,
   .transaction-excel-import-actions {
     align-items: stretch;
     flex-direction: column;
   }
 
+  .transaction-excel-import {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    padding: 10px;
+  }
+
   .transaction-excel-actions,
   .transaction-excel-import-actions,
   .transaction-file-picker {
+    width: 100%;
+  }
+
+  .transaction-excel-import-actions .compact-button,
+  .transaction-excel-import-button {
     width: 100%;
   }
 
@@ -3239,6 +3351,10 @@ html[data-theme="dark"] .subtabs .active {
   .chart-control-stack {
     justify-items: stretch;
     min-width: 0;
+  }
+
+  .chart-mode-row {
+    justify-content: flex-start;
   }
 
   .chart-view-modes,

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ButtonLoadingContent, PendingBanner } from "@/components/loading-indicator";
 import { formatCurrency, formatQuantity } from "@/lib/format";
@@ -303,7 +304,10 @@ export function TransactionTable({
                     <tr key={transaction.id} data-editing={transaction.id === editingTransactionId}>
                       <td>{transaction.tradeDate}</td>
                       <td>
-                        <div className="instrument-cell instrument-cell-with-logo">
+                        <Link
+                          href={`/assets/${encodeURIComponent(transaction.instrument.symbol)}`}
+                          className="instrument-cell instrument-cell-with-logo instrument-cell-link"
+                        >
                           <InstrumentLogo
                             symbol={transaction.instrument.symbol}
                             displayName={transaction.instrument.displayName}
@@ -318,7 +322,7 @@ export function TransactionTable({
                               {transaction.instrument.displayName} - {transaction.instrument.market}
                             </span>
                           </div>
-                        </div>
+                        </Link>
                       </td>
                       <td>
                         <span

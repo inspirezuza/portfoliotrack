@@ -29,6 +29,7 @@ For the latest layout and visual-design review, read [docs/UX_REVIEW.md](docs/UX
 - Yahoo Finance data through `yahoo-finance2`
 - Zod for transaction input validation
 - Excel workbook import/export through `exceljs`
+- Node test runner for pure TypeScript tests and Playwright for browser smoke coverage
 
 ## Getting Started
 
@@ -36,6 +37,12 @@ Install dependencies:
 
 ```powershell
 npm install
+```
+
+If Playwright browsers are not already installed on the machine, install Chromium for browser smoke tests:
+
+```powershell
+npx playwright install chromium
 ```
 
 Create `.env.local` or set shell variables with:
@@ -89,7 +96,10 @@ Public visitors can view the app read-only and switch between portfolios. Sign i
 
 - `npm run dev` starts the development server.
 - `npm run test` runs the Node test suite through `tsx`.
-- `npm run verify` runs lint, tests, and production build in sequence.
+- `npm run test:e2e` runs the Playwright Chromium smoke suite. It starts the Next dev server on `127.0.0.1:3001` unless `PLAYWRIGHT_BASE_URL` or `PLAYWRIGHT_PORT` is set.
+- `npm run test:e2e:headed` runs the same Playwright smoke suite with a visible browser.
+- `npm run verify` runs lint, unit tests, and production build in sequence.
+- `npm run verify:full` runs lint, unit tests, Playwright smoke tests, and production build in sequence.
 - `npm run build` builds the production app and runs type/lint checks through Next.
 - `npm run start` serves the production build.
 - `npm run lint` runs ESLint.
@@ -111,6 +121,8 @@ Public visitors can view the app read-only and switch between portfolios. Sign i
 - `src/lib/transactions/` contains transaction-specific helpers, including Excel workbook parsing and generation.
 - `src/lib/ui/` contains local shell preference and translation helpers.
 - `src/lib/validation/` contains Zod schemas for incoming data.
+- `tests/` contains pure Node tests under `tests/*.test.ts` and browser smoke tests under `tests/e2e/*.spec.ts`.
+- `playwright.config.ts` defines the Chromium smoke-test project and local dev-server orchestration.
 - `drizzle/` contains SQL migrations and Drizzle metadata snapshots.
 - `docs/` contains design, plan, and AI-facing project context documents.
 - `docs/DEPLOYMENT.md` documents the Vercel + Neon deployment workflow.
@@ -125,13 +137,15 @@ Market refresh runs are tracked in `market_refresh_runs`. Vercel Cron calls slot
 
 ## Notes For Future Work
 
-- The test suite covers the transaction selection helper, position math, validation, and timeout utility. Run `npm run test` before changing those flows.
+- The unit test suite covers the transaction selection helper, position math, validation, and timeout utility. Run `npm run test` before changing those flows.
+- The Playwright smoke suite covers the dashboard, transactions route, instrument-to-asset drilldown, and login route. Run `npm run test:e2e` after changing shell navigation, route rendering, transaction table links, login visibility, app loading states, or anything likely to compile cleanly but fail in the browser.
+- Use `npm run verify` for normal code verification and `npm run verify:full` before larger releases, route changes, deploy handoff, or broad vibe-code passes.
 - Excel transaction import is template-only for now: unknown instruments can be created with `Instrument Action = CREATE`, duplicate rows are skipped, broker defaults to Dime when omitted, and valid rows are inserted as one batch.
 - Transactions are scoped by selected portfolio; instruments and market price caches are shared across portfolios.
 - Local seed data includes a Thai/DR demo, a US stock demo with THB reporting through USDTHB snapshots, and a closed-trades demo so new tickets can be tested without hand-building data first.
 - Market data comes from Yahoo Finance and can fail or return missing/currency-mismatched data. UI code should preserve clear missing-data states.
-- Dashboard performance separates money-result metrics from strategy-return metrics: absolute return uses total P&L divided by positive net invested capital, while the benchmark chart uses cash-flow-adjusted TWR indexed from `100` and includes closed positions in the replay.
-- SPY benchmark comparison is price-return based and compared by percentage; it is not total-return, FX-converted, or money-weighted. IRR/MWR needs an explicit cash-flow ledger before it can be trustworthy.
+- Dashboard performance separates money-result metrics from strategy-return metrics: absolute return uses total P&L divided by positive net invested capital, while the benchmark chart can switch between cash-flow-adjusted TWR and an absolute-return view indexed from `100`.
+- SPY benchmark comparison is native-currency price-return based and compared by percentage; it is not total-return, FX-converted, or money-weighted. IRR/MWR needs an explicit cash-flow ledger before it can be trustworthy.
 - Dashboard and transactions render from cached local data first. Scheduled market-data refreshes are guarded and best-effort so pages keep opening quickly when Yahoo is slow.
 - The main app surface is English-first in `EN` mode. Thai remains only in the explicit `TH` shell labels and should be added back to pages through a deliberate bilingual copy layer if needed.
 - Theme and language preferences are stored in browser `localStorage`, not the database.

@@ -76,6 +76,7 @@ export type PortfolioBenchmarkTimeline = {
   comparisonBasis: BenchmarkComparisonBasis | null;
   portfolio: PortfolioTimelinePoint[];
   comparison: BenchmarkTimelinePoint[];
+  absoluteComparison: BenchmarkTimelinePoint[];
 };
 
 type PriceState = {
@@ -387,12 +388,73 @@ function buildCashFlowAdjustedComparisonSeries({
   return comparison;
 }
 
+function buildAbsoluteComparisonSeries({
+  portfolioSeries,
+  benchmarkRows,
+  benchmarkIntradayRows = []
+}: {
+  portfolioSeries: PortfolioValuationPoint[];
+  benchmarkRows: TimelineHistoricalPrice[];
+  benchmarkIntradayRows?: TimelineIntradayPrice[];
+}) {
+  const orderedBenchmarkRows = [
+    ...toDailyPricePoints(benchmarkRows),
+    ...toIntradayPricePoints(benchmarkIntradayRows)
+  ].sort((left, right) =>
+    left.priceAt.localeCompare(right.priceAt)
+  );
+
+  if (portfolioSeries.length === 0 || orderedBenchmarkRows.length === 0) {
+    return [];
+  }
+
+  let benchmarkRowIndex = 0;
+  let lastBenchmarkClose: number | null = null;
+  let baselineBenchmarkClose: number | null = null;
+  let netInvested = 0;
+  const comparison: BenchmarkTimelinePoint[] = [];
+
+  for (const point of portfolioSeries) {
+    netInvested = normalizeMoney(netInvested + point.netCashFlow);
+
+    while (
+      benchmarkRowIndex < orderedBenchmarkRows.length &&
+      orderedBenchmarkRows[benchmarkRowIndex].priceAt <= point.date
+    ) {
+      lastBenchmarkClose = orderedBenchmarkRows[benchmarkRowIndex].close;
+      benchmarkRowIndex += 1;
+    }
+
+    if (netInvested <= 0 || lastBenchmarkClose == null || lastBenchmarkClose <= 0) {
+      continue;
+    }
+
+    if (baselineBenchmarkClose == null) {
+      baselineBenchmarkClose = lastBenchmarkClose;
+    }
+
+    if (baselineBenchmarkClose <= 0) {
+      continue;
+    }
+
+    comparison.push({
+      date: point.date,
+      interval: point.interval,
+      portfolio: normalizeMoney((point.value / netInvested) * 100),
+      benchmark: normalizeMoney((lastBenchmarkClose / baselineBenchmarkClose) * 100)
+    });
+  }
+
+  return comparison;
+}
+
 export function buildPortfolioBenchmarkTimeline({
   instruments,
   transactions,
   historicalPrices,
   intradayPrices = [],
   benchmarkInstrumentId,
+  benchmarkCurrency: benchmarkCurrencyOverride = null,
   benchmarkSymbol
 }: {
   instruments: TimelineInstrument[];
@@ -400,6 +462,7 @@ export function buildPortfolioBenchmarkTimeline({
   historicalPrices: TimelineHistoricalPrice[];
   intradayPrices?: TimelineIntradayPrice[];
   benchmarkInstrumentId: number | null;
+  benchmarkCurrency?: string | null;
   benchmarkSymbol: string | null;
 }): PortfolioBenchmarkTimeline {
   const today = getCurrentLocalIsoDate();
@@ -414,7 +477,8 @@ export function buildPortfolioBenchmarkTimeline({
       benchmarkCurrency: null,
       comparisonBasis: null,
       portfolio: [],
-      comparison: []
+      comparison: [],
+      absoluteComparison: []
     };
   }
 
@@ -450,7 +514,8 @@ export function buildPortfolioBenchmarkTimeline({
       benchmarkCurrency: null,
       comparisonBasis: null,
       portfolio: [],
-      comparison: []
+      comparison: [],
+      absoluteComparison: []
     };
   }
 
@@ -466,7 +531,8 @@ export function buildPortfolioBenchmarkTimeline({
       benchmarkCurrency: null,
       comparisonBasis: null,
       portfolio: [],
-      comparison: []
+      comparison: [],
+      absoluteComparison: []
     };
   }
 
@@ -498,7 +564,8 @@ export function buildPortfolioBenchmarkTimeline({
       benchmarkCurrency: null,
       comparisonBasis: null,
       portfolio: [],
-      comparison: []
+      comparison: [],
+      absoluteComparison: []
     };
   }
 
@@ -511,13 +578,14 @@ export function buildPortfolioBenchmarkTimeline({
       benchmarkCurrency: null,
       comparisonBasis: null,
       portfolio: portfolioSeries,
-      comparison: []
+      comparison: [],
+      absoluteComparison: []
     };
   }
 
   const benchmarkInstrument = instrumentsById.get(benchmarkInstrumentId);
 
-  const benchmarkCurrency = benchmarkInstrument?.currency ?? null;
+  const benchmarkCurrency = benchmarkCurrencyOverride ?? benchmarkInstrument?.currency ?? null;
   const comparisonBasis =
     benchmarkCurrency == null
       ? null
@@ -529,7 +597,8 @@ export function buildPortfolioBenchmarkTimeline({
     .filter((row) => benchmarkCurrency != null && row.currency === benchmarkCurrency && row.priceDate <= today)
     .filter((row) => row.instrumentId === benchmarkInstrumentId && row.priceDate >= baselineDate)
     .sort((left, right) => left.priceDate.localeCompare(right.priceDate));
-  const benchmarkIntradayPrices = validIntradayPrices
+  const benchmarkIntradayPrices = intradayPrices
+    .filter((row) => benchmarkCurrency != null && row.currency === benchmarkCurrency && row.observedAt.slice(0, 10) <= today)
     .filter((row) => row.instrumentId === benchmarkInstrumentId && row.observedAt.slice(0, 10) >= baselineDate)
     .sort((left, right) => left.observedAt.localeCompare(right.observedAt));
   const comparisonSeries = buildCashFlowAdjustedComparisonSeries({
@@ -537,15 +606,21 @@ export function buildPortfolioBenchmarkTimeline({
     benchmarkRows: benchmarkHistoricalPrices,
     benchmarkIntradayRows: benchmarkIntradayPrices
   });
+  const absoluteComparisonSeries = buildAbsoluteComparisonSeries({
+    portfolioSeries: portfolioValuationSeries,
+    benchmarkRows: benchmarkHistoricalPrices,
+    benchmarkIntradayRows: benchmarkIntradayPrices
+  });
 
   return {
-    status: comparisonSeries.length > 0 ? "ready" : "missing-benchmark-history",
+    status: comparisonSeries.length > 0 || absoluteComparisonSeries.length > 0 ? "ready" : "missing-benchmark-history",
     baselineDate,
     portfolioCurrency,
     benchmarkSymbol,
     benchmarkCurrency,
     comparisonBasis,
     portfolio: portfolioSeries,
-    comparison: comparisonSeries
+    comparison: comparisonSeries,
+    absoluteComparison: absoluteComparisonSeries
   };
 }

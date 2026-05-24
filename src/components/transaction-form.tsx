@@ -110,6 +110,10 @@ function getInitialInstrumentSearch(instruments: TransactionInstrumentOption[]) 
   return initialInstrument?.label ?? "";
 }
 
+function getInstrumentLookupLabel(instrument: InstrumentSearchResult) {
+  return `${instrument.symbol} - ${instrument.displayName} - ${instrument.market} - ${instrument.currency}`;
+}
+
 function getTransactionInstrumentLabel(
   transaction: TransactionListItem,
   instruments: TransactionInstrumentOption[]
@@ -197,6 +201,7 @@ export function TransactionForm({
   const [isInstrumentComboboxOpen, setIsInstrumentComboboxOpen] = useState(false);
   const [highlightedInstrumentId, setHighlightedInstrumentId] = useState<string | null>(null);
   const [instrumentLookupQuery, setInstrumentLookupQuery] = useState("");
+  const [isInstrumentLookupMenuOpen, setIsInstrumentLookupMenuOpen] = useState(false);
   const [instrumentLookupResults, setInstrumentLookupResults] = useState<InstrumentSearchResult[]>([]);
   const [selectedInstrumentLookupResult, setSelectedInstrumentLookupResult] =
     useState<InstrumentSearchResult | null>(null);
@@ -321,6 +326,7 @@ export function TransactionForm({
 
     if (query.length < 2) {
       setInstrumentLookupResults([]);
+      setIsInstrumentLookupMenuOpen(false);
       setIsSearchingInstruments(false);
       return;
     }
@@ -511,6 +517,7 @@ export function TransactionForm({
       });
       setInstrumentSearch(createdInstrument.label);
       setInstrumentLookupQuery("");
+      setIsInstrumentLookupMenuOpen(false);
       setInstrumentLookupResults([]);
       setSelectedInstrumentLookupResult(null);
       setValues((currentValues) => ({
@@ -540,6 +547,8 @@ export function TransactionForm({
 
   function handleInstrumentLookupSelect(instrumentValues: InstrumentSearchResult) {
     setSelectedInstrumentLookupResult(instrumentValues);
+    setInstrumentLookupQuery(getInstrumentLookupLabel(instrumentValues));
+    setIsInstrumentLookupMenuOpen(false);
     setInstrumentErrorMessage(null);
     setInstrumentSuccessMessage(null);
   }
@@ -573,6 +582,7 @@ export function TransactionForm({
 
   function clearInstrumentLookup() {
     setInstrumentLookupQuery("");
+    setIsInstrumentLookupMenuOpen(false);
     setInstrumentLookupResults([]);
     setSelectedInstrumentLookupResult(null);
     setInstrumentErrorMessage(null);
@@ -655,9 +665,15 @@ export function TransactionForm({
                   value={instrumentLookupQuery}
                   onChange={(event) => {
                     setInstrumentLookupQuery(event.target.value);
+                    setIsInstrumentLookupMenuOpen(event.target.value.trim().length >= 2);
                     setSelectedInstrumentLookupResult(null);
                     setInstrumentErrorMessage(null);
                     setInstrumentSuccessMessage(null);
+                  }}
+                  onFocus={() => {
+                    if (!selectedInstrumentLookupResult && instrumentLookupQuery.trim().length >= 2) {
+                      setIsInstrumentLookupMenuOpen(true);
+                    }
                   }}
                   placeholder={copy.transactions.form.searchInstrumentPlaceholder}
                   autoComplete="off"
@@ -677,7 +693,7 @@ export function TransactionForm({
               </span>
             </label>
 
-            {instrumentLookupQuery.trim().length >= 2 ? (
+            {isInstrumentLookupMenuOpen && instrumentLookupQuery.trim().length >= 2 ? (
               <div className="instrument-lookup-menu">
                 {isSearchingInstruments ? (
                   <div className="instrument-combobox-empty" role="status">

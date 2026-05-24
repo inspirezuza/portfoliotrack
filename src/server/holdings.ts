@@ -1,7 +1,7 @@
 import "server-only";
 
 import { and, asc, eq, lte } from "drizzle-orm";
-import { normalizeMoney } from "@/lib/db/precision";
+import { normalizeMoney, normalizePrice } from "@/lib/db/precision";
 import { applyKnownDrMetadata } from "@/lib/instruments/dr-metadata";
 import { ensureFreshMarketDataCache, getMarketSettings, getPriceAgeMinutes, isMarketDataStale } from "@/lib/market/provider";
 import { calculatePositions, type InstrumentPosition } from "@/lib/portfolio/positions";
@@ -144,9 +144,36 @@ function getFxRateToValuationCurrency({
   return snapshot != null && snapshot.currency === valuationCurrency ? snapshot.price : null;
 }
 
+function getUnderlyingFxRateToInstrumentCurrency({
+  fxSnapshotsByProviderSymbol,
+  instrument
+}: {
+  fxSnapshotsByProviderSymbol: Map<string, PriceSnapshot>;
+  instrument: Instrument;
+}) {
+  if (instrument.underlyingCurrency == null) {
+    return null;
+  }
+
+  if (instrument.underlyingCurrency === instrument.currency) {
+    return 1;
+  }
+
+  if (instrument.fxProviderSymbol == null) {
+    return null;
+  }
+
+  const snapshot = fxSnapshotsByProviderSymbol.get(instrument.fxProviderSymbol);
+
+  return snapshot != null && snapshot.currency === instrument.currency && snapshot.price > 0
+    ? snapshot.price
+    : null;
+}
+
 function buildHoldingRow({
   fxRateToValuationCurrency,
   instrument,
+  underlyingFxRateToInstrumentCurrency,
   parentPriceSnapshot,
   position,
   priceSnapshot,
@@ -154,6 +181,7 @@ function buildHoldingRow({
 }: {
   fxRateToValuationCurrency: number | null;
   instrument: Instrument;
+  underlyingFxRateToInstrumentCurrency: number | null;
   parentPriceSnapshot: PriceSnapshot | null;
   position: InstrumentPosition;
   priceSnapshot: PriceSnapshot | null;
@@ -189,8 +217,8 @@ function buildHoldingRow({
     instrument.drRatio != null &&
     instrument.drRatio > 0 &&
     instrument.underlyingCurrency != null &&
-    fxRateToValuationCurrency != null
-      ? normalizeMoney((position.averageCost * instrument.drRatio) / fxRateToValuationCurrency)
+    underlyingFxRateToInstrumentCurrency != null
+      ? normalizePrice((position.averageCost * instrument.drRatio) / underlyingFxRateToInstrumentCurrency)
       : null;
 
   return {
@@ -327,6 +355,10 @@ export async function getHoldingsSnapshot({
           valuationCurrency
         }),
         instrument: instrumentState.instrument,
+        underlyingFxRateToInstrumentCurrency: getUnderlyingFxRateToInstrumentCurrency({
+          fxSnapshotsByProviderSymbol,
+          instrument: instrumentState.instrument
+        }),
         parentPriceSnapshot:
           instrumentState.instrument.underlyingProviderSymbol == null
             ? null

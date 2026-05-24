@@ -10,8 +10,11 @@ type AllocationHolding = {
   symbol: string;
   displayName: string;
   currency: string;
+  valuationCurrency: string;
   totalCost: number;
+  totalCostInValuationCurrency: number | null;
   marketValue: number | null;
+  marketValueInValuationCurrency: number | null;
   portfolioWeight: number | null;
 };
 
@@ -48,17 +51,40 @@ const HOLDING_COLORS = [
   "#6f7d2c"
 ];
 
-function getHoldingValue(holding: AllocationHolding) {
-  return holding.marketValue ?? holding.totalCost;
+function getHoldingChartValue(holding: AllocationHolding, useValuationCurrency: boolean) {
+  if (useValuationCurrency) {
+    const value = holding.marketValueInValuationCurrency ?? holding.totalCostInValuationCurrency;
+
+    return value == null
+      ? null
+      : {
+          currency: holding.valuationCurrency,
+          value
+        };
+  }
+
+  return {
+    currency: holding.currency,
+    value: holding.marketValue ?? holding.totalCost
+  };
 }
 
 function buildAllocationSlices(holdings: AllocationHolding[], language: UiLanguage) {
   const copy = getUiCopy(language).holdings.allocation;
+  const useValuationCurrency = new Set(holdings.map((holding) => holding.currency)).size > 1;
   const chartHoldings = holdings
-    .map((holding) => ({
-      ...holding,
-      chartValue: getHoldingValue(holding)
-    }))
+    .map((holding) => {
+      const chartValue = getHoldingChartValue(holding, useValuationCurrency);
+
+      return chartValue == null
+        ? null
+        : {
+            ...holding,
+            chartCurrency: chartValue.currency,
+            chartValue: chartValue.value
+          };
+    })
+    .filter((holding): holding is NonNullable<typeof holding> => holding != null)
     .filter((holding) => holding.chartValue > 0)
     .sort((left, right) => right.chartValue - left.chartValue);
   const totalValue = chartHoldings.reduce((total, holding) => total + holding.chartValue, 0);
@@ -73,7 +99,7 @@ function buildAllocationSlices(holdings: AllocationHolding[], language: UiLangua
     id: String(holding.instrumentId),
     symbol: holding.symbol,
     displayName: holding.displayName,
-    currency: holding.currency,
+    currency: holding.chartCurrency,
     value: holding.chartValue,
     weight: holding.portfolioWeight ?? holding.chartValue / totalValue,
     color: HOLDING_COLORS[index % HOLDING_COLORS.length]
@@ -86,7 +112,7 @@ function buildAllocationSlices(holdings: AllocationHolding[], language: UiLangua
       id: "other",
       symbol: copy.other,
       displayName: copy.positions(otherHoldings.length),
-      currency: primaryHoldings[0]?.currency ?? otherHoldings[0].currency,
+      currency: primaryHoldings[0]?.chartCurrency ?? otherHoldings[0].chartCurrency,
       value: otherValue,
       weight: otherValue / totalValue,
       color: HOLDING_COLORS[6]
@@ -139,9 +165,9 @@ export function HoldingsAllocationChart({ holdings, language }: HoldingsAllocati
               cy="50%"
               innerRadius="58%"
               outerRadius="82%"
-              paddingAngle={2}
-              stroke="var(--surface-strong)"
-              strokeWidth={3}
+              paddingAngle={0}
+              stroke="none"
+              strokeWidth={0}
               isAnimationActive={false}
             >
               {slices.map((slice) => (

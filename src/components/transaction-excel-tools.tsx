@@ -81,6 +81,7 @@ export function TransactionExcelTools({ language, onWorkspaceRefresh }: Transact
   const nonReadyRows = preview?.rows.filter((row) => row.status !== "ready").slice(0, 8) ?? [];
   const isDownloading = downloadingKind != null;
   const isBusy = isPreviewing || isImporting || isRefreshing || isDownloading;
+  const isImportLocked = isPreviewing || isImporting || isRefreshing;
   const canCommit =
     selectedFile != null &&
     preview != null &&
@@ -212,8 +213,16 @@ export function TransactionExcelTools({ language, onWorkspaceRefresh }: Transact
       ) : null}
 
       <div className="transaction-excel-import">
-        <label className="transaction-file-picker">
-          <span>{copy.file}</span>
+        <label
+          className="transaction-file-picker"
+          aria-disabled={isImportLocked}
+          data-has-file={selectedFile != null}
+        >
+          <span className="transaction-file-picker-label">{copy.file}</span>
+          <span className="transaction-file-picker-control">
+            <span className="transaction-file-picker-button">{copy.chooseFile}</span>
+            <strong>{selectedFile?.name ?? copy.noFileSelected}</strong>
+          </span>
           <input
             ref={fileInputRef}
             type="file"
@@ -225,7 +234,7 @@ export function TransactionExcelTools({ language, onWorkspaceRefresh }: Transact
               setErrorMessage(null);
               setSuccessMessage(null);
             }}
-            disabled={isPreviewing || isImporting || isRefreshing}
+            disabled={isImportLocked}
           />
         </label>
 
@@ -234,7 +243,7 @@ export function TransactionExcelTools({ language, onWorkspaceRefresh }: Transact
             type="button"
             className="compact-button"
             onClick={() => void submitImport("preview")}
-            disabled={!selectedFile || isPreviewing || isImporting || isRefreshing}
+            disabled={!selectedFile || isImportLocked}
           >
             {isPreviewing ? (
               <ButtonLoadingContent label={copy.previewing}>{copy.preview}</ButtonLoadingContent>
@@ -256,13 +265,6 @@ export function TransactionExcelTools({ language, onWorkspaceRefresh }: Transact
           </button>
         </div>
       </div>
-
-      {selectedFile ? (
-        <div className="transaction-excel-file">
-          <span>{copy.selectedFile}</span>
-          <strong>{selectedFile.name}</strong>
-        </div>
-      ) : null}
 
       {preview ? (
         <div className="transaction-excel-preview" aria-label={copy.previewSummary}>

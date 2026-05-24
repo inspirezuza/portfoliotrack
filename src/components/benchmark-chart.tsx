@@ -21,6 +21,7 @@ import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
 
 type BenchmarkChartProps = {
+  absoluteSeries: BenchmarkTimelinePoint[];
   benchmarkSymbol: string | null;
   benchmarkCurrency: string | null;
   comparisonBasis: BenchmarkComparisonBasis | null;
@@ -46,6 +47,7 @@ type BenchmarkPerformanceSummary = {
 
 type TimeframeKey = "1D" | "5D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "START" | "ALL";
 type PerformanceMode = "INDEXED" | "GAP" | "DRAWDOWN";
+type ReturnBasis = "TWR" | "ABSOLUTE";
 
 type ChartPoint = BenchmarkTimelinePoint & {
   benchmarkChangeFromRangeStart: number | null;
@@ -84,6 +86,7 @@ type BenchmarkChartTooltipProps = {
 const TIMEFRAME_OPTIONS: TimeframeKey[] = ["1D", "5D", "1W", "1M", "3M", "YTD", "1Y", "START", "ALL"];
 
 const PERFORMANCE_MODE_OPTIONS: PerformanceMode[] = ["INDEXED", "GAP", "DRAWDOWN"];
+const RETURN_BASIS_OPTIONS: ReturnBasis[] = ["TWR", "ABSOLUTE"];
 
 function parseChartDate(value: string) {
   return new Date(value.includes("T") ? value : `${value}T00:00:00.000Z`);
@@ -215,13 +218,19 @@ function getUnavailableMessage({
   benchmarkSymbol,
   copy,
   portfolioCurrency,
+  returnBasis,
   status
 }: {
   benchmarkSymbol: string | null;
   copy: ReturnType<typeof getUiCopy>["charts"]["benchmark"];
   portfolioCurrency: string | null;
+  returnBasis: ReturnBasis;
   status: PortfolioBenchmarkTimelineStatus;
 }) {
+  if (status === "ready" && returnBasis === "ABSOLUTE") {
+    return copy.unavailable.missingAbsoluteReturn;
+  }
+
   switch (status) {
     case "no-transactions":
       return copy.unavailable.noTransactions;
@@ -430,6 +439,7 @@ function BenchmarkChartTooltip({
 }
 
 export function BenchmarkChart({
+  absoluteSeries,
   benchmarkSymbol,
   benchmarkCurrency,
   comparisonBasis,
@@ -442,16 +452,20 @@ export function BenchmarkChart({
   const copy = getUiCopy(language);
   const locale = getUiLocale(language);
   const [timeframe, setTimeframe] = useState<TimeframeKey>("ALL");
+  const [returnBasis, setReturnBasis] = useState<ReturnBasis>("TWR");
   const [mode, setMode] = useState<PerformanceMode>("INDEXED");
   const [selection, setSelection] = useState<SelectionRange | null>(null);
   const isDraggingRef = useRef(false);
-  const hasSeries = series.length > 0;
+  const activeSeries = returnBasis === "ABSOLUTE" ? absoluteSeries : series;
+  const hasSeries = activeSeries.length > 0;
+  const hasAnySeries = series.length > 0 || absoluteSeries.length > 0;
+  const returnBasisCopy = copy.charts.benchmark.returnBasis[returnBasis];
   const absoluteSummaryMessage = getAbsoluteSummaryMessage({
     copy: copy.charts.benchmark,
     status: performanceSummary.status
   });
   const shouldShowAbsoluteSummary = performanceSummary.status !== "no-transactions";
-  const visibleSeries = useMemo(() => getVisibleSeries(series, timeframe), [series, timeframe]);
+  const visibleSeries = useMemo(() => getVisibleSeries(activeSeries, timeframe), [activeSeries, timeframe]);
   const chartData = useMemo<ChartPoint[]>(() => {
     const firstPoint = visibleSeries[0] ?? null;
     let portfolioHighWatermark = firstPoint?.portfolio ?? 100;
@@ -529,7 +543,13 @@ export function BenchmarkChart({
     selectedPortfolioChange == null || selectedBenchmarkChange == null
       ? null
       : selectedPortfolioChange - selectedBenchmarkChange;
-  const modeCopy = copy.charts.benchmark.modeCopy[mode];
+  const modeCopy = mode === "INDEXED"
+    ? {
+        portfolioName: returnBasisCopy.portfolioName,
+        benchmarkName: copy.charts.benchmark.modeCopy.INDEXED.benchmarkName,
+        yAxisLabel: returnBasisCopy.yAxisLabel
+      }
+    : copy.charts.benchmark.modeCopy[mode];
   const yDomain = useMemo(
     () =>
       getPaddedDomain(
@@ -583,7 +603,7 @@ export function BenchmarkChart({
               ? copy.charts.benchmark.titleDefault
               : copy.charts.benchmark.titleWithSymbol(benchmarkSymbol)}
           </h2>
-          {hasSeries ? (
+          {hasAnySeries ? (
             <p className="chart-subtitle">
               {getBasisLabel({
                 benchmarkCurrency,
@@ -595,21 +615,44 @@ export function BenchmarkChart({
           ) : null}
         </div>
         <div className="chart-control-stack">
-          <div className="chart-view-modes" aria-label={copy.charts.benchmark.performanceMode}>
-            {PERFORMANCE_MODE_OPTIONS.map((option) => (
-              <button
-                aria-pressed={mode === option}
-                className={mode === option ? "active" : ""}
-                key={option}
-                onClick={() => {
-                  setMode(option);
-                  setSelection(null);
-                }}
-                type="button"
+          <div className="chart-mode-row">
+            <div className="chart-view-modes" aria-label={copy.charts.benchmark.performanceMode}>
+              {PERFORMANCE_MODE_OPTIONS.map((option) => (
+                <button
+                  aria-pressed={mode === option}
+                  className={mode === option ? "active" : ""}
+                  key={option}
+                  onClick={() => {
+                    setMode(option);
+                    setSelection(null);
+                  }}
+                  type="button"
+                >
+                  {copy.charts.benchmark.modes[option]}
+                </button>
+              ))}
+            </div>
+            <div className="chart-return-basis-group">
+              <div
+                className="chart-view-modes chart-return-basis"
+                aria-label={copy.charts.benchmark.returnBasis.label}
               >
-                {copy.charts.benchmark.modes[option]}
-              </button>
-            ))}
+                {RETURN_BASIS_OPTIONS.map((option) => (
+                  <button
+                    aria-pressed={returnBasis === option}
+                    className={returnBasis === option ? "active" : ""}
+                    key={option}
+                    onClick={() => {
+                      setReturnBasis(option);
+                      setSelection(null);
+                    }}
+                    type="button"
+                  >
+                    {copy.charts.benchmark.returnBasis.options[option]}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
           <div className="chart-timeframes" aria-label={copy.charts.benchmark.timeframe}>
             {TIMEFRAME_OPTIONS.map((option) => (
@@ -650,9 +693,9 @@ export function BenchmarkChart({
               {formatPerformanceMoney(performanceSummary.netInvested, performanceSummary.currency, locale)}
             </strong>
           </div>
-          <div title={copy.charts.benchmark.absoluteSummary.hints.timeWeighted}>
+          <div title={returnBasisCopy.hint}>
             <span>{copy.charts.benchmark.absoluteSummary.timeWeighted}</span>
-            <strong>{copy.charts.benchmark.absoluteSummary.timeWeightedValue}</strong>
+            <strong>{returnBasisCopy.summaryValue}</strong>
           </div>
           {absoluteSummaryMessage == null ? null : (
             <div title={copy.charts.benchmark.absoluteSummary.hints.note}>
@@ -830,6 +873,7 @@ export function BenchmarkChart({
               benchmarkSymbol,
               copy: copy.charts.benchmark,
               portfolioCurrency,
+              returnBasis,
               status
             })}
           </p>

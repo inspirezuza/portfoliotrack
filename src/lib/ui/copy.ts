@@ -127,9 +127,28 @@ const uiCopy = {
         latestGap: "Gap ล่าสุด",
         gap: "Gap",
         modes: {
-          INDEXED: "TWR",
+          INDEXED: "Return",
           GAP: "Gap",
           DRAWDOWN: "Drawdown"
+        },
+        returnBasis: {
+          label: "Chart return basis",
+          options: {
+            TWR: "TWR",
+            ABSOLUTE: "Absolute"
+          },
+          TWR: {
+            summaryValue: "TWR",
+            portfolioName: "Portfolio TWR",
+            yAxisLabel: "TWR",
+            hint: "The chart uses cash-flow-adjusted time-weighted return, indexed from 100."
+          },
+          ABSOLUTE: {
+            summaryValue: "Absolute",
+            portfolioName: "Portfolio absolute return",
+            yAxisLabel: "Absolute",
+            hint: "The chart uses market value divided by cumulative net invested capital, indexed from 100."
+          }
         },
         modeCopy: {
           INDEXED: {
@@ -185,6 +204,7 @@ const uiCopy = {
           currencyMismatch: (symbol: string, currency: string) => `${symbol} ไม่ได้ quote เป็น ${currency}`,
           missingBenchmarkFallback: "ตั้งค่า benchmark เพื่อเปิดการเปรียบเทียบ",
           missingBenchmarkHistory: (symbol: string) => `ไม่มีประวัติราคาแคชสำหรับ ${symbol}`,
+          missingAbsoluteReturn: "กราฟ absolute return ต้องมี net invested เป็นบวกและประวัติ benchmark ที่เปรียบเทียบได้",
           default: "กราฟ benchmark ยังไม่พร้อมใช้งาน"
         }
       },
@@ -296,6 +316,8 @@ const uiCopy = {
         exportingLedger: "กำลังส่งออก ledger...",
         file: "ไฟล์ Excel",
         selectedFile: "ไฟล์ที่เลือก",
+        chooseFile: "เลือกไฟล์",
+        noFileSelected: "ยังไม่ได้เลือกไฟล์",
         preview: "พรีวิว",
         previewing: "กำลังพรีวิว...",
         importReady: "นำเข้าแถวที่พร้อม",
@@ -515,9 +537,28 @@ const uiCopy = {
         latestGap: "Latest gap",
         gap: "Gap",
         modes: {
-          INDEXED: "TWR",
+          INDEXED: "Return",
           GAP: "Gap",
           DRAWDOWN: "Drawdown"
+        },
+        returnBasis: {
+          label: "Chart return basis",
+          options: {
+            TWR: "TWR",
+            ABSOLUTE: "Absolute"
+          },
+          TWR: {
+            summaryValue: "TWR",
+            portfolioName: "Portfolio TWR",
+            yAxisLabel: "TWR",
+            hint: "The chart uses cash-flow-adjusted time-weighted return, indexed from 100."
+          },
+          ABSOLUTE: {
+            summaryValue: "Absolute",
+            portfolioName: "Portfolio absolute return",
+            yAxisLabel: "Absolute",
+            hint: "The chart uses market value divided by cumulative net invested capital, indexed from 100."
+          }
         },
         modeCopy: {
           INDEXED: {
@@ -573,6 +614,7 @@ const uiCopy = {
           currencyMismatch: (symbol: string, currency: string) => `${symbol} is not quoted in ${currency}.`,
           missingBenchmarkFallback: "Set a benchmark to enable comparison.",
           missingBenchmarkHistory: (symbol: string) => `No cached history for ${symbol}.`,
+          missingAbsoluteReturn: "Absolute return chart needs positive net invested capital and comparable benchmark history.",
           default: "Benchmark chart is not available yet."
         }
       },
@@ -684,6 +726,8 @@ const uiCopy = {
         exportingLedger: "Exporting ledger...",
         file: "Excel file",
         selectedFile: "Selected file",
+        chooseFile: "Choose file",
+        noFileSelected: "No file selected",
         preview: "Preview",
         previewing: "Previewing...",
         importReady: "Import ready rows",
