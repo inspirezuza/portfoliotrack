@@ -69,6 +69,7 @@ function formatChartDate(value: string, locale: string) {
   return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
+    year: "numeric",
     ...(hasTime ? { hour: "2-digit", minute: "2-digit" } : {}),
     timeZone: "UTC"
   }).format(parseChartDate(value));
@@ -78,6 +79,7 @@ function formatAxisDate(value: string, locale: string) {
   return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
+    year: "numeric",
     timeZone: "UTC"
   }).format(parseChartDate(value));
 }

@@ -181,6 +181,33 @@ function formatUnrealizedPnlDetail(summary: DashboardSummary, locale: string, co
   )} ${copy.vsCostBasis}`;
 }
 
+function formatNetInvestedDetail({
+  fallback,
+  label,
+  locale,
+  netInvested,
+  signed = false,
+  value
+}: {
+  fallback: string;
+  label: string;
+  locale: string;
+  netInvested: number | null;
+  signed?: boolean;
+  value: number | null;
+}) {
+  if (value == null || netInvested == null || netInvested <= 0) {
+    return fallback;
+  }
+
+  const ratio = value / netInvested;
+  const formattedRatio = signed
+    ? formatSignedPercentRatio(ratio, locale)
+    : formatPercentRatio(ratio, { locale });
+
+  return `${formattedRatio} / ${label}`;
+}
+
 function getValueTone(value: number | null) {
   if (value == null || value === 0) {
     return "neutral";
@@ -303,13 +330,26 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     {
       label: copy.dashboard.realizedPnl,
       value: formatRealizedMoney(summary, locale, copy.shared),
-      detail: copy.dashboard.closedTrades,
+      detail: formatNetInvestedDetail({
+        fallback: copy.dashboard.closedTrades,
+        label: copy.charts.benchmark.absoluteSummary.netInvested,
+        locale,
+        netInvested: performanceSummary.netInvested,
+        signed: true,
+        value: summary.totalRealizedPnl
+      }),
       tone: getValueTone(summary.totalRealizedPnl)
     },
     {
       label: copy.dashboard.fees,
       value: formatDashboardMoney(holdingsSnapshot.totalFees, marketCurrency, locale),
-      detail: copy.dashboard.allTransactions
+      detail: formatNetInvestedDetail({
+        fallback: copy.dashboard.allTransactions,
+        label: copy.charts.benchmark.absoluteSummary.netInvested,
+        locale,
+        netInvested: performanceSummary.netInvested,
+        value: holdingsSnapshot.totalFees
+      })
     }
   ];
 

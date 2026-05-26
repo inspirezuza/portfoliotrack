@@ -74,7 +74,8 @@ function formatChartDate(value: string) {
   return new Intl.DateTimeFormat("en-GB", {
     month: "short",
     day: "numeric",
-    ...(hasTime ? { hour: "2-digit", minute: "2-digit" } : { year: "numeric" }),
+    year: "numeric",
+    ...(hasTime ? { hour: "2-digit", minute: "2-digit" } : {}),
     timeZone: "UTC"
   }).format(parseChartDate(value));
 }
@@ -83,6 +84,7 @@ function formatAxisDate(value: string) {
   return new Intl.DateTimeFormat("en-GB", {
     month: "short",
     day: "numeric",
+    year: "numeric",
     timeZone: "UTC"
   }).format(parseChartDate(value));
 }
@@ -93,6 +95,7 @@ function formatCompactChartDate(value: string) {
   return new Intl.DateTimeFormat("en-GB", {
     month: "short",
     day: "numeric",
+    year: "numeric",
     ...(hasTime ? { hour: "2-digit", minute: "2-digit" } : {}),
     timeZone: "UTC"
   }).format(parseChartDate(value));
