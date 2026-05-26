@@ -42,29 +42,61 @@ type RefreshResponse = {
   };
 };
 
-function formatHoldingPrice(
-  value: number | null,
-  currency: string,
-  locale: string,
-  emptyLabel: string
-) {
-  if (value == null) {
-    return <span className="data-pending">{emptyLabel}</span>;
-  }
-
-  return formatCurrency(value, {
-    currency,
-    locale,
-    maximumFractionDigits: 4
-  });
+function isNativeCurrencyVisible(holding: HoldingRow) {
+  return holding.currency !== holding.valuationCurrency;
 }
 
-function formatHoldingMoney(value: number | null, currency: string, locale: string, emptyLabel: string) {
-  if (value == null) {
+function getValuationAverageCost(holding: HoldingRow) {
+  return holding.fxRateToValuationCurrency == null
+    ? null
+    : holding.averageCost * holding.fxRateToValuationCurrency;
+}
+
+function getValuationLastPrice(holding: HoldingRow) {
+  return holding.lastPrice == null || holding.fxRateToValuationCurrency == null
+    ? null
+    : holding.lastPrice * holding.fxRateToValuationCurrency;
+}
+
+function formatHoldingValuationMoney({
+  emptyLabel,
+  holding,
+  locale,
+  nativeValue,
+  primaryValue,
+  maximumFractionDigits = 2
+}: {
+  emptyLabel: string;
+  holding: HoldingRow;
+  locale: string;
+  nativeValue: number | null;
+  primaryValue: number | null;
+  maximumFractionDigits?: number;
+}) {
+  if (primaryValue == null) {
     return <span className="data-pending">{emptyLabel}</span>;
   }
 
-  return formatCurrency(value, { currency, locale });
+  return (
+    <>
+      <span>
+        {formatCurrency(primaryValue, {
+          currency: holding.valuationCurrency,
+          locale,
+          maximumFractionDigits
+        })}
+      </span>
+      {!isNativeCurrencyVisible(holding) || nativeValue == null ? null : (
+        <span className="table-subtext">
+          {formatCurrency(nativeValue, {
+            currency: holding.currency,
+            locale,
+            maximumFractionDigits
+          })}
+        </span>
+      )}
+    </>
+  );
 }
 
 function formatHoldingPercent(value: number | null, locale: string, emptyLabel: string) {
@@ -143,35 +175,80 @@ function getHoldingSortValue(holding: HoldingRow, key: HoldingSortKey) {
     return `${holding.symbol} ${holding.displayName} ${holding.market}`;
   }
 
+  if (key === "averageCost") {
+    return isNativeCurrencyVisible(holding) ? getValuationAverageCost(holding) : holding.averageCost;
+  }
+
+  if (key === "totalCost") {
+    return isNativeCurrencyVisible(holding) ? holding.totalCostInValuationCurrency : holding.totalCost;
+  }
+
+  if (key === "lastPrice") {
+    return isNativeCurrencyVisible(holding) ? getValuationLastPrice(holding) : holding.lastPrice;
+  }
+
+  if (key === "marketValue") {
+    return isNativeCurrencyVisible(holding) ? holding.marketValueInValuationCurrency : holding.marketValue;
+  }
+
+  if (key === "unrealizedPnl") {
+    return isNativeCurrencyVisible(holding) ? holding.unrealizedPnlInValuationCurrency : holding.unrealizedPnl;
+  }
+
   return holding[key];
 }
 
 function compareHoldings(left: HoldingRow, right: HoldingRow, sort: SortState) {
   const leftValue = getHoldingSortValue(left, sort.key);
   const rightValue = getHoldingSortValue(right, sort.key);
-  const comparison =
-    typeof leftValue === "string" && typeof rightValue === "string"
-      ? leftValue.localeCompare(rightValue)
-      : compareNullableNumber(leftValue as number | null, rightValue as number | null);
+  const comparison = (() => {
+    if (typeof leftValue === "string" && typeof rightValue === "string") {
+      return leftValue.localeCompare(rightValue);
+    }
+
+    if (leftValue == null && rightValue == null) {
+      return 0;
+    }
+
+    if (leftValue == null) {
+      return 1;
+    }
+
+    if (rightValue == null) {
+      return -1;
+    }
+
+    const numericComparison = compareNullableNumber(leftValue as number, rightValue as number);
+
+    return sort.direction === "asc" ? numericComparison : -numericComparison;
+  })();
 
   if (comparison !== 0) {
-    return sort.direction === "asc" ? comparison : -comparison;
+    return typeof leftValue === "string" && typeof rightValue === "string" && sort.direction === "desc"
+      ? -comparison
+      : comparison;
   }
 
   return left.symbol.localeCompare(right.symbol);
 }
 
 function matchesHoldingFilter(holding: HoldingRow, filter: HoldingFilter) {
+  const unrealizedPnl = isNativeCurrencyVisible(holding)
+    ? holding.unrealizedPnlInValuationCurrency
+    : holding.unrealizedPnl;
+
   if (filter === "gain") {
-    return holding.unrealizedPnl != null && holding.unrealizedPnl > 0;
+    return unrealizedPnl != null && unrealizedPnl > 0;
   }
 
   if (filter === "loss") {
-    return holding.unrealizedPnl != null && holding.unrealizedPnl < 0;
+    return unrealizedPnl != null && unrealizedPnl < 0;
   }
 
   if (filter === "missing") {
-    return holding.marketValue == null;
+    return isNativeCurrencyVisible(holding)
+      ? holding.marketValueInValuationCurrency == null
+      : holding.marketValue == null;
   }
 
   return true;
@@ -275,43 +352,24 @@ export function HoldingsTable({
       )
       .sort((left, right) => compareHoldings(left, right, sort));
   }, [filter, holdings, searchQuery, sort]);
-
-  const visibleCurrency = useMemo(() => {
-    const currencies = new Set(visibleHoldings.map((holding) => holding.currency));
-
-    return currencies.size === 1 ? visibleHoldings[0]?.currency ?? null : null;
-  }, [visibleHoldings]);
-  const visibleSummaryCurrency =
-    visibleCurrency ?? visibleHoldings[0]?.valuationCurrency ?? null;
+  const visibleSummaryCurrency = visibleHoldings[0]?.valuationCurrency ?? null;
 
   const visibleSummary = useMemo(
     () =>
       visibleHoldings.reduce(
         (summary, holding) => ({
           totalCost:
-            summary.totalCost == null ||
-            (visibleCurrency == null && holding.totalCostInValuationCurrency == null)
+            summary.totalCost == null || holding.totalCostInValuationCurrency == null
               ? null
-              : summary.totalCost +
-                (visibleCurrency == null ? holding.totalCostInValuationCurrency ?? 0 : holding.totalCost),
+              : summary.totalCost + holding.totalCostInValuationCurrency,
           marketValue:
-            summary.marketValue == null ||
-            (visibleCurrency == null
-              ? holding.marketValueInValuationCurrency == null
-              : holding.marketValue == null)
+            summary.marketValue == null || holding.marketValueInValuationCurrency == null
               ? null
-              : summary.marketValue +
-                (visibleCurrency == null ? holding.marketValueInValuationCurrency ?? 0 : holding.marketValue ?? 0),
+              : summary.marketValue + holding.marketValueInValuationCurrency,
           unrealizedPnl:
-            summary.unrealizedPnl == null ||
-            (visibleCurrency == null
-              ? holding.unrealizedPnlInValuationCurrency == null
-              : holding.unrealizedPnl == null)
+            summary.unrealizedPnl == null || holding.unrealizedPnlInValuationCurrency == null
               ? null
-              : summary.unrealizedPnl +
-                (visibleCurrency == null
-                  ? holding.unrealizedPnlInValuationCurrency ?? 0
-                  : holding.unrealizedPnl ?? 0),
+              : summary.unrealizedPnl + holding.unrealizedPnlInValuationCurrency,
           portfolioWeight:
             summary.portfolioWeight == null || holding.portfolioWeight == null
               ? null
@@ -324,7 +382,7 @@ export function HoldingsTable({
           portfolioWeight: 0 as number | null
         }
       ),
-    [visibleCurrency, visibleHoldings]
+    [visibleHoldings]
   );
 
   function handleSort(sortKey: HoldingSortKey) {
@@ -534,13 +592,16 @@ export function HoldingsTable({
                       <td className="table-number">{formatQuantity(holding.quantity, { locale })}</td>
                       <td className="table-number">
                         <div className="holdings-value-stack">
-                          <span>
-                            {formatCurrency(holding.averageCost, {
-                              currency: holding.currency,
-                              locale,
-                              maximumFractionDigits: 4
-                            })}
-                          </span>
+                          {formatHoldingValuationMoney({
+                            emptyLabel: copy.shared.waiting,
+                            holding,
+                            locale,
+                            maximumFractionDigits: 4,
+                            nativeValue: holding.averageCost,
+                            primaryValue: isNativeCurrencyVisible(holding)
+                              ? getValuationAverageCost(holding)
+                              : holding.averageCost
+                          })}
                           {formatParentMoney(
                             holding.parentAverageCost,
                             holding.underlyingCurrency,
@@ -558,18 +619,28 @@ export function HoldingsTable({
                         </div>
                       </td>
                       <td className="table-number">
-                        {formatCurrency(holding.totalCost, { currency: holding.currency, locale })}
+                        <div className="holdings-value-stack">
+                          {formatHoldingValuationMoney({
+                            emptyLabel: copy.shared.waiting,
+                            holding,
+                            locale,
+                            nativeValue: holding.totalCost,
+                            primaryValue: holding.totalCostInValuationCurrency
+                          })}
+                        </div>
                       </td>
                       <td className="table-number">
                         <div className="holdings-value-stack">
-                          <span>
-                            {formatHoldingPrice(
-                              holding.lastPrice,
-                              holding.currency,
-                              locale,
-                              copy.holdings.table.noPriceYet
-                            )}
-                          </span>
+                          {formatHoldingValuationMoney({
+                            emptyLabel: copy.holdings.table.noPriceYet,
+                            holding,
+                            locale,
+                            maximumFractionDigits: 4,
+                            nativeValue: holding.lastPrice,
+                            primaryValue: isNativeCurrencyVisible(holding)
+                              ? getValuationLastPrice(holding)
+                              : holding.lastPrice
+                          })}
                           {holding.lastPriceAsOf ? (
                             <span className="table-subtext">
                               {copy.holdings.table.asOf(
@@ -594,25 +665,27 @@ export function HoldingsTable({
                         </div>
                       </td>
                       <td className="table-number">
-                        {formatHoldingMoney(
-                          holding.marketValue,
-                          holding.currency,
-                          locale,
-                          copy.shared.waiting
-                        )}
+                        <div className="holdings-value-stack">
+                          {formatHoldingValuationMoney({
+                            emptyLabel: copy.shared.waiting,
+                            holding,
+                            locale,
+                            nativeValue: holding.marketValue,
+                            primaryValue: holding.marketValueInValuationCurrency
+                          })}
+                        </div>
                       </td>
                       <td className="table-number">
                         <div className="holdings-value-stack">
-                          <span
-                            className={getPnlToneClass(holding.unrealizedPnl)}
-                          >
-                            {formatHoldingMoney(
-                              holding.unrealizedPnl,
-                              holding.currency,
+                          <div className={getPnlToneClass(holding.unrealizedPnlInValuationCurrency)}>
+                            {formatHoldingValuationMoney({
+                              emptyLabel: copy.shared.waiting,
+                              holding,
                               locale,
-                              copy.shared.waiting
-                            )}
-                          </span>
+                              nativeValue: holding.unrealizedPnl,
+                              primaryValue: holding.unrealizedPnlInValuationCurrency
+                            })}
+                          </div>
                           <span className={`holdings-pnl-percent ${getPnlToneClass(holding.unrealizedPnlPercent) ?? ""}`.trim()}>
                             {formatSignedHoldingPercent(
                               holding.unrealizedPnlPercent,
