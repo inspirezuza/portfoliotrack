@@ -135,6 +135,9 @@ const retiredSeededTransactionNotes = ["Local seed: mixed SPY buy"];
 
 const samplePriceHistory: Record<string, Array<{ priceDate: string; close: number; currency: string }>> = {
   AAPL80: [
+    { priceDate: "2025-01-06", close: 18.4, currency: "THB" },
+    { priceDate: "2025-06-16", close: 22.6, currency: "THB" },
+    { priceDate: "2025-12-15", close: 25.8, currency: "THB" },
     { priceDate: "2026-05-01", close: 27.4, currency: "THB" },
     { priceDate: "2026-05-06", close: 28.2, currency: "THB" },
     { priceDate: "2026-05-10", close: 31.4, currency: "THB" },
@@ -142,6 +145,9 @@ const samplePriceHistory: Record<string, Array<{ priceDate: string; close: numbe
     { priceDate: "2026-05-20", close: 34.9, currency: "THB" }
   ],
   AAPL: [
+    { priceDate: "2025-01-06", close: 181.2, currency: "USD" },
+    { priceDate: "2025-06-16", close: 196.8, currency: "USD" },
+    { priceDate: "2025-12-15", close: 204.1, currency: "USD" },
     { priceDate: "2026-05-01", close: 201.2, currency: "USD" },
     { priceDate: "2026-05-06", close: 204.8, currency: "USD" },
     { priceDate: "2026-05-10", close: 207.4, currency: "USD" },
@@ -149,6 +155,9 @@ const samplePriceHistory: Record<string, Array<{ priceDate: string; close: numbe
     { priceDate: "2026-05-20", close: 214.6, currency: "USD" }
   ],
   CPALL: [
+    { priceDate: "2025-02-10", close: 52.5, currency: "THB" },
+    { priceDate: "2025-08-18", close: 55.75, currency: "THB" },
+    { priceDate: "2026-02-12", close: 54.25, currency: "THB" },
     { priceDate: "2026-05-01", close: 58.5, currency: "THB" },
     { priceDate: "2026-05-06", close: 57.25, currency: "THB" },
     { priceDate: "2026-05-10", close: 59.75, currency: "THB" },
@@ -156,6 +165,9 @@ const samplePriceHistory: Record<string, Array<{ priceDate: string; close: numbe
     { priceDate: "2026-05-20", close: 61.5, currency: "THB" }
   ],
   BDMS: [
+    { priceDate: "2025-03-17", close: 24.75, currency: "THB" },
+    { priceDate: "2025-09-22", close: 26.1, currency: "THB" },
+    { priceDate: "2026-01-19", close: 26.9, currency: "THB" },
     { priceDate: "2026-05-01", close: 27.5, currency: "THB" },
     { priceDate: "2026-05-06", close: 28.1, currency: "THB" },
     { priceDate: "2026-05-10", close: 27.9, currency: "THB" },
@@ -163,6 +175,9 @@ const samplePriceHistory: Record<string, Array<{ priceDate: string; close: numbe
     { priceDate: "2026-05-20", close: 29.25, currency: "THB" }
   ],
   SPYM: [
+    { priceDate: "2025-01-06", close: 70.15, currency: "USD" },
+    { priceDate: "2025-06-16", close: 76.4, currency: "USD" },
+    { priceDate: "2025-12-15", close: 82.9, currency: "USD" },
     { priceDate: "2026-05-01", close: 84.35, currency: "USD" },
     { priceDate: "2026-05-06", close: 85.1, currency: "USD" },
     { priceDate: "2026-05-10", close: 85.72, currency: "USD" },
@@ -170,6 +185,9 @@ const samplePriceHistory: Record<string, Array<{ priceDate: string; close: numbe
     { priceDate: "2026-05-20", close: 86.96, currency: "USD" }
   ],
   USDTHB: [
+    { priceDate: "2025-01-06", close: 34.55, currency: "THB" },
+    { priceDate: "2025-06-16", close: 35.1, currency: "THB" },
+    { priceDate: "2025-12-15", close: 35.85, currency: "THB" },
     { priceDate: "2026-05-01", close: 36.6, currency: "THB" },
     { priceDate: "2026-05-06", close: 36.4, currency: "THB" },
     { priceDate: "2026-05-10", close: 36.25, currency: "THB" },
@@ -226,55 +244,55 @@ function buildMainPortfolioTransactions({
     {
       portfolioId,
       instrumentId: aapl80Id,
-      tradeDate: "2026-05-01",
+      tradeDate: "2025-01-06",
       side: "BUY",
       broker: "DIME",
       quantity: 100,
-      price: 27,
+      price: 18.4,
       fee: 5,
       notes: "Local seed: AAPL80 initial buy"
     },
     {
       portfolioId,
       instrumentId: cpallId,
-      tradeDate: "2026-05-03",
+      tradeDate: "2025-02-10",
       side: "BUY",
       broker: "DIME",
       quantity: 200,
-      price: 58,
+      price: 52.5,
       fee: 10,
       notes: "Local seed: CPALL initial buy"
     },
     {
       portfolioId,
       instrumentId: bdmsId,
-      tradeDate: "2026-05-05",
+      tradeDate: "2025-03-17",
       side: "BUY",
       broker: "DIME",
       quantity: 300,
-      price: 27.5,
+      price: 24.75,
       fee: 8,
       notes: "Local seed: BDMS initial buy"
     },
     {
       portfolioId,
       instrumentId: aapl80Id,
-      tradeDate: "2026-05-08",
+      tradeDate: "2025-08-18",
       side: "BUY",
       broker: "WEBULL",
       quantity: 50,
-      price: 29,
+      price: 22.6,
       fee: 3,
       notes: "Local seed: AAPL80 add"
     },
     {
       portfolioId,
       instrumentId: cpallId,
-      tradeDate: "2026-05-14",
+      tradeDate: "2026-02-12",
       side: "BUY",
       broker: "DIME",
       quantity: 100,
-      price: 55,
+      price: 54.25,
       fee: 8,
       notes: "Local seed: CPALL add"
     },
@@ -305,22 +323,22 @@ function buildMixedCurrencyTransactions({
     {
       portfolioId,
       instrumentId: aaplId,
-      tradeDate: "2026-05-02",
+      tradeDate: "2025-01-06",
       side: "BUY",
       broker: "WEBULL",
       quantity: 10,
-      price: 203,
+      price: 181.2,
       fee: 1.5,
       notes: "Local seed: mixed AAPL buy"
     },
     {
       portfolioId,
       instrumentId: aapl80Id,
-      tradeDate: "2026-05-04",
+      tradeDate: "2025-06-16",
       side: "BUY",
       broker: "DIME",
       quantity: 80,
-      price: 28,
+      price: 22.6,
       fee: 5,
       notes: "Local seed: mixed AAPL80 buy"
     }
@@ -338,22 +356,22 @@ function buildClosedTradesTransactions({
     {
       portfolioId,
       instrumentId: bdmsId,
-      tradeDate: "2026-05-02",
+      tradeDate: "2025-03-17",
       side: "BUY",
       broker: "DIME",
       quantity: 150,
-      price: 27,
+      price: 24.75,
       fee: 6,
       notes: "Local seed: closed BDMS buy"
     },
     {
       portfolioId,
       instrumentId: bdmsId,
-      tradeDate: "2026-05-18",
+      tradeDate: "2025-11-21",
       side: "SELL",
       broker: "DIME",
       quantity: 150,
-      price: 29,
+      price: 26.8,
       fee: 6,
       notes: "Local seed: closed BDMS sell"
     }

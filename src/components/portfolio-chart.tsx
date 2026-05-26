@@ -26,7 +26,7 @@ type PortfolioChartProps = {
   status: PortfolioBenchmarkTimelineStatus;
 };
 
-type TimeframeKey = "1D" | "5D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "START" | "ALL";
+type TimeframeKey = "1D" | "5D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "ALL";
 
 type ChartPoint = PortfolioTimelinePoint & {
   changeFromRangeStart: number | null;
@@ -53,7 +53,7 @@ type PortfolioChartTooltipProps = {
   language: UiLanguage;
 };
 
-const TIMEFRAME_OPTIONS: TimeframeKey[] = ["1D", "5D", "1W", "1M", "3M", "YTD", "1Y", "START", "ALL"];
+const TIMEFRAME_OPTIONS: TimeframeKey[] = ["1D", "5D", "1W", "1M", "3M", "YTD", "1Y", "ALL"];
 
 function parseChartDate(value: string) {
   return new Date(value.includes("T") ? value : `${value}T00:00:00.000Z`);
@@ -130,24 +130,18 @@ function getUtcDateTime(value: string) {
   return parseChartDate(value).getTime();
 }
 
-function getTimeframeStartDate(key: TimeframeKey, latestDate: string, sinceStartDate: string | null) {
+function getTimeframeStartDate(key: TimeframeKey, latestDate: string) {
   const latest = parseChartDate(latestDate);
 
   if (key === "ALL") {
     return null;
   }
 
-  if (key === "START") {
-    return sinceStartDate == null || sinceStartDate.includes("T")
-      ? sinceStartDate
-      : `${sinceStartDate}T00:00:00.000Z`;
-  }
-
   if (key === "YTD") {
     return `${latest.getUTCFullYear()}-01-01T00:00:00.000Z`;
   }
 
-  const daysByKey: Record<Exclude<TimeframeKey, "ALL" | "YTD" | "START">, number> = {
+  const daysByKey: Record<Exclude<TimeframeKey, "ALL" | "YTD">, number> = {
     "1D": 1,
     "5D": 5,
     "1W": 7,
@@ -178,13 +172,12 @@ function getPreferredIntradayInterval(timeframe: TimeframeKey) {
 
 function getVisibleSeries(series: PortfolioTimelinePoint[], timeframe: TimeframeKey) {
   const latestPoint = series[series.length - 1];
-  const sinceStartDate = series[0]?.date ?? null;
 
   if (latestPoint == null) {
     return [];
   }
 
-  const startDate = getTimeframeStartDate(timeframe, latestPoint.date, sinceStartDate);
+  const startDate = getTimeframeStartDate(timeframe, latestPoint.date);
   const startTime = startDate == null ? null : getUtcDateTime(startDate);
   const filteredSeries =
     startTime == null ? series : series.filter((point) => getUtcDateTime(point.date) >= startTime);
