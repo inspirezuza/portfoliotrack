@@ -280,9 +280,9 @@ function shouldUseLocalDemoMarketData(monthCount: number) {
 }
 
 function buildPortfolioMonthlyReturns(timeline: PortfolioBenchmarkTimeline) {
-  const series = timeline.moneyWeightedComparison.length > 0
-    ? timeline.moneyWeightedComparison
-    : timeline.comparison;
+  const series = timeline.comparison.length > 0
+    ? timeline.comparison
+    : timeline.moneyWeightedComparison;
   const pointsByMonth = new Map<string, Array<{ portfolio: number }>>();
 
   for (const point of series) {
@@ -316,7 +316,7 @@ function buildLocalDemoMonthlyReturns({
 
   return LOCAL_DEMO_MONTHS.map((month, index) => {
     const benchmarkReturn = benchmarkReturns[index] ?? null;
-    const portfolioReturn = portfolioMonthlyReturns.get(month) ?? LOCAL_DEMO_PORTFOLIO_RETURNS[index] ?? null;
+    const portfolioReturn = LOCAL_DEMO_PORTFOLIO_RETURNS[index] ?? portfolioMonthlyReturns.get(month) ?? null;
 
     return {
       symbol,
@@ -324,7 +324,7 @@ function buildLocalDemoMonthlyReturns({
       returnPercent: benchmarkReturn,
       portfolioReturnPercent: portfolioReturn,
       excessReturnPercent:
-        benchmarkReturn == null || portfolioReturn == null ? null : benchmarkReturn - portfolioReturn
+        benchmarkReturn == null || portfolioReturn == null ? null : portfolioReturn - benchmarkReturn
     };
   });
 }
@@ -420,7 +420,7 @@ function buildBenchmarkWatchlist({
         returnPercent: benchmarkReturn,
         portfolioReturnPercent: portfolioReturn,
         excessReturnPercent:
-          benchmarkReturn == null || portfolioReturn == null ? null : benchmarkReturn - portfolioReturn
+          benchmarkReturn == null || portfolioReturn == null ? null : portfolioReturn - benchmarkReturn
       };
     });
   }).sort((left, right) =>

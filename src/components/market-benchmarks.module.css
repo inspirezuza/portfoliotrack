@@ -4,6 +4,14 @@
   min-width: 0;
 }
 
+.sectionSubtitle {
+  display: inline-flex;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 .cardStrip {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -13,8 +21,9 @@
 
 .miniCard {
   display: grid;
-  gap: 8px;
-  min-height: 118px;
+  align-content: start;
+  gap: 10px;
+  min-height: 166px;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   padding: 14px 16px;
@@ -49,20 +58,55 @@
 }
 
 .miniCard span {
+  min-width: 0;
+}
+
+.miniCard strong {
+  overflow-wrap: anywhere;
+  font-size: 1.54rem;
+  line-height: 1.08;
+}
+
+.miniCard em,
+.miniCard small {
+  font-size: 0.88rem;
+  font-style: normal;
+}
+
+.miniCard small {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.cardSymbol {
   color: var(--muted);
   font-size: 0.82rem;
   font-weight: 800;
 }
 
-.miniCard strong {
-  overflow-wrap: anywhere;
-  font-size: 1.42rem;
-  line-height: 1.08;
+.cardRows {
+  display: grid;
+  gap: 5px;
 }
 
-.miniCard em {
-  font-size: 0.88rem;
-  font-style: normal;
+.cardRows span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cardRows b {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardRows em {
+  flex-shrink: 0;
   font-weight: 800;
 }
 
@@ -119,7 +163,7 @@
   }
 
   .miniCard {
-    min-width: 180px;
+    min-width: 210px;
     scroll-snap-align: start;
   }
 
@@ -146,13 +190,13 @@
   }
 
   .miniCard {
-    min-width: 168px;
-    min-height: 108px;
+    min-width: 194px;
+    min-height: 154px;
     padding: 12px;
   }
 
   .miniCard strong {
-    font-size: 1.24rem;
+    font-size: 1.32rem;
   }
 
   .historicalCard {

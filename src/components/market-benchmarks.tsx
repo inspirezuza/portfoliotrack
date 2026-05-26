@@ -26,7 +26,7 @@ type MarketBenchmarksProps = {
   quotes: DashboardBenchmarkQuote[];
 };
 
-type HistoricalMode = "RETURN" | "EXCESS";
+type HistoricalMode = "GAP" | "RETURN";
 
 type ChartPoint = {
   month: string;
@@ -36,12 +36,29 @@ type ChartPoint = {
   portfolioReturn: number | null;
 };
 
+type BenchmarkComparison = {
+  benchmarkReturn: number | null;
+  displayName: string;
+  gap: number | null;
+  periodLabel: string | null;
+  portfolioReturn: number | null;
+  quote: DashboardBenchmarkQuote;
+};
+
 function formatSignedPercent(value: number | null) {
   if (value == null) {
     return "-";
   }
 
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+function formatSignedPercentagePoint(value: number | null) {
+  if (value == null) {
+    return "-";
+  }
+
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)} pp`;
 }
 
 function formatMonthLabel(month: string, locale: string) {
@@ -56,6 +73,35 @@ function formatMonthLabel(month: string, locale: string) {
     timeZone: "UTC",
     year: "2-digit"
   }).format(date);
+}
+
+function getBenchmarkLabel(symbol: string) {
+  return symbol === "SPYM" ? "S&P 500" : symbol;
+}
+
+function buildBenchmarkComparisons({
+  locale,
+  monthlyReturns,
+  quotes
+}: {
+  locale: string;
+  monthlyReturns: DashboardBenchmarkMonthlyReturn[];
+  quotes: DashboardBenchmarkQuote[];
+}): BenchmarkComparison[] {
+  return quotes.map((quote) => {
+    const latestReturn = monthlyReturns
+      .filter((entry) => entry.symbol === quote.symbol)
+      .sort((left, right) => right.month.localeCompare(left.month))[0] ?? null;
+
+    return {
+      benchmarkReturn: latestReturn?.returnPercent ?? null,
+      displayName: getBenchmarkLabel(quote.symbol),
+      gap: latestReturn?.excessReturnPercent ?? null,
+      periodLabel: latestReturn == null ? null : formatMonthLabel(latestReturn.month, locale),
+      portfolioReturn: latestReturn?.portfolioReturnPercent ?? null,
+      quote
+    };
+  });
 }
 
 function BenchmarkTooltip({
@@ -80,11 +126,11 @@ function BenchmarkTooltip({
   return (
     <div className="chart-tooltip">
       <span>{label ?? point.label}</span>
-      {mode === "EXCESS" ? (
+      {mode === "GAP" ? (
         <div className="chart-tooltip-row">
-          <span>Excess</span>
+          <span>Gap</span>
           <strong className={point.excessReturn == null || point.excessReturn >= 0 ? "value-positive" : "value-negative"}>
-            {formatSignedPercent(point.excessReturn)}
+            {formatSignedPercentagePoint(point.excessReturn)}
           </strong>
         </div>
       ) : (
@@ -114,9 +160,13 @@ export function MarketBenchmarks({
 }: MarketBenchmarksProps) {
   const locale = getUiLocale(language);
   const [selectedSymbol, setSelectedSymbol] = useState(quotes[0]?.symbol ?? "SPYM");
-  const [mode, setMode] = useState<HistoricalMode>("RETURN");
+  const [mode, setMode] = useState<HistoricalMode>("GAP");
   const selectedQuote = quotes.find((quote) => quote.symbol === selectedSymbol) ?? quotes[0] ?? null;
-  const benchmarkLabel = selectedSymbol === "SPYM" ? "S&P 500" : selectedSymbol;
+  const benchmarkLabel = getBenchmarkLabel(selectedSymbol);
+  const comparisons = useMemo(
+    () => buildBenchmarkComparisons({ locale, monthlyReturns, quotes }),
+    [locale, monthlyReturns, quotes]
+  );
   const chartData = useMemo<ChartPoint[]>(
     () =>
       monthlyReturns
@@ -131,9 +181,9 @@ export function MarketBenchmarks({
         })),
     [locale, monthlyReturns, selectedSymbol]
   );
-  const hasQuoteData = quotes.some((quote) => quote.price != null);
+  const hasQuoteData = comparisons.some((comparison) => comparison.gap != null);
   const hasChartData = chartData.some((point) =>
-    mode === "EXCESS"
+    mode === "GAP"
       ? point.excessReturn != null
       : point.portfolioReturn != null || point.benchmarkReturn != null
   );
@@ -144,36 +194,50 @@ export function MarketBenchmarks({
         <div>
           <p className="eyebrow">Benchmarks</p>
           <h2 id="market-benchmarks-title" className="section-title">
-            Market benchmarks
+            Portfolio vs benchmarks
           </h2>
+          <span className={styles.sectionSubtitle}>Latest monthly return gap, compared by %</span>
         </div>
         <span className="state-pill state-pill-muted">SPYM QQQ TDEX NVDA GOOGL</span>
       </div>
 
       <div className={styles.cardStrip} aria-busy={!hasQuoteData}>
-        {quotes.map((quote) => (
+        {comparisons.map((comparison) => (
           <button
-            aria-pressed={selectedSymbol === quote.symbol}
+            aria-pressed={selectedSymbol === comparison.quote.symbol}
             className={styles.miniCard}
-            key={quote.symbol}
-            onClick={() => setSelectedSymbol(quote.symbol)}
+            key={comparison.quote.symbol}
+            onClick={() => setSelectedSymbol(comparison.quote.symbol)}
             type="button"
           >
-            <span>{quote.symbol}</span>
-            <strong>
-              {quote.price == null
-                ? "-"
-                : formatCurrency(quote.price, {
-                    currency: quote.currency,
-                    locale,
-                    maximumFractionDigits: quote.price >= 100 ? 2 : 4
-                  })}
+            <span className={styles.cardSymbol}>{comparison.quote.symbol}</span>
+            <strong className={comparison.gap == null || comparison.gap >= 0 ? "value-positive" : "value-negative"}>
+              {formatSignedPercentagePoint(comparison.gap)}
             </strong>
-            <em className={quote.dailyChange == null || quote.dailyChange >= 0 ? "value-positive" : "value-negative"}>
-              {quote.dailyChange == null
-                ? "No cache"
-                : `${quote.dailyChange >= 0 ? "+" : ""}${quote.dailyChange.toFixed(2)} (${formatSignedPercent(quote.dailyChangePercent)})`}
-            </em>
+            <span className={styles.cardRows}>
+              <span>
+                <b>Portfolio</b>
+                <em className={comparison.portfolioReturn == null || comparison.portfolioReturn >= 0 ? "value-positive" : "value-negative"}>
+                  {formatSignedPercent(comparison.portfolioReturn)}
+                </em>
+              </span>
+              <span>
+                <b>{comparison.displayName}</b>
+                <em className={comparison.benchmarkReturn == null || comparison.benchmarkReturn >= 0 ? "value-positive" : "value-negative"}>
+                  {formatSignedPercent(comparison.benchmarkReturn)}
+                </em>
+              </span>
+            </span>
+            <small>
+              {comparison.periodLabel ?? "No return cache"}
+              {comparison.quote.price == null
+                ? ""
+                : ` · ${formatCurrency(comparison.quote.price, {
+                    currency: comparison.quote.currency,
+                    locale,
+                    maximumFractionDigits: comparison.quote.price >= 100 ? 2 : 4
+                  })}`}
+            </small>
           </button>
         ))}
       </div>
@@ -181,11 +245,23 @@ export function MarketBenchmarks({
       <article className={`surface-card ${styles.historicalCard}`}>
         <div className={styles.historicalHeader}>
           <div>
-            <p className="eyebrow">Historical return</p>
-            <h3>{selectedQuote?.displayName ?? selectedSymbol}</h3>
-            <span className={styles.comparisonLabel}>Portfolio vs {benchmarkLabel}</span>
+            <p className="eyebrow">{mode === "GAP" ? "Monthly gap" : "Monthly return"}</p>
+            <h3>Portfolio vs {selectedQuote?.displayName ?? benchmarkLabel}</h3>
+            <span className={styles.comparisonLabel}>
+              {mode === "GAP"
+                ? "Positive bars mean the portfolio beat the benchmark"
+                : "Portfolio and benchmark monthly returns side by side"}
+            </span>
           </div>
           <div className={`chart-view-modes ${styles.modeToggle}`} aria-label="Historical return mode">
+            <button
+              aria-pressed={mode === "GAP"}
+              className={mode === "GAP" ? "active" : ""}
+              onClick={() => setMode("GAP")}
+              type="button"
+            >
+              Gap
+            </button>
             <button
               aria-pressed={mode === "RETURN"}
               className={mode === "RETURN" ? "active" : ""}
@@ -193,14 +269,6 @@ export function MarketBenchmarks({
               type="button"
             >
               Return
-            </button>
-            <button
-              aria-pressed={mode === "EXCESS"}
-              className={mode === "EXCESS" ? "active" : ""}
-              onClick={() => setMode("EXCESS")}
-              type="button"
-            >
-              Excess
             </button>
           </div>
         </div>
@@ -229,8 +297,8 @@ export function MarketBenchmarks({
                   content={<BenchmarkTooltip benchmarkLabel={benchmarkLabel} mode={mode} />}
                   cursor={{ fill: "rgba(17, 27, 23, 0.06)" }}
                 />
-                {mode === "EXCESS" ? (
-                  <Bar dataKey="excessReturn" name="Excess" radius={[5, 5, 0, 0]} isAnimationActive={false}>
+                {mode === "GAP" ? (
+                  <Bar dataKey="excessReturn" name="Gap" radius={[5, 5, 0, 0]} isAnimationActive={false}>
                     {chartData.map((point) => (
                       <Cell
                         fill={point.excessReturn == null || point.excessReturn >= 0 ? "var(--accent)" : "var(--danger)"}
