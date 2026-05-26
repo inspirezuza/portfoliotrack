@@ -443,7 +443,7 @@ export function PortfolioChart({ currency, language, series, status }: Portfolio
             <ResponsiveContainer width="100%" height={300}>
               <AreaChart
                 data={chartData}
-                margin={{ top: 12, right: 18, left: 14, bottom: 14 }}
+                margin={{ top: 12, right: 10, left: 4, bottom: 8 }}
                 onMouseDown={handleChartMouseDown}
                 onMouseLeave={handleChartMouseUp}
                 onMouseMove={handleChartMouseMove}
@@ -470,8 +470,9 @@ export function PortfolioChart({ currency, language, series, status }: Portfolio
                   tickFormatter={(value: number) => formatAxisValue(value, locale)}
                   tickLine={false}
                   axisLine={false}
-                  width={78}
+                  width={64}
                   domain={yDomain}
+                  tickCount={5}
                   tickMargin={12}
                   stroke="var(--chart-axis)"
                 />

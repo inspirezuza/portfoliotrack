@@ -466,6 +466,16 @@ export function BenchmarkChart({
   });
   const shouldShowAbsoluteSummary = performanceSummary.status !== "no-transactions";
   const visibleSeries = useMemo(() => getVisibleSeries(activeSeries, timeframe), [activeSeries, timeframe]);
+  const basisReturn = useMemo(() => {
+    const firstPoint = visibleSeries[0] ?? null;
+    const latestPoint = visibleSeries[visibleSeries.length - 1] ?? null;
+
+    if (firstPoint == null || latestPoint == null) {
+      return null;
+    }
+
+    return calculatePercentChange(firstPoint.portfolio, latestPoint.portfolio);
+  }, [visibleSeries]);
   const chartData = useMemo<ChartPoint[]>(() => {
     const firstPoint = visibleSeries[0] ?? null;
     let portfolioHighWatermark = firstPoint?.portfolio ?? 100;
@@ -675,10 +685,14 @@ export function BenchmarkChart({
 
       {shouldShowAbsoluteSummary ? (
         <div className="chart-stat-strip" aria-label={copy.charts.benchmark.absoluteSummary.label}>
-          <div title={copy.charts.benchmark.absoluteSummary.hints.absoluteReturn}>
-            <span>{copy.charts.benchmark.absoluteSummary.absoluteReturn}</span>
-            <strong className={getValueClassName(performanceSummary.absoluteReturn)}>
-              {formatAbsoluteReturn(performanceSummary.absoluteReturn, locale)}
+          <div title={returnBasis === "TWR" ? returnBasisCopy.hint : copy.charts.benchmark.absoluteSummary.hints.absoluteReturn}>
+            <span>{returnBasis === "TWR" ? "TWR return" : copy.charts.benchmark.absoluteSummary.absoluteReturn}</span>
+            <strong className={getValueClassName(returnBasis === "TWR" ? basisReturn : performanceSummary.absoluteReturn)}>
+              {returnBasis === "TWR"
+                ? basisReturn == null
+                  ? "-"
+                  : formatSignedPercent(basisReturn)
+                : formatAbsoluteReturn(performanceSummary.absoluteReturn, locale)}
             </strong>
           </div>
           <div title={copy.charts.benchmark.absoluteSummary.hints.totalPnl}>
@@ -767,7 +781,7 @@ export function BenchmarkChart({
             <ResponsiveContainer width="100%" height={300}>
               <LineChart
                 data={chartData}
-                margin={{ top: 12, right: 18, left: 14, bottom: 14 }}
+                margin={{ top: 12, right: 10, left: 4, bottom: 8 }}
                 onMouseDown={handleChartMouseDown}
                 onMouseLeave={handleChartMouseUp}
                 onMouseMove={handleChartMouseMove}
@@ -788,8 +802,9 @@ export function BenchmarkChart({
                   tickFormatter={(value: number) => formatModeValue(value, mode, locale)}
                   tickLine={false}
                   axisLine={false}
-                  width={76}
+                  width={64}
                   domain={yDomain}
+                  tickCount={5}
                   tickMargin={8}
                   stroke="var(--chart-axis)"
                 />

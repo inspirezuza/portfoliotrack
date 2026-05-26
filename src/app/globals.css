@@ -694,14 +694,10 @@ html[data-theme="dark"] .route-card {
 .chart-shell {
   position: relative;
   min-width: 0;
-  padding: 10px 18px 10px 18px;
+  padding: 10px 12px 8px 10px;
   border: 1px solid var(--line);
-  border-radius: 16px;
-  background:
-    linear-gradient(transparent 24%, var(--chart-grid) 25%, transparent 26%),
-    linear-gradient(90deg, transparent 24%, var(--chart-grid) 25%, transparent 26%),
-    linear-gradient(145deg, rgba(8, 116, 93, 0.08), rgba(184, 120, 36, 0.04));
-  background-size: 100% 58px, 76px 100%, auto;
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, rgba(8, 116, 93, 0.052), rgba(184, 120, 36, 0.025));
   cursor: crosshair;
   user-select: none;
 }
@@ -3487,6 +3483,17 @@ html[data-theme="dark"] .subtabs .active {
     justify-content: flex-start;
   }
 
+  .chart-timeframes {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  .chart-timeframes::-webkit-scrollbar {
+    display: none;
+  }
+
   .chart-return-basis-group {
     width: 100%;
     border-left: 0;
@@ -3499,8 +3506,16 @@ html[data-theme="dark"] .subtabs .active {
   }
 
   .chart-timeframes button {
-    flex: 1 1 48px;
+    flex: 0 0 auto;
     min-width: 0;
+  }
+
+  .chart-shell {
+    margin-inline: -4px;
+    border-color: transparent;
+    padding: 6px 0 2px;
+    background: linear-gradient(180deg, rgba(8, 116, 93, 0.045), transparent 74%);
+    cursor: default;
   }
 
   .shell-content {
@@ -3680,13 +3695,26 @@ html[data-theme="dark"] .subtabs .active {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .chart-stat-strip div {
+    min-height: 72px;
+    padding: 9px 10px;
+  }
+
+  .chart-stat-strip strong {
+    font-size: 1.08rem;
+  }
+
   .chart-selection-readout {
     position: static;
     align-items: flex-start;
     flex-direction: column;
     max-width: none;
-    margin: 0 5px 8px;
+    margin: 0 0 8px;
     border-radius: var(--radius-md);
+  }
+
+  .chart-selection-readout-idle {
+    display: none;
   }
 
   .detail-list div {
@@ -3779,13 +3807,14 @@ html[data-theme="dark"] .subtabs .active {
   }
 
   .chart-view-modes button,
-  .chart-timeframes button,
   .table-sort-button {
     flex: 1 1 44px;
-    min-height: 44px;
+    min-height: 40px;
   }
 
-  .chart-stat-strip {
-    grid-template-columns: 1fr;
+  .chart-timeframes button {
+    flex: 0 0 auto;
+    min-height: 40px;
+    padding-inline: 12px;
   }
 }
