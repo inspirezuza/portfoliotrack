@@ -730,6 +730,10 @@ html[data-theme="dark"] .route-card {
   min-width: min(520px, 100%);
 }
 
+.chart-control-stack-mobile {
+  display: none;
+}
+
 .chart-mode-row {
   display: flex;
   align-items: center;
@@ -3470,6 +3474,36 @@ html[data-theme="dark"] .subtabs .active {
     justify-items: stretch;
     min-width: 0;
     gap: 7px;
+  }
+
+  .benchmark-chart-card > .chart-card-header {
+    order: 1;
+  }
+
+  .benchmark-chart-card .chart-card-header .chart-control-stack-desktop {
+    display: none;
+  }
+
+  .benchmark-chart-card > .chart-control-stack-mobile {
+    display: grid;
+    order: 2;
+    margin-top: 0;
+  }
+
+  .benchmark-chart-card > .chart-workspace {
+    order: 3;
+  }
+
+  .benchmark-chart-card > .chart-stat-strip {
+    order: 4;
+  }
+
+  .benchmark-chart-card .chart-workspace .chart-shell {
+    order: 1;
+  }
+
+  .benchmark-chart-card .chart-workspace .chart-stat-strip {
+    order: 2;
   }
 
   .chart-mode-row {

@@ -601,6 +601,68 @@ export function BenchmarkChart({
     isDraggingRef.current = false;
   }
 
+  function renderChartControls(className: string) {
+    return (
+      <div className={className}>
+        <div className="chart-mode-row">
+          <div className="chart-view-modes" aria-label={copy.charts.benchmark.performanceMode}>
+            {PERFORMANCE_MODE_OPTIONS.map((option) => (
+              <button
+                aria-pressed={mode === option}
+                className={mode === option ? "active" : ""}
+                key={option}
+                onClick={() => {
+                  setMode(option);
+                  setSelection(null);
+                }}
+                type="button"
+              >
+                {copy.charts.benchmark.modes[option]}
+              </button>
+            ))}
+          </div>
+          <div className="chart-return-basis-group">
+            <div
+              className="chart-view-modes chart-return-basis"
+              aria-label={copy.charts.benchmark.returnBasis.label}
+            >
+              {RETURN_BASIS_OPTIONS.map((option) => (
+                <button
+                  aria-pressed={returnBasis === option}
+                  className={returnBasis === option ? "active" : ""}
+                  key={option}
+                  onClick={() => {
+                    setReturnBasis(option);
+                    setSelection(null);
+                  }}
+                  type="button"
+                >
+                  {copy.charts.benchmark.returnBasis.options[option]}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="chart-timeframes" aria-label={copy.charts.benchmark.timeframe}>
+          {TIMEFRAME_OPTIONS.map((option) => (
+            <button
+              aria-pressed={timeframe === option}
+              className={timeframe === option ? "active" : ""}
+              key={option}
+              onClick={() => {
+                setTimeframe(option);
+                setSelection(null);
+              }}
+              type="button"
+            >
+              {copy.charts.common.timeframes[option]}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <article className="surface-card chart-card benchmark-chart-card">
       <div className="chart-card-header">
@@ -622,64 +684,10 @@ export function BenchmarkChart({
             </p>
           ) : null}
         </div>
-        <div className="chart-control-stack">
-          <div className="chart-mode-row">
-            <div className="chart-view-modes" aria-label={copy.charts.benchmark.performanceMode}>
-              {PERFORMANCE_MODE_OPTIONS.map((option) => (
-                <button
-                  aria-pressed={mode === option}
-                  className={mode === option ? "active" : ""}
-                  key={option}
-                  onClick={() => {
-                    setMode(option);
-                    setSelection(null);
-                  }}
-                  type="button"
-                >
-                  {copy.charts.benchmark.modes[option]}
-                </button>
-              ))}
-            </div>
-            <div className="chart-return-basis-group">
-              <div
-                className="chart-view-modes chart-return-basis"
-                aria-label={copy.charts.benchmark.returnBasis.label}
-              >
-                {RETURN_BASIS_OPTIONS.map((option) => (
-                  <button
-                    aria-pressed={returnBasis === option}
-                    className={returnBasis === option ? "active" : ""}
-                    key={option}
-                    onClick={() => {
-                      setReturnBasis(option);
-                      setSelection(null);
-                    }}
-                    type="button"
-                  >
-                    {copy.charts.benchmark.returnBasis.options[option]}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="chart-timeframes" aria-label={copy.charts.benchmark.timeframe}>
-            {TIMEFRAME_OPTIONS.map((option) => (
-              <button
-                aria-pressed={timeframe === option}
-                className={timeframe === option ? "active" : ""}
-                key={option}
-                onClick={() => {
-                  setTimeframe(option);
-                  setSelection(null);
-                }}
-                type="button"
-              >
-                {copy.charts.common.timeframes[option]}
-              </button>
-            ))}
-          </div>
-        </div>
+        {renderChartControls("chart-control-stack chart-control-stack-desktop")}
       </div>
+
+      {renderChartControls("chart-control-stack chart-control-stack-mobile")}
 
       {shouldShowAbsoluteSummary ? (
         <div className="chart-stat-strip" aria-label={copy.charts.benchmark.absoluteSummary.label}>
