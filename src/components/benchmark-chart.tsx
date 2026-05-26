@@ -130,6 +130,13 @@ function formatPercentagePoint(value: number) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)} pp`;
 }
 
+function formatIndexValue(value: number, locale: string) {
+  return new Intl.NumberFormat(locale, {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2
+  }).format(value);
+}
+
 function formatPerformanceMoney(value: number | null, currency: string | null, locale: string) {
   if (value == null || currency == null) {
     return "-";
@@ -211,6 +218,26 @@ function getValueClassName(value: number | null) {
   }
 
   return value > 0 ? "value-positive" : "value-negative";
+}
+
+function getSeriesChangeValue(point: ChartPoint, key: "portfolio" | "benchmark", mode: PerformanceMode) {
+  if (mode === "GAP") {
+    return key === "portfolio" ? point.gap : 0;
+  }
+
+  if (mode === "DRAWDOWN") {
+    return key === "portfolio" ? point.portfolioDrawdown : point.benchmarkDrawdown;
+  }
+
+  return key === "portfolio" ? point.portfolioReturn : point.benchmarkReturn;
+}
+
+function formatSeriesChange(value: number, mode: PerformanceMode) {
+  return mode === "GAP" ? formatPercentagePoint(value) : formatSignedPercent(value);
+}
+
+function formatSeriesPointValue(value: number, mode: PerformanceMode, locale: string) {
+  return mode === "INDEXED" ? formatIndexValue(value, locale) : formatModeValue(value, mode, locale);
 }
 
 function getUnavailableMessage({
@@ -443,6 +470,7 @@ export function BenchmarkChart({
   const [timeframe, setTimeframe] = useState<TimeframeKey>("ALL");
   const [returnBasis, setReturnBasis] = useState<ReturnBasis>("TWR");
   const [mode, setMode] = useState<PerformanceMode>("INDEXED");
+  const [hoverPoint, setHoverPoint] = useState<ChartPoint | null>(null);
   const [selection, setSelection] = useState<SelectionRange | null>(null);
   const isDraggingRef = useRef(false);
   const { chartContainerRef, chartRenderKey } = useChartVisibilityKey();
@@ -565,6 +593,7 @@ export function BenchmarkChart({
   const xDomain = useMemo(() => getTimeAxisDomain(chartData), [chartData]);
   const xAxisTicks = useMemo(() => buildTimeAxisTicks(chartData), [chartData]);
   const xAxisSpan = xDomain == null ? 0 : xDomain[1] - xDomain[0];
+  const readoutPoint = hoverPoint ?? rangeStats?.latestPoint ?? null;
 
   function handleChartMouseDown(state: ChartMouseState | undefined) {
     const point = getChartPoint(state);
@@ -582,6 +611,10 @@ export function BenchmarkChart({
 
   function handleChartMouseMove(state: ChartMouseState | undefined) {
     const point = getChartPoint(state);
+
+    if (point != null) {
+      setHoverPoint(point);
+    }
 
     if (!isDraggingRef.current || point == null) {
       return;
@@ -601,6 +634,37 @@ export function BenchmarkChart({
     isDraggingRef.current = false;
   }
 
+  function handleChartMouseLeave() {
+    isDraggingRef.current = false;
+    setHoverPoint(null);
+  }
+
+  function renderSeriesReadoutRow({
+    change,
+    markerClassName,
+    name,
+    value
+  }: {
+    change: number;
+    markerClassName: string;
+    name: string;
+    value: number;
+  }) {
+    const toneClassName = getValueClassName(change);
+
+    return (
+      <div className="chart-series-readout-row">
+        <span className={`chart-series-marker ${markerClassName}`} aria-hidden="true" />
+        <strong>{name}</strong>
+        <span>{formatSeriesPointValue(value, mode, locale)}</span>
+        <span className={toneClassName}>{formatSeriesChange(change, mode)}</span>
+        <span className={`chart-series-percent-chip ${toneClassName}`}>
+          {formatSeriesChange(change, mode)}
+        </span>
+      </div>
+    );
+  }
+
   function renderChartControls(className: string) {
     return (
       <div className={className}>
@@ -613,6 +677,7 @@ export function BenchmarkChart({
                 key={option}
                 onClick={() => {
                   setMode(option);
+                  setHoverPoint(null);
                   setSelection(null);
                 }}
                 type="button"
@@ -633,6 +698,7 @@ export function BenchmarkChart({
                   key={option}
                   onClick={() => {
                     setReturnBasis(option);
+                    setHoverPoint(null);
                     setSelection(null);
                   }}
                   type="button"
@@ -651,6 +717,7 @@ export function BenchmarkChart({
               key={option}
               onClick={() => {
                 setTimeframe(option);
+                setHoverPoint(null);
                 setSelection(null);
               }}
               type="button"
@@ -789,7 +856,7 @@ export function BenchmarkChart({
                 data={chartData}
                 margin={{ top: 12, right: 10, left: 4, bottom: 8 }}
                 onMouseDown={handleChartMouseDown}
-                onMouseLeave={handleChartMouseUp}
+                onMouseLeave={handleChartMouseLeave}
                 onMouseMove={handleChartMouseMove}
                 onMouseUp={handleChartMouseUp}
               >
@@ -819,7 +886,11 @@ export function BenchmarkChart({
                   stroke="var(--chart-axis)"
                 />
                 <Tooltip
-                  cursor={{ stroke: "rgba(17, 27, 23, 0.16)", strokeWidth: 1 }}
+                  cursor={{
+                    stroke: "var(--chart-hover)",
+                    strokeDasharray: "3 7",
+                    strokeWidth: 2
+                  }}
                   content={<BenchmarkChartTooltip language={language} mode={mode} />}
                 />
                 {!hasActiveSelection || selection == null ? null : (
@@ -847,12 +918,32 @@ export function BenchmarkChart({
                   dataKey="benchmarkDisplay"
                   name={mode === "GAP" ? modeCopy.benchmarkName : benchmarkSymbol ?? modeCopy.benchmarkName}
                   stroke="var(--warm)"
+                  strokeDasharray="6 6"
                   strokeWidth={2.5}
                   dot={false}
                   activeDot={{ r: 4, fill: "var(--warm)" }}
                 />
               </LineChart>
             </ResponsiveContainer>
+            {readoutPoint == null ? null : (
+              <div className="chart-series-readout" aria-label={copy.charts.benchmark.rangeSummary}>
+                <span className="chart-series-readout-date">
+                  {formatChartDate(readoutPoint.date, locale)}
+                </span>
+                {renderSeriesReadoutRow({
+                  change: getSeriesChangeValue(readoutPoint, "portfolio", mode),
+                  markerClassName: "chart-series-marker-portfolio",
+                  name: modeCopy.portfolioName,
+                  value: readoutPoint.portfolioDisplay
+                })}
+                {renderSeriesReadoutRow({
+                  change: getSeriesChangeValue(readoutPoint, "benchmark", mode),
+                  markerClassName: "chart-series-marker-benchmark",
+                  name: mode === "GAP" ? modeCopy.benchmarkName : benchmarkSymbol ?? modeCopy.benchmarkName,
+                  value: readoutPoint.benchmarkDisplay
+                })}
+              </div>
+            )}
             <div
               className={
                 hasActiveSelection &&

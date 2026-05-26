@@ -15,6 +15,7 @@
   --danger: #b84b43;
   --chart-grid: rgba(18, 31, 25, 0.17);
   --chart-axis: rgba(98, 112, 105, 0.92);
+  --chart-hover: rgba(18, 31, 25, 0.42);
   --tooltip-bg: rgba(255, 254, 248, 0.98);
   --tooltip-shadow: 0 22px 70px rgba(38, 43, 35, 0.16);
   --sidebar: #0d241c;
@@ -42,6 +43,7 @@ html[data-theme="dark"] {
   --danger: #ff8d82;
   --chart-grid: rgba(255, 255, 255, 0.17);
   --chart-axis: rgba(205, 220, 210, 0.82);
+  --chart-hover: rgba(240, 255, 246, 0.54);
   --tooltip-bg: rgba(18, 28, 24, 0.98);
   --tooltip-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
   --sidebar: #080d0b;
@@ -889,6 +891,89 @@ html[data-theme="dark"] .chart-stat-strip div {
 
 .chart-selection-readout strong {
   font-size: 0.9rem;
+}
+
+.chart-series-readout {
+  display: grid;
+  gap: 0;
+  margin: 10px -12px -8px;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface-strong) 88%, transparent);
+}
+
+.chart-series-readout-date {
+  padding: 9px 12px 7px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 720;
+  line-height: 1.1;
+}
+
+.chart-series-readout-row {
+  display: grid;
+  grid-template-columns: 6px minmax(130px, 1fr) minmax(76px, auto) minmax(76px, auto) minmax(76px, auto);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  border-top: 1px solid var(--line);
+  padding: 12px;
+}
+
+.chart-series-marker {
+  width: 5px;
+  height: 22px;
+  border-radius: 999px;
+}
+
+.chart-series-marker-portfolio {
+  background: var(--accent);
+}
+
+.chart-series-marker-benchmark {
+  background: var(--warm);
+}
+
+.chart-series-readout-row strong,
+.chart-series-readout-row span {
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.chart-series-readout-row strong {
+  color: var(--ink);
+  font-size: 0.96rem;
+  font-weight: 780;
+  overflow-wrap: anywhere;
+}
+
+.chart-series-readout-row span {
+  color: var(--ink);
+  font-size: 0.96rem;
+  font-weight: 720;
+  text-align: right;
+}
+
+.chart-series-readout-row .value-positive {
+  color: var(--accent);
+}
+
+.chart-series-readout-row .value-negative {
+  color: var(--danger);
+}
+
+.chart-series-percent-chip {
+  justify-self: end;
+  border-radius: 11px;
+  padding: 7px 10px;
+  background: color-mix(in srgb, var(--line-strong) 34%, transparent);
+}
+
+.chart-series-percent-chip.value-positive {
+  background: color-mix(in srgb, var(--accent-soft) 92%, transparent);
+}
+
+.chart-series-percent-chip.value-negative {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
 }
 
 .chart-tooltip {
@@ -3814,6 +3899,33 @@ html[data-theme="dark"] .subtabs .active {
 
   .chart-selection-readout-idle {
     display: none;
+  }
+
+  .chart-series-readout {
+    margin: 8px 0 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+
+  .chart-series-readout-row {
+    grid-template-columns: 5px minmax(0, 1fr) auto;
+    gap: 9px;
+    padding: 11px 10px;
+  }
+
+  .chart-series-readout-row > span:nth-of-type(2),
+  .chart-series-readout-row > span:nth-of-type(3) {
+    display: none;
+  }
+
+  .chart-series-readout-row strong {
+    font-size: 0.9rem;
+  }
+
+  .chart-series-percent-chip {
+    padding: 7px 9px;
+    font-size: 0.9rem;
   }
 
   .detail-list div {
