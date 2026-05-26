@@ -18,7 +18,9 @@ import {
   formatTimeAxisTick,
   getTimeAxisDomain,
   getUtcDateTime,
+  isDailyPoint,
   isIntradayDate,
+  isIntradayPoint,
   parseChartDate,
   type TimeAxisPoint
 } from "@/lib/charts/time-axis";
@@ -187,17 +189,13 @@ function getVisibleHistory(
       return preferredIntradayHistory;
     }
 
-    const intradayHistory = filteredHistory.filter(
-      (point) => point.interval !== "1d" && isIntradayDate(point.date)
-    );
+    const intradayHistory = filteredHistory.filter(isIntradayPoint);
 
     if (intradayHistory.length >= 2) {
       return intradayHistory;
     }
   } else {
-    const dailyHistory = filteredHistory.filter(
-      (point) => point.interval === "1d" || !isIntradayDate(point.date)
-    );
+    const dailyHistory = filteredHistory.filter(isDailyPoint);
 
     if (dailyHistory.length >= 2) {
       return dailyHistory;

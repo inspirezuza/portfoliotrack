@@ -13,6 +13,18 @@ export function isIntradayDate(value: string) {
   return value.includes("T");
 }
 
+export function isIntradayInterval(interval: string | null | undefined) {
+  return interval != null && interval !== "1d";
+}
+
+export function isIntradayPoint(point: { date: string; interval?: string | null }) {
+  return isIntradayInterval(point.interval) || (point.interval == null && isIntradayDate(point.date));
+}
+
+export function isDailyPoint(point: { date: string; interval?: string | null }) {
+  return point.interval === "1d" || (point.interval == null && !isIntradayDate(point.date));
+}
+
 export function getUtcDateTime(value: string) {
   return parseChartDate(value).getTime();
 }
