@@ -12,6 +12,16 @@ import {
   YAxis
 } from "recharts";
 import { formatCurrency, formatPercentRatio } from "@/lib/format";
+import {
+  attachTimeAxis,
+  buildTimeAxisTicks,
+  formatTimeAxisTick,
+  getTimeAxisDomain,
+  getUtcDateTime,
+  isIntradayDate,
+  parseChartDate,
+  type TimeAxisPoint
+} from "@/lib/charts/time-axis";
 import type {
   BenchmarkComparisonBasis,
   BenchmarkTimelinePoint,
@@ -50,7 +60,7 @@ type TimeframeKey = "1D" | "5D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "ALL";
 type PerformanceMode = "INDEXED" | "GAP" | "DRAWDOWN";
 type ReturnBasis = "TWR" | "MWR" | "ABSOLUTE";
 
-type ChartPoint = BenchmarkTimelinePoint & {
+type ChartPoint = BenchmarkTimelinePoint & TimeAxisPoint & {
   benchmarkChangeFromRangeStart: number | null;
   benchmarkDisplay: number;
   benchmarkDrawdown: number;
@@ -75,7 +85,7 @@ type SelectionRange = {
 
 type BenchmarkChartTooltipProps = {
   active?: boolean;
-  label?: string;
+  label?: number;
   payload?: Array<{
     dataKey?: string;
     name?: string;
@@ -89,14 +99,6 @@ const TIMEFRAME_OPTIONS: TimeframeKey[] = ["1D", "5D", "1W", "1M", "3M", "YTD", 
 const PERFORMANCE_MODE_OPTIONS: PerformanceMode[] = ["INDEXED", "GAP", "DRAWDOWN"];
 const RETURN_BASIS_OPTIONS: ReturnBasis[] = ["TWR", "MWR", "ABSOLUTE"];
 
-function parseChartDate(value: string) {
-  return new Date(value.includes("T") ? value : `${value}T00:00:00.000Z`);
-}
-
-function isIntradayDate(value: string) {
-  return value.includes("T");
-}
-
 function formatChartDate(value: string, locale: string) {
   const hasTime = isIntradayDate(value);
 
@@ -105,15 +107,6 @@ function formatChartDate(value: string, locale: string) {
     day: "numeric",
     year: "numeric",
     ...(hasTime ? { hour: "2-digit", minute: "2-digit" } : {}),
-    timeZone: "UTC"
-  }).format(parseChartDate(value));
-}
-
-function formatAxisDate(value: string, locale: string) {
-  return new Intl.DateTimeFormat(locale, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
     timeZone: "UTC"
   }).format(parseChartDate(value));
 }
@@ -252,10 +245,6 @@ function getUnavailableMessage({
     default:
       return copy.unavailable.default;
   }
-}
-
-function getUtcDateTime(value: string) {
-  return parseChartDate(value).getTime();
 }
 
 function getTimeframeStartDate(key: TimeframeKey, latestDate: string) {
@@ -405,7 +394,7 @@ function BenchmarkChartTooltip({
 
   return (
     <div className="chart-tooltip">
-      <span>{formatChartDate(label, locale)}</span>
+      <span>{formatChartDate(point.date, locale)}</span>
       {payload?.map((item) => {
         const value = item.value;
 
@@ -483,7 +472,7 @@ export function BenchmarkChart({
     let portfolioHighWatermark = firstPoint?.portfolio ?? 100;
     let benchmarkHighWatermark = firstPoint?.benchmark ?? 100;
 
-    return visibleSeries.map((point) => {
+    return attachTimeAxis(visibleSeries).map((point) => {
       portfolioHighWatermark = Math.max(portfolioHighWatermark, point.portfolio);
       benchmarkHighWatermark = Math.max(benchmarkHighWatermark, point.benchmark);
 
@@ -569,6 +558,9 @@ export function BenchmarkChart({
       ),
     [chartData]
   );
+  const xDomain = useMemo(() => getTimeAxisDomain(chartData), [chartData]);
+  const xAxisTicks = useMemo(() => buildTimeAxisTicks(chartData), [chartData]);
+  const xAxisSpan = xDomain == null ? 0 : xDomain[1] - xDomain[0];
 
   function handleChartMouseDown(state: ChartMouseState | undefined) {
     const point = getChartPoint(state);
@@ -791,8 +783,12 @@ export function BenchmarkChart({
               >
                 <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 6" vertical={false} />
                 <XAxis
-                  dataKey="date"
-                  tickFormatter={(value: string) => formatAxisDate(value, locale)}
+                  dataKey="timestamp"
+                  type="number"
+                  scale="time"
+                  domain={xDomain}
+                  ticks={xAxisTicks}
+                  tickFormatter={(value: number | string) => formatTimeAxisTick(value, locale, xAxisSpan)}
                   tickLine={false}
                   axisLine={false}
                   minTickGap={28}
@@ -816,8 +812,8 @@ export function BenchmarkChart({
                 />
                 {!hasActiveSelection || selection == null ? null : (
                   <ReferenceArea
-                    x1={selection.startDate}
-                    x2={selection.endDate}
+                    x1={getUtcDateTime(selection.startDate)}
+                    x2={getUtcDateTime(selection.endDate)}
                     stroke="rgba(23, 107, 85, 0.18)"
                     fill="rgba(23, 107, 85, 0.10)"
                     ifOverflow="hidden"

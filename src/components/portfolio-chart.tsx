@@ -16,6 +16,16 @@ import type {
   PortfolioBenchmarkTimelineStatus,
   PortfolioTimelinePoint
 } from "@/lib/portfolio/timeline";
+import {
+  attachTimeAxis,
+  buildTimeAxisTicks,
+  formatTimeAxisTick,
+  getTimeAxisDomain,
+  getUtcDateTime,
+  isIntradayDate,
+  parseChartDate,
+  type TimeAxisPoint
+} from "@/lib/charts/time-axis";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
 
@@ -28,7 +38,7 @@ type PortfolioChartProps = {
 
 type TimeframeKey = "1D" | "5D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "ALL";
 
-type ChartPoint = PortfolioTimelinePoint & {
+type ChartPoint = PortfolioTimelinePoint & TimeAxisPoint & {
   changeFromRangeStart: number | null;
 };
 
@@ -45,7 +55,7 @@ type SelectionRange = {
 
 type PortfolioChartTooltipProps = {
   active?: boolean;
-  label?: string;
+  label?: number;
   payload?: Array<{
     payload?: ChartPoint;
   }>;
@@ -55,14 +65,6 @@ type PortfolioChartTooltipProps = {
 
 const TIMEFRAME_OPTIONS: TimeframeKey[] = ["1D", "5D", "1W", "1M", "3M", "YTD", "1Y", "ALL"];
 
-function parseChartDate(value: string) {
-  return new Date(value.includes("T") ? value : `${value}T00:00:00.000Z`);
-}
-
-function isIntradayDate(value: string) {
-  return value.includes("T");
-}
-
 function formatChartDate(value: string, locale: string) {
   const hasTime = isIntradayDate(value);
 
@@ -71,15 +73,6 @@ function formatChartDate(value: string, locale: string) {
     day: "numeric",
     year: "numeric",
     ...(hasTime ? { hour: "2-digit", minute: "2-digit" } : {}),
-    timeZone: "UTC"
-  }).format(parseChartDate(value));
-}
-
-function formatAxisDate(value: string, locale: string) {
-  return new Intl.DateTimeFormat(locale, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
     timeZone: "UTC"
   }).format(parseChartDate(value));
 }
@@ -124,10 +117,6 @@ function getUnavailableMessage(
     default:
       return copy.unavailable.default;
   }
-}
-
-function getUtcDateTime(value: string) {
-  return parseChartDate(value).getTime();
 }
 
 function getTimeframeStartDate(key: TimeframeKey, latestDate: string) {
@@ -278,7 +267,7 @@ function PortfolioChartTooltip({
 
   return (
     <div className="chart-tooltip">
-      <span>{formatChartDate(label, locale)}</span>
+      <span>{formatChartDate(point.date, locale)}</span>
       <strong>{formatChartValue(point.value, currency, locale)}</strong>
       {point.changeFromRangeStart == null ? null : (
         <em className={point.changeFromRangeStart >= 0 ? "value-positive" : "value-negative"}>
@@ -300,7 +289,7 @@ export function PortfolioChart({ currency, language, series, status }: Portfolio
   const chartData = useMemo<ChartPoint[]>(() => {
     const firstValue = visibleSeries[0]?.value ?? null;
 
-    return visibleSeries.map((point) => ({
+    return attachTimeAxis(visibleSeries).map((point) => ({
       ...point,
       changeFromRangeStart:
         firstValue == null ? null : calculatePercentChange(firstValue, point.value)
@@ -338,6 +327,9 @@ export function PortfolioChart({ currency, language, series, status }: Portfolio
     () => getPaddedDomain(chartData.map((point) => point.value)),
     [chartData]
   );
+  const xDomain = useMemo(() => getTimeAxisDomain(chartData), [chartData]);
+  const xAxisTicks = useMemo(() => buildTimeAxisTicks(chartData), [chartData]);
+  const xAxisSpan = xDomain == null ? 0 : xDomain[1] - xDomain[0];
 
   function handleChartMouseDown(state: ChartMouseState | undefined) {
     const point = getChartPoint(state);
@@ -452,8 +444,12 @@ export function PortfolioChart({ currency, language, series, status }: Portfolio
                 </defs>
                 <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 6" vertical={false} />
                 <XAxis
-                  dataKey="date"
-                  tickFormatter={(value: string) => formatAxisDate(value, locale)}
+                  dataKey="timestamp"
+                  type="number"
+                  scale="time"
+                  domain={xDomain}
+                  ticks={xAxisTicks}
+                  tickFormatter={(value: number | string) => formatTimeAxisTick(value, locale, xAxisSpan)}
                   tickLine={false}
                   axisLine={false}
                   minTickGap={28}
@@ -477,8 +473,8 @@ export function PortfolioChart({ currency, language, series, status }: Portfolio
                 />
                 {!hasActiveSelection || selection == null ? null : (
                   <ReferenceArea
-                    x1={selection.startDate}
-                    x2={selection.endDate}
+                    x1={getUtcDateTime(selection.startDate)}
+                    x2={getUtcDateTime(selection.endDate)}
                     stroke="rgba(23, 107, 85, 0.18)"
                     fill="rgba(23, 107, 85, 0.10)"
                     ifOverflow="hidden"

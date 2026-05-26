@@ -12,6 +12,16 @@ import {
   XAxis,
   YAxis
 } from "recharts";
+import {
+  attachTimeAxis,
+  buildTimeAxisTicks,
+  formatTimeAxisTick,
+  getTimeAxisDomain,
+  getUtcDateTime,
+  isIntradayDate,
+  parseChartDate,
+  type TimeAxisPoint
+} from "@/lib/charts/time-axis";
 import { formatCurrency } from "@/lib/format";
 import type { AssetDetail } from "@/server/assets";
 
@@ -21,7 +31,7 @@ type AssetPriceChartProps = {
 
 type TimeframeKey = "1D" | "5D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "START" | "ALL";
 
-type ChartPoint = AssetDetail["marketData"]["priceHistory"][number] & {
+type ChartPoint = AssetDetail["marketData"]["priceHistory"][number] & TimeAxisPoint & {
   changeFromRangeStart: number | null;
 };
 
@@ -38,7 +48,7 @@ type SelectionRange = {
 
 type AssetChartTooltipProps = {
   active?: boolean;
-  label?: string;
+  label?: number;
   payload?: Array<{
     payload?: ChartPoint;
   }>;
@@ -60,14 +70,6 @@ const TIMEFRAME_OPTIONS: Array<{
   { key: "ALL", label: "All" }
 ];
 
-function parseChartDate(value: string) {
-  return new Date(value.includes("T") ? value : `${value}T00:00:00.000Z`);
-}
-
-function isIntradayDate(value: string) {
-  return value.includes("T");
-}
-
 function formatChartDate(value: string) {
   const hasTime = isIntradayDate(value);
 
@@ -76,15 +78,6 @@ function formatChartDate(value: string) {
     day: "numeric",
     year: "numeric",
     ...(hasTime ? { hour: "2-digit", minute: "2-digit" } : {}),
-    timeZone: "UTC"
-  }).format(parseChartDate(value));
-}
-
-function formatAxisDate(value: string) {
-  return new Intl.DateTimeFormat("en-GB", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
     timeZone: "UTC"
   }).format(parseChartDate(value));
 }
@@ -120,10 +113,6 @@ function formatSignedPercent(value: number) {
 
 function getUnavailableMessage(asset: AssetDetail) {
   return asset.marketData.historyUnavailableReason ?? "No price history is available for this chart yet.";
-}
-
-function getUtcDateTime(value: string) {
-  return parseChartDate(value).getTime();
 }
 
 function getTimeframeStartDate(key: TimeframeKey, latestDate: string, sinceStartDate: string | null) {
@@ -280,7 +269,7 @@ function AssetChartTooltip({ active, label, payload, currency }: AssetChartToolt
 
   return (
     <div className="chart-tooltip">
-      <span>{formatChartDate(label)}</span>
+      <span>{formatChartDate(point.date)}</span>
       <strong>{formatPrice(point.close, currency)}</strong>
       {point.changeFromRangeStart == null ? null : (
         <em className={point.changeFromRangeStart >= 0 ? "value-positive" : "value-negative"}>
@@ -309,7 +298,7 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
   const chartData = useMemo<ChartPoint[]>(() => {
     const firstClose = visibleHistory[0]?.close ?? null;
 
-    return visibleHistory.map((point) => ({
+    return attachTimeAxis(visibleHistory).map((point) => ({
       ...point,
       changeFromRangeStart:
         firstClose == null ? null : calculatePercentChange(firstClose, point.close)
@@ -353,6 +342,9 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
 
     return getPaddedDomain(values);
   }, [asset.position.averageCost, chartData, hasAverageCostLine]);
+  const xDomain = useMemo(() => getTimeAxisDomain(chartData), [chartData]);
+  const xAxisTicks = useMemo(() => buildTimeAxisTicks(chartData), [chartData]);
+  const xAxisSpan = xDomain == null ? 0 : xDomain[1] - xDomain[0];
 
   function handleChartMouseDown(state: ChartMouseState | undefined) {
     const point = getChartPoint(state);
@@ -471,8 +463,12 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
                 </defs>
                 <CartesianGrid stroke="var(--line)" strokeDasharray="3 6" vertical={false} />
                 <XAxis
-                  dataKey="date"
-                  tickFormatter={formatAxisDate}
+                  dataKey="timestamp"
+                  type="number"
+                  scale="time"
+                  domain={xDomain}
+                  ticks={xAxisTicks}
+                  tickFormatter={(value: number | string) => formatTimeAxisTick(value, "en-GB", xAxisSpan)}
                   tickLine={false}
                   axisLine={false}
                   minTickGap={28}
@@ -495,8 +491,8 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
                 />
                 {!hasActiveSelection || selection == null ? null : (
                   <ReferenceArea
-                    x1={selection.startDate}
-                    x2={selection.endDate}
+                    x1={getUtcDateTime(selection.startDate)}
+                    x2={getUtcDateTime(selection.endDate)}
                     stroke="rgba(23, 107, 85, 0.18)"
                     fill="rgba(23, 107, 85, 0.10)"
                     ifOverflow="hidden"
