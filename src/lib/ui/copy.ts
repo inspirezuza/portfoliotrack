@@ -252,6 +252,11 @@ const uiCopy = {
         title: "สถานะปัจจุบัน",
         toolsLabel: "เครื่องมือตารางหุ้นที่ถือ",
         filtersLabel: "ตัวกรองหุ้นที่ถือ",
+        performanceBasisLabel: "ฐานเทียบ Performance",
+        performanceBasis: {
+          price: "ราคาย้อนหลัง",
+          cost: "ต้นทุนจริง"
+        },
         performanceTimeframesLabel: "ช่วงเวลา Performance",
         refreshPrices: "รีเฟรชราคา",
         refreshing: "กำลังรีเฟรช...",
@@ -281,8 +286,7 @@ const uiCopy = {
           "1Y": "1Y",
           "3Y": "3Y",
           "5Y": "5Y",
-          MAX: "MAX",
-          SINCE_BUY: "ตั้งแต่ซื้อ"
+          MAX: "MAX"
         },
         columns: {
           symbol: "Symbol",
@@ -697,6 +701,11 @@ const uiCopy = {
         title: "Current positions",
         toolsLabel: "Holdings table tools",
         filtersLabel: "Holdings filters",
+        performanceBasisLabel: "Performance comparison basis",
+        performanceBasis: {
+          price: "Price history",
+          cost: "Cost basis"
+        },
         performanceTimeframesLabel: "Performance timeframe",
         refreshPrices: "Refresh prices",
         refreshing: "Refreshing...",
@@ -726,8 +735,7 @@ const uiCopy = {
           "1Y": "1Y",
           "3Y": "3Y",
           "5Y": "5Y",
-          MAX: "MAX",
-          SINCE_BUY: "Since buy"
+          MAX: "MAX"
         },
         columns: {
           symbol: "Symbol",

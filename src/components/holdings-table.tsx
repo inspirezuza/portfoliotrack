@@ -9,7 +9,12 @@ import { MarketRefreshStatus, type MarketRefreshStatusRun } from "@/components/m
 import { formatCurrency, formatPercentRatio, formatQuantity } from "@/lib/format";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
-import type { HoldingPerformance, HoldingPerformanceTimeframe, HoldingRow } from "@/server/holdings";
+import type {
+  HoldingPerformance,
+  HoldingPerformanceKey,
+  HoldingPerformanceTimeframe,
+  HoldingRow
+} from "@/server/holdings";
 
 type HoldingsTableProps = {
   holdings: HoldingRow[];
@@ -36,6 +41,8 @@ type SortState = {
   direction: SortDirection;
 };
 
+type PerformanceBasis = "price" | "cost";
+
 type RefreshResponse = {
   run?: MarketRefreshStatusRun;
   error?: {
@@ -43,7 +50,7 @@ type RefreshResponse = {
   };
 };
 
-const PERFORMANCE_TIMEFRAMES: HoldingPerformanceTimeframe[] = [
+const PRICE_PERFORMANCE_TIMEFRAMES: HoldingPerformanceTimeframe[] = [
   "1D",
   "1W",
   "1M",
@@ -51,8 +58,7 @@ const PERFORMANCE_TIMEFRAMES: HoldingPerformanceTimeframe[] = [
   "1Y",
   "3Y",
   "5Y",
-  "MAX",
-  "SINCE_BUY"
+  "MAX"
 ];
 
 const EMPTY_PERFORMANCE: HoldingPerformance = {
@@ -77,19 +83,43 @@ function getValuationLastPrice(holding: HoldingRow) {
     : holding.lastPrice * holding.fxRateToValuationCurrency;
 }
 
-function getHoldingPerformance(holding: HoldingRow, timeframe: HoldingPerformanceTimeframe) {
-  return holding.performance?.[timeframe] ?? EMPTY_PERFORMANCE;
+function getHoldingPerformance(holding: HoldingRow, performanceKey: HoldingPerformanceKey) {
+  return holding.performance?.[performanceKey] ?? EMPTY_PERFORMANCE;
 }
 
-function getPerformanceTimeframeLabel(
+function getPricePerformanceTimeframeLabel(
   copy: ReturnType<typeof getUiCopy>,
   timeframe: HoldingPerformanceTimeframe
 ) {
   return copy.holdings.table.timeframes[timeframe];
 }
 
-function getValuationPerformanceAmount(holding: HoldingRow, timeframe: HoldingPerformanceTimeframe) {
-  const performance = getHoldingPerformance(holding, timeframe);
+function getPerformanceKey({
+  basis,
+  timeframe
+}: {
+  basis: PerformanceBasis;
+  timeframe: HoldingPerformanceTimeframe;
+}): HoldingPerformanceKey {
+  return basis === "cost" ? "COST_BASIS" : timeframe;
+}
+
+function getPerformanceColumnLabel({
+  basis,
+  copy,
+  timeframe
+}: {
+  basis: PerformanceBasis;
+  copy: ReturnType<typeof getUiCopy>;
+  timeframe: HoldingPerformanceTimeframe;
+}) {
+  return basis === "cost"
+    ? copy.holdings.table.columns.performance(copy.holdings.table.performanceBasis.cost)
+    : copy.holdings.table.columns.performance(getPricePerformanceTimeframeLabel(copy, timeframe));
+}
+
+function getValuationPerformanceAmount(holding: HoldingRow, performanceKey: HoldingPerformanceKey) {
+  const performance = getHoldingPerformance(holding, performanceKey);
 
   return isNativeCurrencyVisible(holding) ? performance.amountInValuationCurrency : performance.amount;
 }
@@ -229,7 +259,7 @@ function compareNullableNumber(left: number | null, right: number | null) {
 function getHoldingSortValue(
   holding: HoldingRow,
   key: HoldingSortKey,
-  performanceTimeframe: HoldingPerformanceTimeframe
+  performanceKey: HoldingPerformanceKey
 ) {
   if (key === "symbol") {
     return `${holding.symbol} ${holding.displayName} ${holding.market}`;
@@ -248,7 +278,7 @@ function getHoldingSortValue(
   }
 
   if (key === "oneDayGain") {
-    return getValuationPerformanceAmount(holding, performanceTimeframe);
+    return getValuationPerformanceAmount(holding, performanceKey);
   }
 
   if (key === "marketValue") {
@@ -266,10 +296,10 @@ function compareHoldings(
   left: HoldingRow,
   right: HoldingRow,
   sort: SortState,
-  performanceTimeframe: HoldingPerformanceTimeframe
+  performanceKey: HoldingPerformanceKey
 ) {
-  const leftValue = getHoldingSortValue(left, sort.key, performanceTimeframe);
-  const rightValue = getHoldingSortValue(right, sort.key, performanceTimeframe);
+  const leftValue = getHoldingSortValue(left, sort.key, performanceKey);
+  const rightValue = getHoldingSortValue(right, sort.key, performanceKey);
   const comparison = (() => {
     if (typeof leftValue === "string" && typeof rightValue === "string") {
       return leftValue.localeCompare(rightValue);
@@ -402,6 +432,7 @@ export function HoldingsTable({
   const [sort, setSort] = useState<SortState>({ key: "marketValue", direction: "desc" });
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<HoldingFilter>("all");
+  const [performanceBasis, setPerformanceBasis] = useState<PerformanceBasis>("price");
   const [performanceTimeframe, setPerformanceTimeframe] =
     useState<HoldingPerformanceTimeframe>("1D");
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
@@ -412,6 +443,10 @@ export function HoldingsTable({
     { value: "loss", label: copy.holdings.table.filter.loss },
     { value: "missing", label: copy.holdings.table.filter.missing }
   ];
+  const selectedPerformanceKey = getPerformanceKey({
+    basis: performanceBasis,
+    timeframe: performanceTimeframe
+  });
 
   const visibleHoldings = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -421,8 +456,8 @@ export function HoldingsTable({
       .filter((holding) =>
         normalizedQuery.length === 0 ? true : getHoldingSearchText(holding).includes(normalizedQuery)
       )
-      .sort((left, right) => compareHoldings(left, right, sort, performanceTimeframe));
-  }, [filter, holdings, performanceTimeframe, searchQuery, sort]);
+      .sort((left, right) => compareHoldings(left, right, sort, selectedPerformanceKey));
+  }, [filter, holdings, searchQuery, selectedPerformanceKey, sort]);
   const visibleSummaryCurrency = visibleHoldings[0]?.valuationCurrency ?? null;
 
   const visibleSummary = useMemo(
@@ -443,10 +478,10 @@ export function HoldingsTable({
               : summary.unrealizedPnl + holding.unrealizedPnlInValuationCurrency,
           oneDayGain:
             summary.oneDayGain == null ||
-            getHoldingPerformance(holding, performanceTimeframe).amountInValuationCurrency == null
+            getHoldingPerformance(holding, selectedPerformanceKey).amountInValuationCurrency == null
               ? null
               : summary.oneDayGain +
-                (getHoldingPerformance(holding, performanceTimeframe).amountInValuationCurrency ?? 0),
+                (getHoldingPerformance(holding, selectedPerformanceKey).amountInValuationCurrency ?? 0),
           portfolioWeight:
             summary.portfolioWeight == null || holding.portfolioWeight == null
               ? null
@@ -460,7 +495,7 @@ export function HoldingsTable({
           portfolioWeight: 0 as number | null
         }
       ),
-    [performanceTimeframe, visibleHoldings]
+    [selectedPerformanceKey, visibleHoldings]
   );
 
   function handleSort(sortKey: HoldingSortKey) {
@@ -582,22 +617,47 @@ export function HoldingsTable({
                 placeholder={copy.holdings.table.searchPlaceholder}
               />
             </label>
-            <div className="table-toolbar-controls">
-              <div
-                className="table-filter-group holdings-timeframe-group"
-                aria-label={copy.holdings.table.performanceTimeframesLabel}
-              >
-                {PERFORMANCE_TIMEFRAMES.map((timeframe) => (
+            <div className="table-toolbar-controls holdings-performance-controls">
+              <div className="holdings-performance-cluster">
+                <div
+                  className="table-filter-group holdings-basis-group"
+                  aria-label={copy.holdings.table.performanceBasisLabel}
+                >
                   <button
-                    key={timeframe}
                     type="button"
-                    className="table-filter-button holdings-timeframe-button"
-                    aria-pressed={performanceTimeframe === timeframe}
-                    onClick={() => setPerformanceTimeframe(timeframe)}
+                    className="table-filter-button holdings-basis-button"
+                    aria-pressed={performanceBasis === "price"}
+                    onClick={() => setPerformanceBasis("price")}
                   >
-                    {getPerformanceTimeframeLabel(copy, timeframe)}
+                    {copy.holdings.table.performanceBasis.price}
                   </button>
-                ))}
+                  <button
+                    type="button"
+                    className="table-filter-button holdings-basis-button"
+                    aria-pressed={performanceBasis === "cost"}
+                    onClick={() => setPerformanceBasis("cost")}
+                  >
+                    {copy.holdings.table.performanceBasis.cost}
+                  </button>
+                </div>
+                {performanceBasis === "price" ? (
+                  <div
+                    className="table-filter-group holdings-timeframe-group"
+                    aria-label={copy.holdings.table.performanceTimeframesLabel}
+                  >
+                    {PRICE_PERFORMANCE_TIMEFRAMES.map((timeframe) => (
+                      <button
+                        key={timeframe}
+                        type="button"
+                        className="table-filter-button holdings-timeframe-button"
+                        aria-pressed={performanceTimeframe === timeframe}
+                        onClick={() => setPerformanceTimeframe(timeframe)}
+                      >
+                        {getPricePerformanceTimeframeLabel(copy, timeframe)}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
               <div className="table-filter-group" aria-label={copy.holdings.table.filtersLabel}>
                 {filterOptions.map((option) => (
@@ -648,7 +708,7 @@ export function HoldingsTable({
                   <SortableHeader label={copy.holdings.table.columns.totalCost} language={language} sortKey="totalCost" sort={sort} onSort={handleSort} align="right" />
                   <SortableHeader label={copy.holdings.table.columns.lastPrice} language={language} sortKey="lastPrice" sort={sort} onSort={handleSort} align="right" />
                   <SortableHeader label={copy.holdings.table.columns.marketValue} language={language} sortKey="marketValue" sort={sort} onSort={handleSort} align="right" />
-                  <SortableHeader label={copy.holdings.table.columns.performance(getPerformanceTimeframeLabel(copy, performanceTimeframe))} language={language} sortKey="oneDayGain" sort={sort} onSort={handleSort} align="right" />
+                  <SortableHeader label={getPerformanceColumnLabel({ basis: performanceBasis, copy, timeframe: performanceTimeframe })} language={language} sortKey="oneDayGain" sort={sort} onSort={handleSort} align="right" />
                   <SortableHeader label={copy.holdings.table.columns.unrealizedPnl} language={language} sortKey="unrealizedPnl" sort={sort} onSort={handleSort} align="right" />
                   <SortableHeader label={copy.holdings.table.columns.weight} language={language} sortKey="portfolioWeight" sort={sort} onSort={handleSort} align="right" />
                 </tr>
@@ -662,7 +722,7 @@ export function HoldingsTable({
                   </tr>
                 ) : (
                   visibleHoldings.map((holding) => {
-                    const selectedPerformance = getHoldingPerformance(holding, performanceTimeframe);
+                    const selectedPerformance = getHoldingPerformance(holding, selectedPerformanceKey);
 
                     return (
                       <tr key={holding.instrumentId}>

@@ -2433,6 +2433,23 @@ html[data-theme="dark"] .transaction-table tfoot td {
   flex-wrap: wrap;
 }
 
+.holdings-performance-controls {
+  align-items: stretch;
+  gap: 10px;
+}
+
+.holdings-performance-cluster {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 3px;
+  border: 1px solid rgba(8, 116, 93, 0.1);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(8, 116, 93, 0.065), rgba(184, 120, 36, 0.045));
+}
+
 .table-search {
   position: relative;
   display: block;
@@ -2553,13 +2570,40 @@ html[data-theme="dark"] .table-filter-button[aria-pressed="true"] {
   background: var(--accent);
 }
 
+.holdings-basis-group,
+.holdings-timeframe-group {
+  border-color: transparent;
+  background: transparent;
+}
+
+.holdings-basis-group {
+  background: rgba(255, 255, 255, 0.55);
+}
+
 .holdings-timeframe-group {
   border-color: rgba(8, 116, 93, 0.14);
-  background: rgba(8, 116, 93, 0.055);
+  background: rgba(8, 116, 93, 0.075);
+}
+
+.holdings-basis-button {
+  min-width: 84px;
 }
 
 .holdings-timeframe-button {
   min-width: 42px;
+}
+
+html[data-theme="dark"] .holdings-performance-cluster {
+  border-color: rgba(113, 232, 176, 0.14);
+  background: linear-gradient(135deg, rgba(113, 232, 176, 0.09), rgba(243, 189, 109, 0.06));
+}
+
+html[data-theme="dark"] .holdings-basis-group {
+  background: rgba(255, 255, 255, 0.075);
+}
+
+html[data-theme="dark"] .holdings-timeframe-group {
+  background: rgba(113, 232, 176, 0.08);
 }
 
 .table-sort-button {
@@ -3677,6 +3721,11 @@ html[data-theme="dark"] .subtabs .active {
   }
 
   .table-toolbar-controls {
+    justify-content: flex-start;
+  }
+
+  .holdings-performance-cluster {
+    width: 100%;
     justify-content: flex-start;
   }
 

@@ -48,7 +48,7 @@ export type HoldingRow = {
   oneDayGain: number | null;
   oneDayGainPercent: number | null;
   oneDayGainInValuationCurrency: number | null;
-  performance: Record<HoldingPerformanceTimeframe, HoldingPerformance>;
+  performance: Record<HoldingPerformanceKey, HoldingPerformance>;
   marketValue: number | null;
   unrealizedPnl: number | null;
   unrealizedPnlPercent: number | null;
@@ -71,8 +71,9 @@ export type HoldingPerformanceTimeframe =
   | "1Y"
   | "3Y"
   | "5Y"
-  | "MAX"
-  | "SINCE_BUY";
+  | "MAX";
+
+export type HoldingPerformanceKey = HoldingPerformanceTimeframe | "COST_BASIS";
 
 export type HoldingPerformance = {
   amount: number | null;
@@ -283,7 +284,7 @@ function shiftIsoMonth({ day, month, year }: { day: number; month: number; year:
 }
 
 function getTimeframeStartDate(
-  timeframe: Exclude<HoldingPerformanceTimeframe, "1D" | "MAX" | "SINCE_BUY">,
+  timeframe: Exclude<HoldingPerformanceTimeframe, "1D" | "MAX">,
   latestDate: string
 ) {
   const parts = getIsoDateParts(latestDate);
@@ -363,7 +364,7 @@ function calculatePeriodPerformance({
   latestDate: string | null;
   priceCurrency: string | null;
   quantity: number;
-  timeframe: Exclude<HoldingPerformanceTimeframe, "1D" | "SINCE_BUY">;
+  timeframe: Exclude<HoldingPerformanceTimeframe, "1D">;
 }) {
   if (lastPrice == null || latestDate == null || priceCurrency == null) {
     return getEmptyHoldingPerformance();
@@ -423,7 +424,7 @@ function buildHoldingPerformance({
   unrealizedPnl: number | null;
   unrealizedPnlInValuationCurrency: number | null;
   unrealizedPnlPercent: number | null;
-}): Record<HoldingPerformanceTimeframe, HoldingPerformance> {
+}): Record<HoldingPerformanceKey, HoldingPerformance> {
   const oneDayAmountInValuationCurrency =
     oneDayGain == null || fxRateToValuationCurrency == null
       ? null
@@ -500,7 +501,7 @@ function buildHoldingPerformance({
       quantity,
       timeframe: "MAX"
     }),
-    SINCE_BUY: {
+    COST_BASIS: {
       amount: unrealizedPnl,
       percent: unrealizedPnlPercent,
       amountInValuationCurrency: unrealizedPnlInValuationCurrency
