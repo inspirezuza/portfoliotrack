@@ -918,10 +918,10 @@ export function BenchmarkChart({
                   dataKey="benchmarkDisplay"
                   name={mode === "GAP" ? modeCopy.benchmarkName : benchmarkSymbol ?? modeCopy.benchmarkName}
                   stroke="var(--warm)"
-                  strokeDasharray="2 4"
-                  strokeWidth={1.75}
+                  strokeWidth={1.6}
+                  strokeOpacity={0.72}
                   dot={false}
-                  activeDot={{ r: 4, fill: "var(--warm)" }}
+                  activeDot={{ r: 3.5, fill: "var(--warm)" }}
                 />
               </LineChart>
             </ResponsiveContainer>
