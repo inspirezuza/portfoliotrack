@@ -27,6 +27,7 @@ type MarketBenchmarksProps = {
 };
 
 type HistoricalMode = "GAP" | "RETURN";
+type BenchmarkTimeframe = "1M" | "3M" | "6M" | "YTD" | "1Y" | "ALL";
 
 type ChartPoint = {
   month: string;
@@ -35,6 +36,15 @@ type ChartPoint = {
   excessReturn: number | null;
   portfolioReturn: number | null;
 };
+
+const TIMEFRAME_OPTIONS: Array<{ key: BenchmarkTimeframe; label: string }> = [
+  { key: "1M", label: "1M" },
+  { key: "3M", label: "3M" },
+  { key: "6M", label: "6M" },
+  { key: "YTD", label: "YTD" },
+  { key: "1Y", label: "1Y" },
+  { key: "ALL", label: "All" }
+];
 
 type BenchmarkComparison = {
   benchmarkReturn: number | null;
@@ -75,30 +85,116 @@ function formatMonthLabel(month: string, locale: string) {
   }).format(date);
 }
 
+function getLatestMonth(monthlyReturns: DashboardBenchmarkMonthlyReturn[]) {
+  return monthlyReturns
+    .map((entry) => entry.month)
+    .sort((left, right) => right.localeCompare(left))[0] ?? null;
+}
+
+function getTimeframeStartMonth(timeframe: BenchmarkTimeframe, latestMonth: string | null) {
+  if (latestMonth == null || timeframe === "ALL") {
+    return null;
+  }
+
+  const latestDate = new Date(`${latestMonth}-01T00:00:00.000Z`);
+
+  if (Number.isNaN(latestDate.getTime())) {
+    return null;
+  }
+
+  if (timeframe === "YTD") {
+    return `${latestMonth.slice(0, 4)}-01`;
+  }
+
+  const months = timeframe === "1M" ? 1 : timeframe === "3M" ? 3 : timeframe === "6M" ? 6 : 12;
+  const startDate = new Date(latestDate);
+  startDate.setUTCMonth(startDate.getUTCMonth() - months + 1);
+
+  return startDate.toISOString().slice(0, 7);
+}
+
+function filterMonthlyReturnsByTimeframe<T extends { month: string }>({
+  entries,
+  latestMonth,
+  timeframe
+}: {
+  entries: T[];
+  latestMonth: string | null;
+  timeframe: BenchmarkTimeframe;
+}) {
+  const startMonth = getTimeframeStartMonth(timeframe, latestMonth);
+
+  return entries.filter((entry) => startMonth == null || entry.month >= startMonth);
+}
+
+function compoundReturn(values: Array<number | null>) {
+  const usableValues = values.filter((value): value is number => value != null);
+
+  if (usableValues.length === 0) {
+    return null;
+  }
+
+  return (usableValues.reduce((total, value) => total * (1 + value / 100), 1) - 1) * 100;
+}
+
+function formatPeriodLabel({
+  entries,
+  locale,
+  timeframe
+}: {
+  entries: Array<{ month: string }>;
+  locale: string;
+  timeframe: BenchmarkTimeframe;
+}) {
+  if (entries.length === 0) {
+    return null;
+  }
+
+  const orderedMonths = entries.map((entry) => entry.month).sort((left, right) => left.localeCompare(right));
+  const firstMonth = orderedMonths[0];
+  const lastMonth = orderedMonths[orderedMonths.length - 1];
+
+  if (timeframe !== "ALL") {
+    return `${TIMEFRAME_OPTIONS.find((option) => option.key === timeframe)?.label ?? timeframe} · ${formatMonthLabel(lastMonth, locale)}`;
+  }
+
+  return firstMonth === lastMonth
+    ? formatMonthLabel(lastMonth, locale)
+    : `${formatMonthLabel(firstMonth, locale)}-${formatMonthLabel(lastMonth, locale)}`;
+}
+
 function getBenchmarkLabel(symbol: string) {
   return symbol === "SPYM" ? "S&P 500" : symbol;
 }
 
 function buildBenchmarkComparisons({
+  latestMonth,
   locale,
   monthlyReturns,
-  quotes
+  quotes,
+  timeframe
 }: {
+  latestMonth: string | null;
   locale: string;
   monthlyReturns: DashboardBenchmarkMonthlyReturn[];
   quotes: DashboardBenchmarkQuote[];
+  timeframe: BenchmarkTimeframe;
 }): BenchmarkComparison[] {
   return quotes.map((quote) => {
-    const latestReturn = monthlyReturns
-      .filter((entry) => entry.symbol === quote.symbol)
-      .sort((left, right) => right.month.localeCompare(left.month))[0] ?? null;
+    const timeframeReturns = filterMonthlyReturnsByTimeframe({
+      entries: monthlyReturns.filter((entry) => entry.symbol === quote.symbol),
+      latestMonth,
+      timeframe
+    }).sort((left, right) => left.month.localeCompare(right.month));
+    const portfolioReturn = compoundReturn(timeframeReturns.map((entry) => entry.portfolioReturnPercent));
+    const benchmarkReturn = compoundReturn(timeframeReturns.map((entry) => entry.returnPercent));
 
     return {
-      benchmarkReturn: latestReturn?.returnPercent ?? null,
+      benchmarkReturn,
       displayName: getBenchmarkLabel(quote.symbol),
-      gap: latestReturn?.excessReturnPercent ?? null,
-      periodLabel: latestReturn == null ? null : formatMonthLabel(latestReturn.month, locale),
-      portfolioReturn: latestReturn?.portfolioReturnPercent ?? null,
+      gap: portfolioReturn == null || benchmarkReturn == null ? null : portfolioReturn - benchmarkReturn,
+      periodLabel: formatPeriodLabel({ entries: timeframeReturns, locale, timeframe }),
+      portfolioReturn,
       quote
     };
   });
@@ -161,17 +257,22 @@ export function MarketBenchmarks({
   const locale = getUiLocale(language);
   const [selectedSymbol, setSelectedSymbol] = useState(quotes[0]?.symbol ?? "SPYM");
   const [mode, setMode] = useState<HistoricalMode>("GAP");
+  const [timeframe, setTimeframe] = useState<BenchmarkTimeframe>("1Y");
   const selectedQuote = quotes.find((quote) => quote.symbol === selectedSymbol) ?? quotes[0] ?? null;
   const benchmarkLabel = getBenchmarkLabel(selectedSymbol);
+  const latestMonth = useMemo(() => getLatestMonth(monthlyReturns), [monthlyReturns]);
   const comparisons = useMemo(
-    () => buildBenchmarkComparisons({ locale, monthlyReturns, quotes }),
-    [locale, monthlyReturns, quotes]
+    () => buildBenchmarkComparisons({ latestMonth, locale, monthlyReturns, quotes, timeframe }),
+    [latestMonth, locale, monthlyReturns, quotes, timeframe]
   );
   const chartData = useMemo<ChartPoint[]>(
     () =>
-      monthlyReturns
-        .filter((entry) => entry.symbol === selectedSymbol)
-        .slice(-12)
+      filterMonthlyReturnsByTimeframe({
+        entries: monthlyReturns.filter((entry) => entry.symbol === selectedSymbol),
+        latestMonth,
+        timeframe
+      })
+        .sort((left, right) => left.month.localeCompare(right.month))
         .map((entry) => ({
           month: entry.month,
           label: formatMonthLabel(entry.month, locale),
@@ -179,7 +280,7 @@ export function MarketBenchmarks({
           excessReturn: entry.excessReturnPercent,
           portfolioReturn: entry.portfolioReturnPercent
         })),
-    [locale, monthlyReturns, selectedSymbol]
+    [latestMonth, locale, monthlyReturns, selectedSymbol, timeframe]
   );
   const hasQuoteData = comparisons.some((comparison) => comparison.gap != null);
   const hasChartData = chartData.some((point) =>
@@ -196,9 +297,22 @@ export function MarketBenchmarks({
           <h2 id="market-benchmarks-title" className="section-title">
             Portfolio vs benchmarks
           </h2>
-          <span className={styles.sectionSubtitle}>Latest monthly return gap, compared by %</span>
+          <span className={styles.sectionSubtitle}>Return gap by timeframe, compared by %</span>
         </div>
         <span className="state-pill state-pill-muted">SPYM QQQ TDEX NVDA GOOGL</span>
+      </div>
+
+      <div className={styles.timeframeControls} aria-label="Benchmark comparison timeframe">
+        {TIMEFRAME_OPTIONS.map((option) => (
+          <button
+            aria-pressed={timeframe === option.key}
+            key={option.key}
+            onClick={() => setTimeframe(option.key)}
+            type="button"
+          >
+            {option.label}
+          </button>
+        ))}
       </div>
 
       <div className={styles.cardStrip} aria-busy={!hasQuoteData}>
