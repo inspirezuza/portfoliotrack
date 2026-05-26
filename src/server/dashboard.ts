@@ -6,6 +6,7 @@ import { db } from "@/lib/db/runtime";
 import { historicalPrices, instruments, intradayPrices, priceSnapshots, transactions } from "@/lib/db/schema";
 import {
   ensureFreshMarketDataCache,
+  BENCHMARK_WATCHLIST,
   getMarketSettings,
   getPriceAgeMinutes,
   isMarketDataStale
@@ -53,6 +54,26 @@ export type DashboardPerformanceSummary = {
   absoluteReturn: number | null;
 };
 
+export type DashboardBenchmarkQuote = {
+  symbol: string;
+  displayName: string;
+  providerSymbol: string;
+  market: string;
+  currency: string;
+  price: number | null;
+  asOf: string | null;
+  dailyChange: number | null;
+  dailyChangePercent: number | null;
+};
+
+export type DashboardBenchmarkMonthlyReturn = {
+  symbol: string;
+  month: string;
+  returnPercent: number | null;
+  portfolioReturnPercent: number | null;
+  excessReturnPercent: number | null;
+};
+
 export type DashboardSnapshot = {
   summary: DashboardSummary;
   holdingsSnapshot: HoldingsSnapshot;
@@ -62,6 +83,10 @@ export type DashboardSnapshot = {
     latestMarketDataAsOf: string | null;
     priceAgeMinutes: number | null;
     isPriceDataStale: boolean;
+  };
+  benchmarkWatchlist: {
+    quotes: DashboardBenchmarkQuote[];
+    monthlyReturns: DashboardBenchmarkMonthlyReturn[];
   };
   performanceSummary: DashboardPerformanceSummary;
   timeline: PortfolioBenchmarkTimeline;
@@ -200,6 +225,133 @@ function parsePortfolioScope({
   return [parsePortfolioId(portfolioId)];
 }
 
+function getMonthKey(value: string) {
+  return value.slice(0, 7);
+}
+
+function calculateReturnPercent(startValue: number | null, endValue: number | null) {
+  if (startValue == null || endValue == null || startValue <= 0) {
+    return null;
+  }
+
+  return ((endValue - startValue) / startValue) * 100;
+}
+
+function buildPortfolioMonthlyReturns(timeline: PortfolioBenchmarkTimeline) {
+  const series = timeline.moneyWeightedComparison.length > 0
+    ? timeline.moneyWeightedComparison
+    : timeline.comparison;
+  const pointsByMonth = new Map<string, Array<{ portfolio: number }>>();
+
+  for (const point of series) {
+    const month = getMonthKey(point.date);
+    const monthPoints = pointsByMonth.get(month) ?? [];
+    monthPoints.push({ portfolio: point.portfolio });
+    pointsByMonth.set(month, monthPoints);
+  }
+
+  return new Map(
+    Array.from(pointsByMonth, ([month, monthPoints]) => {
+      const firstPoint = monthPoints[0] ?? null;
+      const lastPoint = monthPoints[monthPoints.length - 1] ?? null;
+
+      return [
+        month,
+        calculateReturnPercent(firstPoint?.portfolio ?? null, lastPoint?.portfolio ?? null)
+      ] as const;
+    })
+  );
+}
+
+function buildBenchmarkWatchlist({
+  historicalPriceRows,
+  instrumentRows,
+  priceSnapshotRows,
+  timeline
+}: {
+  historicalPriceRows: Array<typeof historicalPrices.$inferSelect>;
+  instrumentRows: Array<typeof instruments.$inferSelect>;
+  priceSnapshotRows: Array<typeof priceSnapshots.$inferSelect>;
+  timeline: PortfolioBenchmarkTimeline;
+}) {
+  const instrumentsBySymbol = new Map(instrumentRows.map((instrument) => [instrument.symbol, instrument]));
+  const snapshotsByInstrumentId = new Map(
+    priceSnapshotRows.map((snapshot) => [snapshot.instrumentId, snapshot] as const)
+  );
+  const quotes = BENCHMARK_WATCHLIST.map((benchmark) => {
+    const instrument = instrumentsBySymbol.get(benchmark.symbol) ?? null;
+    const snapshot = instrument == null ? null : snapshotsByInstrumentId.get(instrument.id) ?? null;
+    const historyRows = instrument == null
+      ? []
+      : historicalPriceRows
+          .filter((row) => row.instrumentId === instrument.id && row.currency === benchmark.currency)
+          .sort((left, right) => left.priceDate.localeCompare(right.priceDate));
+    const latestHistory = historyRows[historyRows.length - 1] ?? null;
+    const previousHistory = historyRows[historyRows.length - 2] ?? null;
+    const price = snapshot?.price ?? latestHistory?.close ?? null;
+    const previousClose = previousHistory?.close ?? null;
+    const dailyChange = price == null || previousClose == null ? null : price - previousClose;
+
+    return {
+      symbol: benchmark.symbol,
+      displayName: benchmark.displayName,
+      providerSymbol: benchmark.providerSymbol,
+      market: benchmark.market,
+      currency: benchmark.currency,
+      price,
+      asOf: snapshot?.asOf ?? latestHistory?.priceDate ?? null,
+      dailyChange,
+      dailyChangePercent: calculateReturnPercent(previousClose, price)
+    };
+  });
+  const portfolioMonthlyReturns = buildPortfolioMonthlyReturns(timeline);
+  const monthlyReturns = BENCHMARK_WATCHLIST.flatMap((benchmark) => {
+    const instrument = instrumentsBySymbol.get(benchmark.symbol) ?? null;
+
+    if (instrument == null) {
+      return [];
+    }
+
+    const rowsByMonth = new Map<string, Array<typeof historicalPrices.$inferSelect>>();
+
+    for (const row of historicalPriceRows) {
+      if (row.instrumentId !== instrument.id || row.currency !== benchmark.currency) {
+        continue;
+      }
+
+      const month = getMonthKey(row.priceDate);
+      const monthRows = rowsByMonth.get(month) ?? [];
+      monthRows.push(row);
+      rowsByMonth.set(month, monthRows);
+    }
+
+    return Array.from(rowsByMonth, ([month, monthRows]) => {
+      const orderedRows = monthRows.sort((left, right) => left.priceDate.localeCompare(right.priceDate));
+      const benchmarkReturn = calculateReturnPercent(
+        orderedRows[0]?.close ?? null,
+        orderedRows[orderedRows.length - 1]?.close ?? null
+      );
+      const portfolioReturn = portfolioMonthlyReturns.get(month) ?? null;
+
+      return {
+        symbol: benchmark.symbol,
+        month,
+        returnPercent: benchmarkReturn,
+        portfolioReturnPercent: portfolioReturn,
+        excessReturnPercent:
+          benchmarkReturn == null || portfolioReturn == null ? null : benchmarkReturn - portfolioReturn
+      };
+    });
+  }).sort((left, right) =>
+    left.month === right.month ? left.symbol.localeCompare(right.symbol) : left.month.localeCompare(right.month)
+  );
+
+  return {
+    monthlyReturns,
+    quotes
+  };
+}
+
 export async function getDashboardSnapshot({
   portfolioId: portfolioIdInput,
   portfolioIds: portfolioIdsInput,
@@ -249,6 +401,9 @@ export async function getDashboardSnapshot({
     marketSettings.benchmarkSymbol == null
       ? null
       : instrumentRows.find((instrument) => instrument.symbol === marketSettings.benchmarkSymbol) ?? null;
+  const benchmarkWatchlistInstrumentIds = BENCHMARK_WATCHLIST.map((benchmark) =>
+    instrumentRows.find((instrument) => instrument.symbol === benchmark.symbol)?.id ?? null
+  ).filter((id): id is number => id != null);
   const instrumentById = new Map(instrumentRows.map((instrument) => [instrument.id, instrument]));
   const valuationCurrency = holdingsSnapshot.valuationCurrency;
   const fxInstrumentIds = Array.from(
@@ -267,6 +422,7 @@ export async function getDashboardSnapshot({
     new Set([
       ...transactionRows.map((transaction) => transaction.instrumentId),
       ...(benchmarkInstrument == null ? [] : [benchmarkInstrument.id]),
+      ...benchmarkWatchlistInstrumentIds,
       ...fxInstrumentIds
     ])
   );
@@ -274,7 +430,7 @@ export async function getDashboardSnapshot({
     transactionRows
       .map((transaction) => transaction.tradeDate)
       .sort((left, right) => left.localeCompare(right))[0] ?? null;
-  const [historicalPriceRows, intradayPriceRows, benchmarkSnapshotRows] =
+  const [historicalPriceRows, intradayPriceRows, priceSnapshotRows] =
     relevantInstrumentIds.length === 0
       ? [[], [], []]
       : await Promise.all([
@@ -293,16 +449,14 @@ export async function getDashboardSnapshot({
                     gte(intradayPrices.observedAt, `${earliestTradeDate}T00:00:00.000Z`)
                   )
             ),
-          benchmarkInstrument == null
-            ? Promise.resolve([])
-            : db
-                .select({
-                  asOf: priceSnapshots.asOf
-                })
-                .from(priceSnapshots)
-                .where(eq(priceSnapshots.instrumentId, benchmarkInstrument.id))
+          db
+            .select()
+            .from(priceSnapshots)
+            .where(inArray(priceSnapshots.instrumentId, relevantInstrumentIds))
         ]);
-  const benchmarkSnapshot = benchmarkSnapshotRows[0] ?? null;
+  const benchmarkSnapshot = benchmarkInstrument == null
+    ? null
+    : priceSnapshotRows.find((snapshot) => snapshot.instrumentId === benchmarkInstrument.id) ?? null;
   const latestMarketDataAsOf =
     [holdingsSnapshot.latestPriceAsOf, benchmarkSnapshot?.asOf ?? null]
       .filter((value): value is string => value != null)
@@ -494,6 +648,12 @@ export async function getDashboardSnapshot({
     benchmarkCurrency: benchmarkInstrument?.currency ?? null,
     benchmarkSymbol: marketSettings.benchmarkSymbol
   });
+  const benchmarkWatchlist = buildBenchmarkWatchlist({
+    historicalPriceRows,
+    instrumentRows,
+    priceSnapshotRows,
+    timeline
+  });
 
   return {
     summary: {
@@ -521,6 +681,7 @@ export async function getDashboardSnapshot({
         marketSettings.marketRefreshMinutes
       )
     },
+    benchmarkWatchlist,
     performanceSummary,
     timeline
   };

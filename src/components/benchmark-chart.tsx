@@ -26,6 +26,7 @@ type BenchmarkChartProps = {
   benchmarkCurrency: string | null;
   comparisonBasis: BenchmarkComparisonBasis | null;
   language: UiLanguage;
+  moneyWeightedSeries: BenchmarkTimelinePoint[];
   performanceSummary: BenchmarkPerformanceSummary;
   portfolioCurrency: string | null;
   series: BenchmarkTimelinePoint[];
@@ -47,7 +48,7 @@ type BenchmarkPerformanceSummary = {
 
 type TimeframeKey = "1D" | "5D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "START" | "ALL";
 type PerformanceMode = "INDEXED" | "GAP" | "DRAWDOWN";
-type ReturnBasis = "TWR" | "ABSOLUTE";
+type ReturnBasis = "TWR" | "MWR" | "ABSOLUTE";
 
 type ChartPoint = BenchmarkTimelinePoint & {
   benchmarkChangeFromRangeStart: number | null;
@@ -86,7 +87,7 @@ type BenchmarkChartTooltipProps = {
 const TIMEFRAME_OPTIONS: TimeframeKey[] = ["1D", "5D", "1W", "1M", "3M", "YTD", "1Y", "START", "ALL"];
 
 const PERFORMANCE_MODE_OPTIONS: PerformanceMode[] = ["INDEXED", "GAP", "DRAWDOWN"];
-const RETURN_BASIS_OPTIONS: ReturnBasis[] = ["TWR", "ABSOLUTE"];
+const RETURN_BASIS_OPTIONS: ReturnBasis[] = ["TWR", "MWR", "ABSOLUTE"];
 
 function parseChartDate(value: string) {
   return new Date(value.includes("T") ? value : `${value}T00:00:00.000Z`);
@@ -446,6 +447,7 @@ export function BenchmarkChart({
   benchmarkCurrency,
   comparisonBasis,
   language,
+  moneyWeightedSeries,
   performanceSummary,
   portfolioCurrency,
   series,
@@ -458,9 +460,14 @@ export function BenchmarkChart({
   const [mode, setMode] = useState<PerformanceMode>("INDEXED");
   const [selection, setSelection] = useState<SelectionRange | null>(null);
   const isDraggingRef = useRef(false);
-  const activeSeries = returnBasis === "ABSOLUTE" ? absoluteSeries : series;
+  const activeSeries =
+    returnBasis === "ABSOLUTE"
+      ? absoluteSeries
+      : returnBasis === "MWR"
+        ? moneyWeightedSeries
+        : series;
   const hasSeries = activeSeries.length > 0;
-  const hasAnySeries = series.length > 0 || absoluteSeries.length > 0;
+  const hasAnySeries = series.length > 0 || absoluteSeries.length > 0 || moneyWeightedSeries.length > 0;
   const returnBasisCopy = copy.charts.benchmark.returnBasis[returnBasis];
   const absoluteSummaryMessage = getAbsoluteSummaryMessage({
     copy: copy.charts.benchmark,
@@ -687,10 +694,10 @@ export function BenchmarkChart({
 
       {shouldShowAbsoluteSummary ? (
         <div className="chart-stat-strip" aria-label={copy.charts.benchmark.absoluteSummary.label}>
-          <div title={returnBasis === "TWR" ? returnBasisCopy.hint : copy.charts.benchmark.absoluteSummary.hints.absoluteReturn}>
-            <span>{returnBasis === "TWR" ? "TWR return" : copy.charts.benchmark.absoluteSummary.absoluteReturn}</span>
-            <strong className={getValueClassName(returnBasis === "TWR" ? basisReturn : performanceSummary.absoluteReturn)}>
-              {returnBasis === "TWR"
+          <div title={returnBasis === "ABSOLUTE" ? copy.charts.benchmark.absoluteSummary.hints.absoluteReturn : returnBasisCopy.hint}>
+            <span>{returnBasis === "ABSOLUTE" ? copy.charts.benchmark.absoluteSummary.absoluteReturn : returnBasisCopy.summaryLabel}</span>
+            <strong className={getValueClassName(returnBasis === "ABSOLUTE" ? performanceSummary.absoluteReturn : basisReturn)}>
+              {returnBasis !== "ABSOLUTE"
                 ? basisReturn == null
                   ? "-"
                   : formatSignedPercent(basisReturn)

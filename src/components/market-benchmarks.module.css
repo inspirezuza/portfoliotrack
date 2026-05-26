@@ -1,0 +1,153 @@
+.section {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.cardStrip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+.miniCard {
+  display: grid;
+  gap: 8px;
+  min-height: 118px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  color: var(--ink);
+  text-align: left;
+  background:
+    linear-gradient(135deg, rgba(12, 121, 94, 0.13), transparent 68%),
+    var(--surface);
+  box-shadow: 0 12px 32px rgba(33, 49, 41, 0.08);
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.miniCard:hover,
+.miniCard:focus-visible {
+  border-color: rgba(12, 121, 94, 0.34);
+  box-shadow: 0 16px 38px rgba(33, 49, 41, 0.12);
+  transform: translateY(-1px);
+}
+
+.miniCard[aria-pressed="true"] {
+  border-color: rgba(12, 121, 94, 0.48);
+  background:
+    linear-gradient(135deg, rgba(12, 121, 94, 0.2), rgba(12, 121, 94, 0.04)),
+    var(--surface);
+  box-shadow:
+    0 0 0 3px rgba(12, 121, 94, 0.11),
+    0 16px 38px rgba(33, 49, 41, 0.12);
+}
+
+.miniCard span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.miniCard strong {
+  overflow-wrap: anywhere;
+  font-size: 1.42rem;
+  line-height: 1.08;
+}
+
+.miniCard em {
+  font-size: 0.88rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.historicalCard {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+}
+
+.historicalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+}
+
+.historicalHeader h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.modeToggle {
+  flex-shrink: 0;
+}
+
+.chartShell {
+  min-width: 0;
+  min-height: 260px;
+}
+
+.loadingGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .cardStrip {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    padding-bottom: 4px;
+  }
+
+  .miniCard {
+    min-width: 180px;
+    scroll-snap-align: start;
+  }
+
+  .historicalHeader {
+    flex-direction: column;
+  }
+
+  .modeToggle {
+    width: 100%;
+  }
+
+  .chartShell {
+    min-height: 300px;
+  }
+
+  .loadingGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .section {
+    gap: 12px;
+  }
+
+  .miniCard {
+    min-width: 168px;
+    min-height: 108px;
+    padding: 12px;
+  }
+
+  .miniCard strong {
+    font-size: 1.24rem;
+  }
+
+  .historicalCard {
+    padding: 12px;
+  }
+}

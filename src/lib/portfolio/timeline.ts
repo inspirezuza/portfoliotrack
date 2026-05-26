@@ -76,6 +76,7 @@ export type PortfolioBenchmarkTimeline = {
   comparisonBasis: BenchmarkComparisonBasis | null;
   portfolio: PortfolioTimelinePoint[];
   comparison: BenchmarkTimelinePoint[];
+  moneyWeightedComparison: BenchmarkTimelinePoint[];
   absoluteComparison: BenchmarkTimelinePoint[];
 };
 
@@ -448,6 +449,151 @@ function buildAbsoluteComparisonSeries({
   return comparison;
 }
 
+function daysBetween(startDate: string, endDate: string) {
+  const startTime = Date.parse(toDayStartTimestamp(toTradeDay(startDate)));
+  const endTime = Date.parse(toDayStartTimestamp(toTradeDay(endDate)));
+
+  return (endTime - startTime) / 86_400_000;
+}
+
+function calculateNetPresentValue(
+  cashFlows: Array<{ date: string; amount: number }>,
+  annualRate: number
+) {
+  const firstDate = cashFlows[0]?.date;
+
+  if (firstDate == null || annualRate <= -1) {
+    return null;
+  }
+
+  return cashFlows.reduce((total, cashFlow) => {
+    const years = daysBetween(firstDate, cashFlow.date) / 365;
+
+    return total + cashFlow.amount / Math.pow(1 + annualRate, years);
+  }, 0);
+}
+
+function calculateXirr(cashFlows: Array<{ date: string; amount: number }>) {
+  const validCashFlows = cashFlows.filter((cashFlow) => cashFlow.amount !== 0);
+  const hasPositive = validCashFlows.some((cashFlow) => cashFlow.amount > 0);
+  const hasNegative = validCashFlows.some((cashFlow) => cashFlow.amount < 0);
+
+  if (validCashFlows.length < 2 || !hasPositive || !hasNegative) {
+    return null;
+  }
+
+  let low = -0.9999;
+  let high = 10;
+  let lowValue = calculateNetPresentValue(validCashFlows, low);
+  let highValue = calculateNetPresentValue(validCashFlows, high);
+
+  for (let expansion = 0; expansion < 8 && lowValue != null && highValue != null && lowValue * highValue > 0; expansion += 1) {
+    high *= 2;
+    highValue = calculateNetPresentValue(validCashFlows, high);
+  }
+
+  if (lowValue == null || highValue == null || lowValue * highValue > 0) {
+    return null;
+  }
+
+  for (let iteration = 0; iteration < 80; iteration += 1) {
+    const mid = (low + high) / 2;
+    const midValue = calculateNetPresentValue(validCashFlows, mid);
+
+    if (midValue == null || Math.abs(midValue) < 0.000001) {
+      return mid;
+    }
+
+    if (lowValue * midValue <= 0) {
+      high = mid;
+      highValue = midValue;
+    } else {
+      low = mid;
+      lowValue = midValue;
+    }
+  }
+
+  return (low + high) / 2;
+}
+
+function buildMoneyWeightedComparisonSeries({
+  portfolioSeries,
+  benchmarkRows,
+  benchmarkIntradayRows = []
+}: {
+  portfolioSeries: PortfolioValuationPoint[];
+  benchmarkRows: TimelineHistoricalPrice[];
+  benchmarkIntradayRows?: TimelineIntradayPrice[];
+}) {
+  const orderedBenchmarkRows = [
+    ...toDailyPricePoints(benchmarkRows),
+    ...toIntradayPricePoints(benchmarkIntradayRows)
+  ].sort((left, right) =>
+    left.priceAt.localeCompare(right.priceAt)
+  );
+
+  if (portfolioSeries.length === 0 || orderedBenchmarkRows.length === 0) {
+    return [];
+  }
+
+  const firstPoint = portfolioSeries[0];
+  let benchmarkRowIndex = 0;
+  let lastBenchmarkClose: number | null = null;
+  let baselineBenchmarkClose: number | null = null;
+  const realizedCashFlows: Array<{ date: string; amount: number }> = [];
+  const comparison: BenchmarkTimelinePoint[] = [];
+
+  for (const point of portfolioSeries) {
+    if (point.netCashFlow !== 0) {
+      realizedCashFlows.push({
+        date: point.date,
+        amount: -point.netCashFlow
+      });
+    }
+
+    while (
+      benchmarkRowIndex < orderedBenchmarkRows.length &&
+      orderedBenchmarkRows[benchmarkRowIndex].priceAt <= point.date
+    ) {
+      lastBenchmarkClose = orderedBenchmarkRows[benchmarkRowIndex].close;
+      benchmarkRowIndex += 1;
+    }
+
+    if (point.value <= 0 || lastBenchmarkClose == null || lastBenchmarkClose <= 0) {
+      continue;
+    }
+
+    if (baselineBenchmarkClose == null) {
+      baselineBenchmarkClose = lastBenchmarkClose;
+    }
+
+    const mwr = calculateXirr([
+      ...realizedCashFlows,
+      {
+        date: point.date,
+        amount: point.value
+      }
+    ]);
+
+    if (mwr == null || baselineBenchmarkClose <= 0) {
+      continue;
+    }
+
+    comparison.push({
+      date: point.date,
+      interval: point.interval,
+      portfolio: normalizeMoney(100 * (1 + mwr)),
+      benchmark: normalizeMoney((lastBenchmarkClose / baselineBenchmarkClose) * 100)
+    });
+  }
+
+  if (comparison.length === 0 && firstPoint.value > 0) {
+    return [];
+  }
+
+  return comparison;
+}
+
 export function buildPortfolioBenchmarkTimeline({
   instruments,
   transactions,
@@ -478,6 +624,7 @@ export function buildPortfolioBenchmarkTimeline({
       comparisonBasis: null,
       portfolio: [],
       comparison: [],
+      moneyWeightedComparison: [],
       absoluteComparison: []
     };
   }
@@ -515,6 +662,7 @@ export function buildPortfolioBenchmarkTimeline({
       comparisonBasis: null,
       portfolio: [],
       comparison: [],
+      moneyWeightedComparison: [],
       absoluteComparison: []
     };
   }
@@ -532,6 +680,7 @@ export function buildPortfolioBenchmarkTimeline({
       comparisonBasis: null,
       portfolio: [],
       comparison: [],
+      moneyWeightedComparison: [],
       absoluteComparison: []
     };
   }
@@ -565,6 +714,7 @@ export function buildPortfolioBenchmarkTimeline({
       comparisonBasis: null,
       portfolio: [],
       comparison: [],
+      moneyWeightedComparison: [],
       absoluteComparison: []
     };
   }
@@ -579,6 +729,7 @@ export function buildPortfolioBenchmarkTimeline({
       comparisonBasis: null,
       portfolio: portfolioSeries,
       comparison: [],
+      moneyWeightedComparison: [],
       absoluteComparison: []
     };
   }
@@ -606,6 +757,11 @@ export function buildPortfolioBenchmarkTimeline({
     benchmarkRows: benchmarkHistoricalPrices,
     benchmarkIntradayRows: benchmarkIntradayPrices
   });
+  const moneyWeightedComparisonSeries = buildMoneyWeightedComparisonSeries({
+    portfolioSeries: portfolioValuationSeries,
+    benchmarkRows: benchmarkHistoricalPrices,
+    benchmarkIntradayRows: benchmarkIntradayPrices
+  });
   const absoluteComparisonSeries = buildAbsoluteComparisonSeries({
     portfolioSeries: portfolioValuationSeries,
     benchmarkRows: benchmarkHistoricalPrices,
@@ -613,7 +769,7 @@ export function buildPortfolioBenchmarkTimeline({
   });
 
   return {
-    status: comparisonSeries.length > 0 || absoluteComparisonSeries.length > 0 ? "ready" : "missing-benchmark-history",
+    status: comparisonSeries.length > 0 || absoluteComparisonSeries.length > 0 || moneyWeightedComparisonSeries.length > 0 ? "ready" : "missing-benchmark-history",
     baselineDate,
     portfolioCurrency,
     benchmarkSymbol,
@@ -621,6 +777,7 @@ export function buildPortfolioBenchmarkTimeline({
     comparisonBasis,
     portfolio: portfolioSeries,
     comparison: comparisonSeries,
+    moneyWeightedComparison: moneyWeightedComparisonSeries,
     absoluteComparison: absoluteComparisonSeries
   };
 }

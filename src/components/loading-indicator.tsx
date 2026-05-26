@@ -81,6 +81,11 @@ export function RouteLoadingSkeleton({
         <div className="loading-skeleton-panel loading-skeleton-panel-tall" />
         <div className="loading-skeleton-panel" />
       </section>
+
+      <section className="workstation-grid" aria-hidden="true">
+        <div className="loading-skeleton-panel" />
+        <div className="loading-skeleton-panel loading-skeleton-panel-tall" />
+      </section>
     </section>
   );
 }

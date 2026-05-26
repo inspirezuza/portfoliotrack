@@ -19,6 +19,50 @@ const DEFAULT_BENCHMARK_SYMBOL = "SPY";
 const DEFAULT_BASE_CURRENCY = "THB";
 const DEFAULT_MARKET_REFRESH_MINUTES = 30;
 const DEFAULT_AUTO_REFRESH_TIMEOUT_MS = 3500;
+const BENCHMARK_HISTORY_START_DATE = "2020-01-01";
+
+export const BENCHMARK_WATCHLIST = [
+  {
+    symbol: "SPY",
+    displayName: "SPDR S&P 500 ETF Trust",
+    market: "US",
+    instrumentType: "ETF",
+    currency: "USD",
+    providerSymbol: "SPY"
+  },
+  {
+    symbol: "QQQ",
+    displayName: "Invesco QQQ Trust",
+    market: "US",
+    instrumentType: "ETF",
+    currency: "USD",
+    providerSymbol: "QQQ"
+  },
+  {
+    symbol: "TDEX",
+    displayName: "ThaiDEX SET50 ETF",
+    market: "TH",
+    instrumentType: "ETF",
+    currency: "THB",
+    providerSymbol: "TDEX.BK"
+  },
+  {
+    symbol: "NVDA",
+    displayName: "NVIDIA Corporation",
+    market: "US",
+    instrumentType: "STOCK",
+    currency: "USD",
+    providerSymbol: "NVDA"
+  },
+  {
+    symbol: "GOOGL",
+    displayName: "Alphabet Inc.",
+    market: "US",
+    instrumentType: "STOCK",
+    currency: "USD",
+    providerSymbol: "GOOGL"
+  }
+] as const;
 
 export type MarketSettings = {
   benchmarkSymbol: string | null;
@@ -139,6 +183,25 @@ function addDays(date: Date, days: number) {
   const nextDate = new Date(date);
   nextDate.setUTCDate(nextDate.getUTCDate() + days);
   return nextDate;
+}
+
+async function ensureBenchmarkWatchlistInstruments() {
+  const existingRows = await db.select().from(instruments);
+  const existingSymbols = new Set(existingRows.map((instrument) => instrument.symbol));
+
+  for (const benchmark of BENCHMARK_WATCHLIST) {
+    if (existingSymbols.has(benchmark.symbol)) {
+      continue;
+    }
+
+    await db
+      .insert(instruments)
+      .values({
+        ...benchmark,
+        isActive: true
+      })
+      .onConflictDoNothing();
+  }
 }
 
 function toIsoDate(value: Date) {
@@ -338,6 +401,7 @@ async function buildRefreshContext({
   includeBenchmark?: boolean;
 }): Promise<RefreshContext> {
   const portfolioId = parsePortfolioId(portfolioIdInput);
+  await ensureBenchmarkWatchlistInstruments();
   const [{ baseCurrency, benchmarkSymbol, marketRefreshMinutes }, instrumentRows, transactionRows] = await Promise.all([
     getMarketSettings(),
     db.select().from(instruments),
@@ -418,6 +482,21 @@ async function buildRefreshContext({
       instrument: benchmarkInstrument,
       historyStartDate: earliestPortfolioTradeDate
     });
+  }
+
+  if (includeBenchmark) {
+    for (const benchmark of BENCHMARK_WATCHLIST) {
+      const benchmarkInstrumentRow = instrumentRows.find((instrument) => instrument.symbol === benchmark.symbol);
+
+      if (benchmarkInstrumentRow == null) {
+        continue;
+      }
+
+      refreshTargets.set(benchmarkInstrumentRow.id, {
+        instrument: benchmarkInstrumentRow,
+        historyStartDate: BENCHMARK_HISTORY_START_DATE
+      });
+    }
   }
 
   return {

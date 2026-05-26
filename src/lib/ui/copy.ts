@@ -143,15 +143,25 @@ const uiCopy = {
           label: "Chart return basis",
           options: {
             TWR: "TWR",
+            MWR: "MWR",
             ABSOLUTE: "Absolute"
           },
           TWR: {
+            summaryLabel: "TWR return",
             summaryValue: "TWR",
             portfolioName: "Portfolio TWR",
             yAxisLabel: "TWR",
             hint: "The chart uses cash-flow-adjusted time-weighted return, indexed from 100."
           },
+          MWR: {
+            summaryLabel: "MWR return",
+            summaryValue: "MWR",
+            portfolioName: "Portfolio MWR",
+            yAxisLabel: "MWR",
+            hint: "The chart uses money-weighted return from dated cash flows and ending market value."
+          },
           ABSOLUTE: {
+            summaryLabel: "Absolute return",
             summaryValue: "Absolute",
             portfolioName: "Portfolio absolute return",
             yAxisLabel: "Absolute",
@@ -564,15 +574,25 @@ const uiCopy = {
           label: "Chart return basis",
           options: {
             TWR: "TWR",
+            MWR: "MWR",
             ABSOLUTE: "Absolute"
           },
           TWR: {
+            summaryLabel: "TWR return",
             summaryValue: "TWR",
             portfolioName: "Portfolio TWR",
             yAxisLabel: "TWR",
             hint: "The chart uses cash-flow-adjusted time-weighted return, indexed from 100."
           },
+          MWR: {
+            summaryLabel: "MWR return",
+            summaryValue: "MWR",
+            portfolioName: "Portfolio MWR",
+            yAxisLabel: "MWR",
+            hint: "The chart uses money-weighted return from dated cash flows and ending market value."
+          },
           ABSOLUTE: {
+            summaryLabel: "Absolute return",
             summaryValue: "Absolute",
             portfolioName: "Portfolio absolute return",
             yAxisLabel: "Absolute",
