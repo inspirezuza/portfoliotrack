@@ -1,12 +1,12 @@
 import { loadEnvConfig } from "@next/env";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
+import { refreshMarketDataCache } from "../market/provider-core";
 import { createDatabaseHandle } from "./client";
 import {
   appSettings,
   historicalPrices,
   intradayPrices,
   instruments,
-  marketRefreshRuns,
   portfolios,
   priceSnapshots,
   transactions,
@@ -15,6 +15,39 @@ import {
 } from "./schema";
 
 loadEnvConfig(process.cwd());
+
+const defaultLocalDatabaseUrl = "postgresql://postgres@localhost:5432/portfoliotrack";
+
+function getSeedDatabaseUrl() {
+  const localDatabaseUrl = process.env.LOCAL_DATABASE_URL;
+  const hostedDatabaseUrl = process.env.DATABASE_URL;
+
+  return process.env.NODE_ENV === "production"
+    ? hostedDatabaseUrl || localDatabaseUrl || ""
+    : localDatabaseUrl || hostedDatabaseUrl || defaultLocalDatabaseUrl;
+}
+
+function isLocalDatabaseUrl(databaseUrl: string) {
+  try {
+    const hostname = new URL(databaseUrl).hostname;
+
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+  } catch {
+    return false;
+  }
+}
+
+function assertSafeSeedTarget() {
+  const databaseUrl = getSeedDatabaseUrl();
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Refusing to run local seed against production NODE_ENV.");
+  }
+
+  if (!databaseUrl || !isLocalDatabaseUrl(databaseUrl)) {
+    throw new Error("Refusing to run local seed against a non-local database URL.");
+  }
+}
 
 const defaultInstruments: NewInstrument[] = [
   {
@@ -132,173 +165,7 @@ const seededTransactionNotes = [
   "Local seed: closed BDMS sell"
 ];
 const retiredSeededTransactionNotes = ["Local seed: mixed SPY buy"];
-
-type SamplePricePoint = { priceDate: string; close: number; currency: string };
-type SamplePriceAnchor = SamplePricePoint;
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function parseUtcDate(value: string) {
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, day));
-}
-
-function formatUtcDate(value: Date) {
-  return value.toISOString().slice(0, 10);
-}
-
-function isWeekday(value: Date) {
-  const day = value.getUTCDay();
-  return day !== 0 && day !== 6;
-}
-
-function roundTo(value: number, precision: number) {
-  const multiplier = 10 ** precision;
-  return Math.round(value * multiplier) / multiplier;
-}
-
-function interpolateSampleHistory(
-  anchors: SamplePriceAnchor[],
-  options: { precision?: number; wave?: number } = {}
-): SamplePricePoint[] {
-  const precision = options.precision ?? 2;
-  const wave = options.wave ?? 0;
-  const orderedAnchors = [...anchors].sort((a, b) => (
-    parseUtcDate(a.priceDate).getTime() - parseUtcDate(b.priceDate).getTime()
-  ));
-  const points: SamplePricePoint[] = [];
-
-  for (let anchorIndex = 0; anchorIndex < orderedAnchors.length - 1; anchorIndex += 1) {
-    const start = orderedAnchors[anchorIndex];
-    const end = orderedAnchors[anchorIndex + 1];
-    const startTime = parseUtcDate(start.priceDate).getTime();
-    const endTime = parseUtcDate(end.priceDate).getTime();
-    const span = Math.max(endTime - startTime, DAY_MS);
-
-    for (let time = startTime; time <= endTime; time += DAY_MS) {
-      if (anchorIndex > 0 && time === startTime) {
-        continue;
-      }
-
-      const currentDate = new Date(time);
-
-      if (!isWeekday(currentDate)) {
-        continue;
-      }
-
-      const progress = (time - startTime) / span;
-      const trend = start.close + (end.close - start.close) * progress;
-      const motion = Math.sin(progress * Math.PI) * Math.sin((anchorIndex + 1) * 1.31 + progress * 10.4) * wave;
-
-      points.push({
-        priceDate: formatUtcDate(currentDate),
-        close: Math.max(roundTo(trend + motion, precision), 0.01),
-        currency: start.currency
-      });
-    }
-  }
-
-  return points;
-}
-
-const samplePriceHistory: Record<string, SamplePricePoint[]> = {
-  AAPL80: interpolateSampleHistory([
-    { priceDate: "2025-01-06", close: 7.8, currency: "THB" },
-    { priceDate: "2025-06-16", close: 8.15, currency: "THB" },
-    { priceDate: "2025-12-15", close: 8.75, currency: "THB" },
-    { priceDate: "2026-05-01", close: 9.05, currency: "THB" },
-    { priceDate: "2026-05-06", close: 9.18, currency: "THB" },
-    { priceDate: "2026-05-11", close: 9.42, currency: "THB" },
-    { priceDate: "2026-05-15", close: 9.68, currency: "THB" },
-    { priceDate: "2026-05-20", close: 9.72, currency: "THB" }
-  ], { wave: 0.07 }),
-  AAPL: interpolateSampleHistory([
-    { priceDate: "2025-01-06", close: 181.2, currency: "USD" },
-    { priceDate: "2025-06-16", close: 196.8, currency: "USD" },
-    { priceDate: "2025-12-15", close: 204.1, currency: "USD" },
-    { priceDate: "2026-05-01", close: 201.2, currency: "USD" },
-    { priceDate: "2026-05-06", close: 204.8, currency: "USD" },
-    { priceDate: "2026-05-11", close: 207.4, currency: "USD" },
-    { priceDate: "2026-05-15", close: 211.9, currency: "USD" },
-    { priceDate: "2026-05-20", close: 214.6, currency: "USD" }
-  ], { wave: 1.4 }),
-  CPALL: interpolateSampleHistory([
-    { priceDate: "2025-02-10", close: 44.5, currency: "THB" },
-    { priceDate: "2025-08-18", close: 45.25, currency: "THB" },
-    { priceDate: "2026-02-12", close: 45.75, currency: "THB" },
-    { priceDate: "2026-05-01", close: 43.75, currency: "THB" },
-    { priceDate: "2026-05-06", close: 43.5, currency: "THB" },
-    { priceDate: "2026-05-11", close: 44, currency: "THB" },
-    { priceDate: "2026-05-15", close: 46.5, currency: "THB" },
-    { priceDate: "2026-05-20", close: 47, currency: "THB" }
-  ], { wave: 0.32 }),
-  BDMS: interpolateSampleHistory([
-    { priceDate: "2025-03-17", close: 17.8, currency: "THB" },
-    { priceDate: "2025-09-22", close: 18.1, currency: "THB" },
-    { priceDate: "2026-01-19", close: 18.35, currency: "THB" },
-    { priceDate: "2026-05-01", close: 18.45, currency: "THB" },
-    { priceDate: "2026-05-06", close: 18.4, currency: "THB" },
-    { priceDate: "2026-05-11", close: 18.35, currency: "THB" },
-    { priceDate: "2026-05-15", close: 18.45, currency: "THB" },
-    { priceDate: "2026-05-20", close: 18.3, currency: "THB" }
-  ], { wave: 0.12 }),
-  SPYM: interpolateSampleHistory([
-    { priceDate: "2025-01-06", close: 70.15, currency: "USD" },
-    { priceDate: "2025-06-16", close: 76.4, currency: "USD" },
-    { priceDate: "2025-12-15", close: 82.9, currency: "USD" },
-    { priceDate: "2026-05-01", close: 84.35, currency: "USD" },
-    { priceDate: "2026-05-06", close: 85.1, currency: "USD" },
-    { priceDate: "2026-05-11", close: 85.72, currency: "USD" },
-    { priceDate: "2026-05-15", close: 86.43, currency: "USD" },
-    { priceDate: "2026-05-20", close: 86.96, currency: "USD" }
-  ], { wave: 0.55 }),
-  USDTHB: interpolateSampleHistory([
-    { priceDate: "2025-01-06", close: 34.55, currency: "THB" },
-    { priceDate: "2025-06-16", close: 35.1, currency: "THB" },
-    { priceDate: "2025-12-15", close: 35.85, currency: "THB" },
-    { priceDate: "2026-05-01", close: 36.6, currency: "THB" },
-    { priceDate: "2026-05-06", close: 36.4, currency: "THB" },
-    { priceDate: "2026-05-11", close: 36.25, currency: "THB" },
-    { priceDate: "2026-05-15", close: 36.15, currency: "THB" },
-    { priceDate: "2026-05-20", close: 36.1, currency: "THB" }
-  ], { wave: 0.04 })
-};
-
-const sampleIntradayPrices: Record<string, Array<{ observedAt: string; close: number; currency: string; interval: "1h" }>> = {
-  AAPL80: [
-    { observedAt: "2026-05-20T10:00:00.000Z", close: 9.62, currency: "THB", interval: "1h" },
-    { observedAt: "2026-05-20T11:00:00.000Z", close: 9.68, currency: "THB", interval: "1h" },
-    { observedAt: "2026-05-20T12:00:00.000Z", close: 9.72, currency: "THB", interval: "1h" }
-  ],
-  AAPL: [
-    { observedAt: "2026-05-20T14:00:00.000Z", close: 213.4, currency: "USD", interval: "1h" },
-    { observedAt: "2026-05-20T15:00:00.000Z", close: 214.1, currency: "USD", interval: "1h" },
-    { observedAt: "2026-05-20T16:00:00.000Z", close: 214.6, currency: "USD", interval: "1h" }
-  ],
-  CPALL: [
-    { observedAt: "2026-05-20T10:00:00.000Z", close: 46.8, currency: "THB", interval: "1h" },
-    { observedAt: "2026-05-20T11:00:00.000Z", close: 46.9, currency: "THB", interval: "1h" },
-    { observedAt: "2026-05-20T12:00:00.000Z", close: 47, currency: "THB", interval: "1h" }
-  ],
-  BDMS: [
-    { observedAt: "2026-05-20T10:00:00.000Z", close: 18.25, currency: "THB", interval: "1h" },
-    { observedAt: "2026-05-20T11:00:00.000Z", close: 18.28, currency: "THB", interval: "1h" },
-    { observedAt: "2026-05-20T12:00:00.000Z", close: 18.3, currency: "THB", interval: "1h" }
-  ],
-  SPYM: [
-    { observedAt: "2026-05-20T14:00:00.000Z", close: 86.72, currency: "USD", interval: "1h" },
-    { observedAt: "2026-05-20T15:00:00.000Z", close: 86.84, currency: "USD", interval: "1h" },
-    { observedAt: "2026-05-20T16:00:00.000Z", close: 86.96, currency: "USD", interval: "1h" }
-  ],
-  USDTHB: [
-    { observedAt: "2026-05-20T14:00:00.000Z", close: 36.12, currency: "THB", interval: "1h" },
-    { observedAt: "2026-05-20T15:00:00.000Z", close: 36.08, currency: "THB", interval: "1h" },
-    { observedAt: "2026-05-20T16:00:00.000Z", close: 36.1, currency: "THB", interval: "1h" }
-  ]
-};
-
-const sampleHistoricalBarCount = Object.values(samplePriceHistory).reduce((sum, rows) => sum + rows.length, 0);
-const sampleIntradayBarCount = Object.values(sampleIntradayPrices).reduce((sum, rows) => sum + rows.length, 0);
+const localSeedPriceSource = "local-seed";
 
 function buildMainPortfolioTransactions({
   aapl80Id,
@@ -449,9 +316,13 @@ function buildClosedTradesTransactions({
   ];
 }
 
+assertSafeSeedTarget();
+
 const { db } = createDatabaseHandle();
 
 async function main() {
+  const portfolioIdsToRefresh: number[] = [];
+
   await db.transaction(async (tx) => {
     await tx.insert(instruments)
       .values(defaultInstruments)
@@ -546,115 +417,11 @@ async function main() {
       })
     ]);
 
-    const sampleInstrumentIds = Object.keys(samplePriceHistory)
-      .map((symbol) => instrumentsBySymbol.get(symbol)?.id)
-      .filter((id): id is number => id != null);
+    portfolioIdsToRefresh.push(mainPortfolio.id, mixedCurrencyPortfolio.id, closedTradesPortfolio.id);
 
-    if (sampleInstrumentIds.length > 0) {
-      await tx.delete(historicalPrices).where(and(
-        inArray(historicalPrices.instrumentId, sampleInstrumentIds),
-        eq(historicalPrices.source, "local-seed")
-      ));
-      await tx.delete(intradayPrices).where(and(
-        inArray(intradayPrices.instrumentId, sampleInstrumentIds),
-        eq(intradayPrices.source, "local-seed")
-      ));
-    }
-
-    for (const [symbol, historyRows] of Object.entries(samplePriceHistory)) {
-      const instrument = instrumentsBySymbol.get(symbol);
-
-      if (!instrument) {
-        continue;
-      }
-
-      await tx.insert(historicalPrices)
-        .values(historyRows.map((row) => ({
-          instrumentId: instrument.id,
-          priceDate: row.priceDate,
-          close: row.close,
-          currency: row.currency,
-          source: "local-seed"
-        })))
-        .onConflictDoUpdate({
-          target: [historicalPrices.instrumentId, historicalPrices.priceDate],
-          set: {
-            close: sql`excluded.close`,
-            currency: sql`excluded.currency`,
-            source: sql`excluded.source`
-          }
-        });
-
-      const latestPrice = historyRows[historyRows.length - 1];
-
-      if (latestPrice) {
-        await tx.insert(priceSnapshots)
-          .values({
-            instrumentId: instrument.id,
-            price: latestPrice.close,
-            currency: latestPrice.currency,
-            asOf: latestPrice.priceDate,
-            source: "local-seed"
-          })
-          .onConflictDoUpdate({
-            target: priceSnapshots.instrumentId,
-            set: {
-              price: sql`excluded.price`,
-              currency: sql`excluded.currency`,
-              asOf: sql`excluded.as_of`,
-              source: sql`excluded.source`
-            }
-          });
-      }
-    }
-
-    for (const [symbol, intradayRows] of Object.entries(sampleIntradayPrices)) {
-      const instrument = instrumentsBySymbol.get(symbol);
-
-      if (!instrument) {
-        continue;
-      }
-
-      await tx.insert(intradayPrices)
-        .values(intradayRows.map((row) => ({
-          instrumentId: instrument.id,
-          observedAt: row.observedAt,
-          close: row.close,
-          currency: row.currency,
-          interval: row.interval,
-          source: "local-seed"
-        })))
-        .onConflictDoUpdate({
-          target: [intradayPrices.instrumentId, intradayPrices.interval, intradayPrices.observedAt],
-          set: {
-            close: sql`excluded.close`,
-            currency: sql`excluded.currency`,
-            source: sql`excluded.source`
-          }
-        });
-    }
-
-    await tx.delete(marketRefreshRuns).where(sql`
-      ${marketRefreshRuns.portfolioId} = ${mainPortfolio.id}
-      AND ${marketRefreshRuns.refreshDate} = '2026-05-20'
-      AND ${marketRefreshRuns.mode} = 'manual'
-    `);
-    await tx.insert(marketRefreshRuns)
-      .values({
-        portfolioId: mainPortfolio.id,
-        refreshDate: "2026-05-20",
-        mode: "manual",
-        status: "success",
-        attemptCount: 1,
-        quoteRefreshCount: 4,
-        historicalBarCount: sampleHistoricalBarCount,
-        intradayBarCount: sampleIntradayBarCount,
-        issueCount: 0,
-        latestSuccessfulAsOf: "2026-05-20",
-        errorMessage: null,
-        startedAt: "2026-05-20 09:00:00",
-        completedAt: "2026-05-20 09:00:03"
-      });
+    await tx.delete(historicalPrices).where(eq(historicalPrices.source, localSeedPriceSource));
+    await tx.delete(intradayPrices).where(eq(intradayPrices.source, localSeedPriceSource));
+    await tx.delete(priceSnapshots).where(eq(priceSnapshots.source, localSeedPriceSource));
 
     for (const setting of defaultSettings) {
       await tx.insert(appSettings)
@@ -665,12 +432,23 @@ async function main() {
             value: setting.value,
             updatedAt: sql`CURRENT_TIMESTAMP`
           }
-        });
+      });
     }
   });
 
+  const refreshResults = [];
+
+  for (const portfolioId of portfolioIdsToRefresh) {
+    refreshResults.push(await refreshMarketDataCache({ portfolioId }));
+  }
+
+  const quoteCount = refreshResults.reduce((count, result) => count + result.quoteRefreshCount, 0);
+  const historicalBarCount = refreshResults.reduce((count, result) => count + result.historicalBarCount, 0);
+  const intradayBarCount = refreshResults.reduce((count, result) => count + result.intradayBarCount, 0);
+  const issueCount = refreshResults.reduce((count, result) => count + result.issues.length, 0);
+
   console.log(
-    `Database seeded with ${defaultInstruments.length} instruments, ${seededTransactionNotes.length} transactions, sample prices, and ${defaultSettings.length} settings.`
+    `Database seeded with ${defaultInstruments.length} instruments, ${seededTransactionNotes.length} transactions, and ${defaultSettings.length} settings. Real market refresh fetched ${quoteCount} quotes, ${historicalBarCount} historical bars, ${intradayBarCount} intraday bars, with ${issueCount} issues.`
   );
 }
 
