@@ -888,8 +888,8 @@ export function BenchmarkChart({
                 <Tooltip
                   cursor={{
                     stroke: "var(--chart-hover)",
-                    strokeDasharray: "3 7",
-                    strokeWidth: 2
+                    strokeDasharray: "2 5",
+                    strokeWidth: 1.25
                   }}
                   content={<BenchmarkChartTooltip language={language} mode={mode} />}
                 />
@@ -918,8 +918,8 @@ export function BenchmarkChart({
                   dataKey="benchmarkDisplay"
                   name={mode === "GAP" ? modeCopy.benchmarkName : benchmarkSymbol ?? modeCopy.benchmarkName}
                   stroke="var(--warm)"
-                  strokeDasharray="6 6"
-                  strokeWidth={2.5}
+                  strokeDasharray="2 4"
+                  strokeWidth={1.75}
                   dot={false}
                   activeDot={{ r: 4, fill: "var(--warm)" }}
                 />
