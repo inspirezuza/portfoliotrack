@@ -48,6 +48,7 @@ const TIMEFRAME_OPTIONS: Array<{ key: BenchmarkTimeframe; label: string }> = [
 
 type BenchmarkComparison = {
   benchmarkReturn: number | null;
+  comparePercent: number | null;
   displayName: string;
   gap: number | null;
   periodLabel: string | null;
@@ -69,6 +70,22 @@ function formatSignedPercentagePoint(value: number | null) {
   }
 
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)} pp`;
+}
+
+function formatSignedComparePercent(value: number | null) {
+  if (value == null) {
+    return "-";
+  }
+
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+function calculateComparePercent(portfolioReturn: number | null, benchmarkReturn: number | null) {
+  if (portfolioReturn == null || benchmarkReturn == null || benchmarkReturn === 0) {
+    return null;
+  }
+
+  return ((portfolioReturn - benchmarkReturn) / Math.abs(benchmarkReturn)) * 100;
 }
 
 function formatMonthLabel(month: string, locale: string) {
@@ -191,6 +208,7 @@ function buildBenchmarkComparisons({
 
     return {
       benchmarkReturn,
+      comparePercent: calculateComparePercent(portfolioReturn, benchmarkReturn),
       displayName: getBenchmarkLabel(quote.symbol),
       gap: portfolioReturn == null || benchmarkReturn == null ? null : portfolioReturn - benchmarkReturn,
       periodLabel: formatPeriodLabel({ entries: timeframeReturns, locale, timeframe }),
@@ -282,7 +300,7 @@ export function MarketBenchmarks({
         })),
     [latestMonth, locale, monthlyReturns, selectedSymbol, timeframe]
   );
-  const hasQuoteData = comparisons.some((comparison) => comparison.gap != null);
+  const hasQuoteData = comparisons.some((comparison) => comparison.comparePercent != null);
   const hasChartData = chartData.some((point) =>
     mode === "GAP"
       ? point.excessReturn != null
@@ -297,7 +315,7 @@ export function MarketBenchmarks({
           <h2 id="market-benchmarks-title" className="section-title">
             Portfolio vs benchmarks
           </h2>
-          <span className={styles.sectionSubtitle}>Return gap by timeframe, compared by %</span>
+          <span className={styles.sectionSubtitle}>Compare percent by timeframe</span>
         </div>
         <span className="state-pill state-pill-muted">SPYM QQQ TDEX NVDA GOOGL</span>
       </div>
@@ -325,9 +343,12 @@ export function MarketBenchmarks({
             type="button"
           >
             <span className={styles.cardSymbol}>{comparison.quote.symbol}</span>
-            <strong className={comparison.gap == null || comparison.gap >= 0 ? "value-positive" : "value-negative"}>
-              {formatSignedPercentagePoint(comparison.gap)}
-            </strong>
+            <span className={styles.cardMetric}>
+              <strong className={comparison.comparePercent == null || comparison.comparePercent >= 0 ? "value-positive" : "value-negative"}>
+                {formatSignedComparePercent(comparison.comparePercent)}
+              </strong>
+              <span>Compare %</span>
+            </span>
             <span className={styles.cardRows}>
               <span>
                 <b>Portfolio</b>

@@ -91,6 +91,18 @@
   line-height: 1.08;
 }
 
+.cardMetric {
+  display: grid;
+  gap: 2px;
+}
+
+.cardMetric span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .miniCard em,
 .miniCard small {
   font-size: 0.88rem;
