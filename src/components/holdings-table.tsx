@@ -114,6 +114,26 @@ function formatHoldingPercent(value: number | null, locale: string, emptyLabel: 
   return formatPercentRatio(value, { locale });
 }
 
+function formatValuationMoneyText({
+  currency,
+  locale,
+  value
+}: {
+  currency: string;
+  locale: string;
+  value: number | null;
+}) {
+  if (value == null) {
+    return null;
+  }
+
+  return formatCurrency(value, {
+    currency,
+    locale,
+    maximumFractionDigits: 2
+  });
+}
+
 function formatSignedHoldingPercent(value: number | null, locale: string, emptyLabel: string) {
   if (value == null) {
     return <span className="data-pending">{emptyLabel}</span>;
@@ -555,8 +575,8 @@ export function HoldingsTable({
                 <col className="holdings-col-average" />
                 <col className="holdings-col-total" />
                 <col className="holdings-col-price" />
-                <col className="holdings-col-pnl" />
                 <col className="holdings-col-market" />
+                <col className="holdings-col-pnl" />
                 <col className="holdings-col-pnl" />
                 <col className="holdings-col-weight" />
               </colgroup>
@@ -567,8 +587,8 @@ export function HoldingsTable({
                   <SortableHeader label={copy.holdings.table.columns.averageCost} language={language} sortKey="averageCost" sort={sort} onSort={handleSort} align="right" />
                   <SortableHeader label={copy.holdings.table.columns.totalCost} language={language} sortKey="totalCost" sort={sort} onSort={handleSort} align="right" />
                   <SortableHeader label={copy.holdings.table.columns.lastPrice} language={language} sortKey="lastPrice" sort={sort} onSort={handleSort} align="right" />
-                  <SortableHeader label={copy.holdings.table.columns.oneDayGain} language={language} sortKey="oneDayGain" sort={sort} onSort={handleSort} align="right" />
                   <SortableHeader label={copy.holdings.table.columns.marketValue} language={language} sortKey="marketValue" sort={sort} onSort={handleSort} align="right" />
+                  <SortableHeader label={copy.holdings.table.columns.oneDayGain} language={language} sortKey="oneDayGain" sort={sort} onSort={handleSort} align="right" />
                   <SortableHeader label={copy.holdings.table.columns.unrealizedPnl} language={language} sortKey="unrealizedPnl" sort={sort} onSort={handleSort} align="right" />
                   <SortableHeader label={copy.holdings.table.columns.weight} language={language} sortKey="portfolioWeight" sort={sort} onSort={handleSort} align="right" />
                 </tr>
@@ -638,26 +658,6 @@ export function HoldingsTable({
                       </td>
                       <td className="table-number">
                         <div className="holdings-value-stack">
-                          <div className={getPnlToneClass(holding.oneDayGainInValuationCurrency)}>
-                            {formatHoldingValuationMoney({
-                              emptyLabel: copy.shared.waiting,
-                              holding,
-                              locale,
-                              nativeValue: holding.oneDayGain,
-                              primaryValue: holding.oneDayGainInValuationCurrency
-                            })}
-                          </div>
-                          <span className={`holdings-pnl-percent ${getPnlToneClass(holding.oneDayGainPercent) ?? ""}`.trim()}>
-                            {formatSignedHoldingPercent(
-                              holding.oneDayGainPercent,
-                              locale,
-                              copy.shared.waiting
-                            )}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="table-number">
-                        <div className="holdings-value-stack">
                           {formatHoldingValuationMoney({
                             emptyLabel: copy.shared.waiting,
                             holding,
@@ -715,6 +715,24 @@ export function HoldingsTable({
                       </td>
                       <td className="table-number">
                         <div className="holdings-value-stack">
+                          <span className={`holdings-pnl-percent ${getPnlToneClass(holding.oneDayGainPercent) ?? ""}`.trim()}>
+                            {formatSignedHoldingPercent(
+                              holding.oneDayGainPercent,
+                              locale,
+                              copy.shared.waiting
+                            )}
+                          </span>
+                          <span className={`table-subtext ${getPnlToneClass(holding.oneDayGainInValuationCurrency) ?? ""}`.trim()}>
+                            {formatValuationMoneyText({
+                              currency: holding.valuationCurrency,
+                              locale,
+                              value: holding.oneDayGainInValuationCurrency
+                            }) ?? copy.shared.waiting}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="table-number">
+                        <div className="holdings-value-stack">
                           <div className={getPnlToneClass(holding.unrealizedPnlInValuationCurrency)}>
                             {formatHoldingValuationMoney({
                               emptyLabel: copy.shared.waiting,
@@ -764,18 +782,6 @@ export function HoldingsTable({
                     </td>
                     <td />
                     <td className="table-number">
-                      <span
-                        className={getPnlToneClass(visibleSummary.oneDayGain)}
-                      >
-                        {formatSummaryMoney(
-                          visibleSummary.oneDayGain,
-                          visibleSummaryCurrency,
-                          locale,
-                          copy.shared.mixed
-                        )}
-                      </span>
-                    </td>
-                    <td className="table-number">
                       {formatSummaryMoney(
                         visibleSummary.totalCost,
                         visibleSummaryCurrency,
@@ -791,6 +797,18 @@ export function HoldingsTable({
                         locale,
                         copy.shared.mixed
                       )}
+                    </td>
+                    <td className="table-number">
+                      <span
+                        className={getPnlToneClass(visibleSummary.oneDayGain)}
+                      >
+                        {formatSummaryMoney(
+                          visibleSummary.oneDayGain,
+                          visibleSummaryCurrency,
+                          locale,
+                          copy.shared.mixed
+                        )}
+                      </span>
                     </td>
                     <td className="table-number">
                       <span

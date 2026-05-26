@@ -278,7 +278,7 @@ const uiCopy = {
           averageCost: "ต้นทุนเฉลี่ย",
           totalCost: "ต้นทุนรวม",
           lastPrice: "ราคาล่าสุด",
-          oneDayGain: "1D gain",
+          oneDayGain: "1D",
           marketValue: "มูลค่าตลาด",
           unrealizedPnl: "Unrealized P&L",
           weight: "น้ำหนัก"
@@ -710,7 +710,7 @@ const uiCopy = {
           averageCost: "Average cost",
           totalCost: "Total cost",
           lastPrice: "Last price",
-          oneDayGain: "1D gain",
+          oneDayGain: "1D",
           marketValue: "Market value",
           unrealizedPnl: "Unrealized P&L",
           weight: "Weight"
