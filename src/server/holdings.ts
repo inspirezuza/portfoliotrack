@@ -6,7 +6,15 @@ import { applyKnownDrMetadata } from "@/lib/instruments/dr-metadata";
 import { ensureFreshMarketDataCache, getMarketSettings, getPriceAgeMinutes, isMarketDataStale } from "@/lib/market/provider";
 import { calculatePositions, type InstrumentPosition } from "@/lib/portfolio/positions";
 import { db } from "@/lib/db/runtime";
-import { instruments, priceSnapshots, transactions, type Instrument, type PriceSnapshot } from "@/lib/db/schema";
+import {
+  historicalPrices,
+  instruments,
+  priceSnapshots,
+  transactions,
+  type HistoricalPrice,
+  type Instrument,
+  type PriceSnapshot
+} from "@/lib/db/schema";
 import { toChronologicalPositionTransaction } from "@/server/transactions";
 import { parsePortfolioId } from "@/server/portfolios";
 
@@ -37,6 +45,9 @@ export type HoldingRow = {
   lastPriceCurrency: string | null;
   lastPriceAsOf: string | null;
   lastPriceSource: string | null;
+  oneDayGain: number | null;
+  oneDayGainPercent: number | null;
+  oneDayGainInValuationCurrency: number | null;
   marketValue: number | null;
   unrealizedPnl: number | null;
   unrealizedPnlPercent: number | null;
@@ -170,8 +181,49 @@ function getUnderlyingFxRateToInstrumentCurrency({
     : null;
 }
 
+function getPreviousClose({
+  historicalRows,
+  priceSnapshot
+}: {
+  historicalRows: HistoricalPrice[];
+  priceSnapshot: PriceSnapshot | null;
+}) {
+  if (priceSnapshot == null) {
+    return null;
+  }
+
+  const asOfDate = priceSnapshot.asOf.slice(0, 10);
+
+  return historicalRows
+    .filter((row) => row.currency === priceSnapshot.currency && row.priceDate < asOfDate)
+    .sort((left, right) => right.priceDate.localeCompare(left.priceDate))[0]?.close ?? null;
+}
+
+function calculateOneDayGain({
+  lastPrice,
+  previousClose,
+  quantity
+}: {
+  lastPrice: number | null;
+  previousClose: number | null;
+  quantity: number;
+}) {
+  if (lastPrice == null || previousClose == null || previousClose <= 0) {
+    return {
+      oneDayGain: null,
+      oneDayGainPercent: null
+    };
+  }
+
+  return {
+    oneDayGain: normalizeMoney((lastPrice - previousClose) * quantity),
+    oneDayGainPercent: (lastPrice - previousClose) / previousClose
+  };
+}
+
 function buildHoldingRow({
   fxRateToValuationCurrency,
+  historicalPriceRows,
   instrument,
   underlyingFxRateToInstrumentCurrency,
   parentPriceSnapshot,
@@ -180,6 +232,7 @@ function buildHoldingRow({
   valuationCurrency
 }: {
   fxRateToValuationCurrency: number | null;
+  historicalPriceRows: HistoricalPrice[];
   instrument: Instrument;
   underlyingFxRateToInstrumentCurrency: number | null;
   parentPriceSnapshot: PriceSnapshot | null;
@@ -190,6 +243,19 @@ function buildHoldingRow({
   const matchingPriceSnapshot =
     priceSnapshot != null && priceSnapshot.currency === instrument.currency ? priceSnapshot : null;
   const lastPrice = matchingPriceSnapshot?.price ?? null;
+  const previousClose = getPreviousClose({
+    historicalRows: historicalPriceRows,
+    priceSnapshot: matchingPriceSnapshot
+  });
+  const { oneDayGain, oneDayGainPercent } = calculateOneDayGain({
+    lastPrice,
+    previousClose,
+    quantity: position.quantity
+  });
+  const oneDayGainInValuationCurrency =
+    oneDayGain == null || fxRateToValuationCurrency == null
+      ? null
+      : normalizeMoney(oneDayGain * fxRateToValuationCurrency);
   const marketValue =
     lastPrice == null ? null : normalizeMoney(position.quantity * lastPrice);
   const unrealizedPnl =
@@ -242,6 +308,9 @@ function buildHoldingRow({
     lastPriceCurrency: matchingPriceSnapshot?.currency ?? null,
     lastPriceAsOf: matchingPriceSnapshot?.asOf ?? null,
     lastPriceSource: matchingPriceSnapshot?.source ?? null,
+    oneDayGain,
+    oneDayGainPercent,
+    oneDayGainInValuationCurrency,
     marketValue,
     unrealizedPnl,
     unrealizedPnlPercent,
@@ -365,6 +434,21 @@ export async function getHoldingsSnapshot({
   }
 
   const positions = calculatePositions(rows.map((row) => toChronologicalPositionTransaction(row.transaction)));
+  const historicalPriceRows =
+    groupedInstruments.size === 0
+      ? []
+      : await db
+          .select()
+          .from(historicalPrices)
+          .where(inArray(historicalPrices.instrumentId, Array.from(groupedInstruments.keys())));
+  const historicalPricesByInstrumentId = new Map<number, HistoricalPrice[]>();
+
+  for (const row of historicalPriceRows) {
+    const instrumentRows = historicalPricesByInstrumentId.get(row.instrumentId) ?? [];
+    instrumentRows.push(row);
+    historicalPricesByInstrumentId.set(row.instrumentId, instrumentRows);
+  }
+
   const openHoldings = Array.from(positions.values())
     .filter((position) => position.quantity > 0)
     .map((position) => {
@@ -380,6 +464,7 @@ export async function getHoldingsSnapshot({
           fxSnapshotsByProviderSymbol,
           valuationCurrency
         }),
+        historicalPriceRows: historicalPricesByInstrumentId.get(position.instrumentId) ?? [],
         instrument: instrumentState.instrument,
         underlyingFxRateToInstrumentCurrency: getUnderlyingFxRateToInstrumentCurrency({
           fxSnapshotsByProviderSymbol,

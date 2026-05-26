@@ -23,6 +23,7 @@ type HoldingSortKey =
   | "averageCost"
   | "totalCost"
   | "lastPrice"
+  | "oneDayGain"
   | "marketValue"
   | "unrealizedPnl"
   | "portfolioWeight";
@@ -56,6 +57,12 @@ function getValuationLastPrice(holding: HoldingRow) {
   return holding.lastPrice == null || holding.fxRateToValuationCurrency == null
     ? null
     : holding.lastPrice * holding.fxRateToValuationCurrency;
+}
+
+function getValuationOneDayGain(holding: HoldingRow) {
+  return isNativeCurrencyVisible(holding)
+    ? holding.oneDayGainInValuationCurrency
+    : holding.oneDayGain;
 }
 
 function formatHoldingValuationMoney({
@@ -185,6 +192,10 @@ function getHoldingSortValue(holding: HoldingRow, key: HoldingSortKey) {
 
   if (key === "lastPrice") {
     return isNativeCurrencyVisible(holding) ? getValuationLastPrice(holding) : holding.lastPrice;
+  }
+
+  if (key === "oneDayGain") {
+    return getValuationOneDayGain(holding);
   }
 
   if (key === "marketValue") {
@@ -370,6 +381,10 @@ export function HoldingsTable({
             summary.unrealizedPnl == null || holding.unrealizedPnlInValuationCurrency == null
               ? null
               : summary.unrealizedPnl + holding.unrealizedPnlInValuationCurrency,
+          oneDayGain:
+            summary.oneDayGain == null || holding.oneDayGainInValuationCurrency == null
+              ? null
+              : summary.oneDayGain + holding.oneDayGainInValuationCurrency,
           portfolioWeight:
             summary.portfolioWeight == null || holding.portfolioWeight == null
               ? null
@@ -379,6 +394,7 @@ export function HoldingsTable({
           totalCost: 0 as number | null,
           marketValue: 0 as number | null,
           unrealizedPnl: 0 as number | null,
+          oneDayGain: 0 as number | null,
           portfolioWeight: 0 as number | null
         }
       ),
@@ -539,6 +555,7 @@ export function HoldingsTable({
                 <col className="holdings-col-average" />
                 <col className="holdings-col-total" />
                 <col className="holdings-col-price" />
+                <col className="holdings-col-pnl" />
                 <col className="holdings-col-market" />
                 <col className="holdings-col-pnl" />
                 <col className="holdings-col-weight" />
@@ -550,6 +567,7 @@ export function HoldingsTable({
                   <SortableHeader label={copy.holdings.table.columns.averageCost} language={language} sortKey="averageCost" sort={sort} onSort={handleSort} align="right" />
                   <SortableHeader label={copy.holdings.table.columns.totalCost} language={language} sortKey="totalCost" sort={sort} onSort={handleSort} align="right" />
                   <SortableHeader label={copy.holdings.table.columns.lastPrice} language={language} sortKey="lastPrice" sort={sort} onSort={handleSort} align="right" />
+                  <SortableHeader label={copy.holdings.table.columns.oneDayGain} language={language} sortKey="oneDayGain" sort={sort} onSort={handleSort} align="right" />
                   <SortableHeader label={copy.holdings.table.columns.marketValue} language={language} sortKey="marketValue" sort={sort} onSort={handleSort} align="right" />
                   <SortableHeader label={copy.holdings.table.columns.unrealizedPnl} language={language} sortKey="unrealizedPnl" sort={sort} onSort={handleSort} align="right" />
                   <SortableHeader label={copy.holdings.table.columns.weight} language={language} sortKey="portfolioWeight" sort={sort} onSort={handleSort} align="right" />
@@ -558,7 +576,7 @@ export function HoldingsTable({
               <tbody>
                 {visibleHoldings.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="table-empty-cell">
+                    <td colSpan={9} className="table-empty-cell">
                       {copy.holdings.table.noMatches}
                     </td>
                   </tr>
@@ -616,6 +634,26 @@ export function HoldingsTable({
                               )}
                             </span>
                           )}
+                        </div>
+                      </td>
+                      <td className="table-number">
+                        <div className="holdings-value-stack">
+                          <div className={getPnlToneClass(holding.oneDayGainInValuationCurrency)}>
+                            {formatHoldingValuationMoney({
+                              emptyLabel: copy.shared.waiting,
+                              holding,
+                              locale,
+                              nativeValue: holding.oneDayGain,
+                              primaryValue: holding.oneDayGainInValuationCurrency
+                            })}
+                          </div>
+                          <span className={`holdings-pnl-percent ${getPnlToneClass(holding.oneDayGainPercent) ?? ""}`.trim()}>
+                            {formatSignedHoldingPercent(
+                              holding.oneDayGainPercent,
+                              locale,
+                              copy.shared.waiting
+                            )}
+                          </span>
                         </div>
                       </td>
                       <td className="table-number">
@@ -725,6 +763,18 @@ export function HoldingsTable({
                       {copy.shared.positionCount(visibleHoldings.length)}
                     </td>
                     <td />
+                    <td className="table-number">
+                      <span
+                        className={getPnlToneClass(visibleSummary.oneDayGain)}
+                      >
+                        {formatSummaryMoney(
+                          visibleSummary.oneDayGain,
+                          visibleSummaryCurrency,
+                          locale,
+                          copy.shared.mixed
+                        )}
+                      </span>
+                    </td>
                     <td className="table-number">
                       {formatSummaryMoney(
                         visibleSummary.totalCost,
