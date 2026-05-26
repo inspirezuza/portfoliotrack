@@ -7,6 +7,7 @@ import {
   CartesianGrid,
   Cell,
   ResponsiveContainer,
+  ReferenceLine,
   Tooltip,
   XAxis,
   YAxis
@@ -30,7 +31,9 @@ type HistoricalMode = "RETURN" | "EXCESS";
 type ChartPoint = {
   month: string;
   label: string;
-  value: number | null;
+  benchmarkReturn: number | null;
+  excessReturn: number | null;
+  portfolioReturn: number | null;
 };
 
 function formatSignedPercent(value: number | null) {
@@ -57,17 +60,18 @@ function formatMonthLabel(month: string, locale: string) {
 
 function BenchmarkTooltip({
   active,
+  benchmarkLabel,
   mode,
   label,
   payload
 }: {
   active?: boolean;
+  benchmarkLabel: string;
   mode: HistoricalMode;
   label?: string;
-  payload?: Array<{ payload?: ChartPoint; value?: number }>;
+  payload?: Array<{ dataKey?: string; payload?: ChartPoint; value?: number }>;
 }) {
   const point = payload?.[0]?.payload;
-  const value = payload?.[0]?.value ?? point?.value ?? null;
 
   if (!active || point == null) {
     return null;
@@ -76,12 +80,29 @@ function BenchmarkTooltip({
   return (
     <div className="chart-tooltip">
       <span>{label ?? point.label}</span>
-      <div className="chart-tooltip-row">
-        <span>{mode === "EXCESS" ? "Excess" : "Return"}</span>
-        <strong className={value == null || value >= 0 ? "value-positive" : "value-negative"}>
-          {formatSignedPercent(value)}
-        </strong>
-      </div>
+      {mode === "EXCESS" ? (
+        <div className="chart-tooltip-row">
+          <span>Excess</span>
+          <strong className={point.excessReturn == null || point.excessReturn >= 0 ? "value-positive" : "value-negative"}>
+            {formatSignedPercent(point.excessReturn)}
+          </strong>
+        </div>
+      ) : (
+        <>
+          <div className="chart-tooltip-row">
+            <span>Portfolio</span>
+            <strong className={point.portfolioReturn == null || point.portfolioReturn >= 0 ? "value-positive" : "value-negative"}>
+              {formatSignedPercent(point.portfolioReturn)}
+            </strong>
+          </div>
+          <div className="chart-tooltip-row">
+            <span>{benchmarkLabel}</span>
+            <strong className={point.benchmarkReturn == null || point.benchmarkReturn >= 0 ? "value-positive" : "value-negative"}>
+              {formatSignedPercent(point.benchmarkReturn)}
+            </strong>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -92,9 +113,10 @@ export function MarketBenchmarks({
   quotes
 }: MarketBenchmarksProps) {
   const locale = getUiLocale(language);
-  const [selectedSymbol, setSelectedSymbol] = useState(quotes[0]?.symbol ?? "SPY");
+  const [selectedSymbol, setSelectedSymbol] = useState(quotes[0]?.symbol ?? "SPYM");
   const [mode, setMode] = useState<HistoricalMode>("RETURN");
   const selectedQuote = quotes.find((quote) => quote.symbol === selectedSymbol) ?? quotes[0] ?? null;
+  const benchmarkLabel = selectedSymbol === "SPYM" ? "S&P 500" : selectedSymbol;
   const chartData = useMemo<ChartPoint[]>(
     () =>
       monthlyReturns
@@ -103,12 +125,18 @@ export function MarketBenchmarks({
         .map((entry) => ({
           month: entry.month,
           label: formatMonthLabel(entry.month, locale),
-          value: mode === "EXCESS" ? entry.excessReturnPercent : entry.returnPercent
+          benchmarkReturn: entry.returnPercent,
+          excessReturn: entry.excessReturnPercent,
+          portfolioReturn: entry.portfolioReturnPercent
         })),
-    [locale, mode, monthlyReturns, selectedSymbol]
+    [locale, monthlyReturns, selectedSymbol]
   );
   const hasQuoteData = quotes.some((quote) => quote.price != null);
-  const hasChartData = chartData.some((point) => point.value != null);
+  const hasChartData = chartData.some((point) =>
+    mode === "EXCESS"
+      ? point.excessReturn != null
+      : point.portfolioReturn != null || point.benchmarkReturn != null
+  );
 
   return (
     <section className={styles.section} aria-labelledby="market-benchmarks-title">
@@ -119,7 +147,7 @@ export function MarketBenchmarks({
             Market benchmarks
           </h2>
         </div>
-        <span className="state-pill state-pill-muted">SPY QQQ TDEX NVDA GOOGL</span>
+        <span className="state-pill state-pill-muted">SPYM QQQ TDEX NVDA GOOGL</span>
       </div>
 
       <div className={styles.cardStrip} aria-busy={!hasQuoteData}>
@@ -155,6 +183,7 @@ export function MarketBenchmarks({
           <div>
             <p className="eyebrow">Historical return</p>
             <h3>{selectedQuote?.displayName ?? selectedSymbol}</h3>
+            <span className={styles.comparisonLabel}>Portfolio vs {benchmarkLabel}</span>
           </div>
           <div className={`chart-view-modes ${styles.modeToggle}`} aria-label="Historical return mode">
             <button
@@ -195,19 +224,51 @@ export function MarketBenchmarks({
                   width={54}
                   stroke="var(--chart-axis)"
                 />
-                <Tooltip content={<BenchmarkTooltip mode={mode} />} cursor={{ fill: "rgba(17, 27, 23, 0.06)" }} />
-                <Bar
-                  dataKey="value"
-                  radius={[5, 5, 0, 0]}
-                  isAnimationActive={false}
-                >
-                  {chartData.map((point) => (
-                    <Cell
-                      fill={point.value == null || point.value >= 0 ? "var(--accent)" : "var(--danger)"}
-                      key={point.month}
-                    />
-                  ))}
-                </Bar>
+                <ReferenceLine y={0} stroke="var(--chart-axis)" strokeOpacity={0.45} />
+                <Tooltip
+                  content={<BenchmarkTooltip benchmarkLabel={benchmarkLabel} mode={mode} />}
+                  cursor={{ fill: "rgba(17, 27, 23, 0.06)" }}
+                />
+                {mode === "EXCESS" ? (
+                  <Bar dataKey="excessReturn" name="Excess" radius={[5, 5, 0, 0]} isAnimationActive={false}>
+                    {chartData.map((point) => (
+                      <Cell
+                        fill={point.excessReturn == null || point.excessReturn >= 0 ? "var(--accent)" : "var(--danger)"}
+                        key={point.month}
+                      />
+                    ))}
+                  </Bar>
+                ) : null}
+                {mode === "RETURN" ? (
+                  <Bar
+                    dataKey="portfolioReturn"
+                    name="Portfolio"
+                    radius={[5, 5, 0, 0]}
+                    isAnimationActive={false}
+                  >
+                    {chartData.map((point) => (
+                      <Cell
+                        fill={point.portfolioReturn == null || point.portfolioReturn >= 0 ? "var(--accent)" : "var(--danger)"}
+                        key={`portfolio-${point.month}`}
+                      />
+                    ))}
+                  </Bar>
+                ) : null}
+                {mode === "RETURN" ? (
+                  <Bar
+                    dataKey="benchmarkReturn"
+                    name={benchmarkLabel}
+                    radius={[5, 5, 0, 0]}
+                    isAnimationActive={false}
+                  >
+                    {chartData.map((point) => (
+                      <Cell
+                        fill={point.benchmarkReturn == null || point.benchmarkReturn >= 0 ? "rgba(197, 125, 35, 0.92)" : "rgba(184, 75, 67, 0.62)"}
+                        key={`benchmark-${point.month}`}
+                      />
+                    ))}
+                  </Bar>
+                ) : null}
               </BarChart>
             </ResponsiveContainer>
           </div>

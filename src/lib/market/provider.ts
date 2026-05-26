@@ -15,7 +15,7 @@ import type {
 import { yahooProvider } from "@/lib/market/yahoo-provider";
 import { parsePortfolioId } from "@/server/portfolios";
 
-const DEFAULT_BENCHMARK_SYMBOL = "SPY";
+const DEFAULT_BENCHMARK_SYMBOL = "SPYM";
 const DEFAULT_BASE_CURRENCY = "THB";
 const DEFAULT_MARKET_REFRESH_MINUTES = 30;
 const DEFAULT_AUTO_REFRESH_TIMEOUT_MS = 3500;
@@ -23,12 +23,12 @@ const BENCHMARK_HISTORY_START_DATE = "2020-01-01";
 
 export const BENCHMARK_WATCHLIST = [
   {
-    symbol: "SPY",
-    displayName: "SPDR S&P 500 ETF Trust",
+    symbol: "SPYM",
+    displayName: "State Street SPDR Portfolio S&P 500 ETF",
     market: "US",
     instrumentType: "ETF",
     currency: "USD",
-    providerSymbol: "SPY"
+    providerSymbol: "SPYM"
   },
   {
     symbol: "QQQ",
@@ -142,10 +142,18 @@ function parseRefreshMinutes(value: string | undefined) {
   return parsed;
 }
 
+function normalizeBenchmarkSymbol(value: string) {
+  const symbol = value.trim().toUpperCase();
+
+  return symbol === "SPY" ? DEFAULT_BENCHMARK_SYMBOL : symbol;
+}
+
 export async function getMarketSettings(): Promise<MarketSettings> {
   const settings = await db.select().from(appSettings);
   const settingsMap = new Map(settings.map((setting) => [setting.key, setting.value]));
-  const benchmarkSymbol = settingsMap.get("benchmarkSymbol")?.trim() || DEFAULT_BENCHMARK_SYMBOL;
+  const benchmarkSymbol = normalizeBenchmarkSymbol(
+    settingsMap.get("benchmarkSymbol") || DEFAULT_BENCHMARK_SYMBOL
+  );
   const baseCurrency = settingsMap.get("baseCurrency")?.trim().toUpperCase() || DEFAULT_BASE_CURRENCY;
 
   return {
@@ -185,7 +193,7 @@ function addDays(date: Date, days: number) {
   return nextDate;
 }
 
-async function ensureBenchmarkWatchlistInstruments() {
+export async function ensureBenchmarkWatchlistInstruments() {
   const existingRows = await db.select().from(instruments);
   const existingSymbols = new Set(existingRows.map((instrument) => instrument.symbol));
 

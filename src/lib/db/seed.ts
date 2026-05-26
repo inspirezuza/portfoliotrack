@@ -33,12 +33,12 @@ const defaultInstruments: NewInstrument[] = [
     isActive: true
   },
   {
-    symbol: "SPY",
-    displayName: "SPDR S&P 500 ETF Trust",
+    symbol: "SPYM",
+    displayName: "State Street SPDR Portfolio S&P 500 ETF",
     market: "US",
     instrumentType: "ETF",
     currency: "USD",
-    providerSymbol: "SPY",
+    providerSymbol: "SPYM",
     underlyingSymbol: null,
     underlyingDisplayName: null,
     underlyingCurrency: null,
@@ -111,7 +111,7 @@ const defaultInstruments: NewInstrument[] = [
 
 const defaultSettings: Array<{ key: string; value: string }> = [
   { key: "baseCurrency", value: "THB" },
-  { key: "benchmarkSymbol", value: "SPY" },
+  { key: "benchmarkSymbol", value: "SPYM" },
   { key: "marketRefreshMinutes", value: "30" },
   { key: "timezone", value: "Asia/Bangkok" },
   { key: "symbolOverrides", value: "{}" }
@@ -162,12 +162,12 @@ const samplePriceHistory: Record<string, Array<{ priceDate: string; close: numbe
     { priceDate: "2026-05-15", close: 28.75, currency: "THB" },
     { priceDate: "2026-05-20", close: 29.25, currency: "THB" }
   ],
-  SPY: [
-    { priceDate: "2026-05-01", close: 610.4, currency: "USD" },
-    { priceDate: "2026-05-06", close: 616.8, currency: "USD" },
-    { priceDate: "2026-05-10", close: 622.1, currency: "USD" },
-    { priceDate: "2026-05-15", close: 628.6, currency: "USD" },
-    { priceDate: "2026-05-20", close: 633.2, currency: "USD" }
+  SPYM: [
+    { priceDate: "2026-05-01", close: 84.35, currency: "USD" },
+    { priceDate: "2026-05-06", close: 85.1, currency: "USD" },
+    { priceDate: "2026-05-10", close: 85.72, currency: "USD" },
+    { priceDate: "2026-05-15", close: 86.43, currency: "USD" },
+    { priceDate: "2026-05-20", close: 86.96, currency: "USD" }
   ],
   USDTHB: [
     { priceDate: "2026-05-01", close: 36.6, currency: "THB" },
@@ -199,10 +199,10 @@ const sampleIntradayPrices: Record<string, Array<{ observedAt: string; close: nu
     { observedAt: "2026-05-20T11:00:00.000Z", close: 29.05, currency: "THB", interval: "1h" },
     { observedAt: "2026-05-20T12:00:00.000Z", close: 29.25, currency: "THB", interval: "1h" }
   ],
-  SPY: [
-    { observedAt: "2026-05-20T14:00:00.000Z", close: 631.8, currency: "USD", interval: "1h" },
-    { observedAt: "2026-05-20T15:00:00.000Z", close: 632.5, currency: "USD", interval: "1h" },
-    { observedAt: "2026-05-20T16:00:00.000Z", close: 633.2, currency: "USD", interval: "1h" }
+  SPYM: [
+    { observedAt: "2026-05-20T14:00:00.000Z", close: 86.72, currency: "USD", interval: "1h" },
+    { observedAt: "2026-05-20T15:00:00.000Z", close: 86.84, currency: "USD", interval: "1h" },
+    { observedAt: "2026-05-20T16:00:00.000Z", close: 86.96, currency: "USD", interval: "1h" }
   ],
   USDTHB: [
     { observedAt: "2026-05-20T14:00:00.000Z", close: 36.12, currency: "THB", interval: "1h" },
@@ -430,9 +430,9 @@ async function main() {
     const aapl = instrumentsBySymbol.get("AAPL");
     const bdms = instrumentsBySymbol.get("BDMS");
     const cpall = instrumentsBySymbol.get("CPALL");
-    const spy = instrumentsBySymbol.get("SPY");
+    const spym = instrumentsBySymbol.get("SPYM");
 
-    if (!mainPortfolio || !mixedCurrencyPortfolio || !closedTradesPortfolio || !aapl || !aapl80 || !bdms || !cpall || !spy) {
+    if (!mainPortfolio || !mixedCurrencyPortfolio || !closedTradesPortfolio || !aapl || !aapl80 || !bdms || !cpall || !spym) {
       throw new Error("Seed data could not load demo portfolios and sample instruments.");
     }
 
