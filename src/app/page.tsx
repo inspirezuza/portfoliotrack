@@ -271,7 +271,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
     return Number.isInteger(runId) && runId > 0 ? runId : null;
   })();
-  const leadingHoldings = holdingsSnapshot.holdings.slice(0, 5);
+  const leadingHoldings = [...holdingsSnapshot.holdings]
+    .sort((left, right) => (right.portfolioWeight ?? 0) - (left.portfolioWeight ?? 0))
+    .slice(0, 5);
   const marketCurrency = summary.openPositionCurrency ?? DEFAULT_DISPLAY_CURRENCY;
   const marketValueLabel = formatSummaryMoney(summary, "totalMarketValue", locale, copy.shared);
   const latestPriceLabel = formatCacheDateParts(

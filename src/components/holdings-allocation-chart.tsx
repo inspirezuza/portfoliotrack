@@ -47,26 +47,10 @@ const HOLDING_COLORS = [
   "#3d6fb6",
   "#9a5bb5",
   "#d05a47",
-  "#2f8f9d",
-  "#6f7d2c",
-  "#c44f7c",
-  "#4d7f52",
-  "#d29a2f",
-  "#5765a8",
-  "#b65f2a",
-  "#17836f",
-  "#7a6b2f",
-  "#8b5f9f",
-  "#c15f52",
-  "#2f7fa5",
-  "#718238",
-  "#bf7d2d",
-  "#4f8a79",
-  "#96624c",
-  "#6573a6",
-  "#a65f7f",
-  "#517a3e"
+  "#2f8f9d"
 ];
+
+const MAX_PRIMARY_SLICES = 5;
 
 function getHoldingChartValue(holding: AllocationHolding, useValuationCurrency: boolean) {
   if (useValuationCurrency) {
@@ -86,7 +70,8 @@ function getHoldingChartValue(holding: AllocationHolding, useValuationCurrency: 
   };
 }
 
-function buildAllocationSlices(holdings: AllocationHolding[]) {
+function buildAllocationSlices(holdings: AllocationHolding[], language: UiLanguage) {
+  const copy = getUiCopy(language).holdings.allocation;
   const useValuationCurrency = new Set(holdings.map((holding) => holding.currency)).size > 1;
   const chartHoldings = holdings
     .map((holding) => {
@@ -109,7 +94,9 @@ function buildAllocationSlices(holdings: AllocationHolding[]) {
     return [];
   }
 
-  return chartHoldings.map((holding, index) => ({
+  const primaryHoldings = chartHoldings.slice(0, MAX_PRIMARY_SLICES);
+  const otherHoldings = chartHoldings.slice(MAX_PRIMARY_SLICES);
+  const slices = primaryHoldings.map((holding, index) => ({
     id: String(holding.instrumentId),
     symbol: holding.symbol,
     displayName: holding.displayName,
@@ -118,6 +105,22 @@ function buildAllocationSlices(holdings: AllocationHolding[]) {
     weight: holding.portfolioWeight ?? holding.chartValue / totalValue,
     color: HOLDING_COLORS[index % HOLDING_COLORS.length]
   }));
+
+  if (otherHoldings.length > 0) {
+    const otherValue = otherHoldings.reduce((total, holding) => total + holding.chartValue, 0);
+
+    slices.push({
+      id: "other",
+      symbol: copy.other,
+      displayName: copy.positions(otherHoldings.length),
+      currency: primaryHoldings[0]?.chartCurrency ?? otherHoldings[0].chartCurrency,
+      value: otherValue,
+      weight: otherValue / totalValue,
+      color: HOLDING_COLORS[MAX_PRIMARY_SLICES]
+    });
+  }
+
+  return slices;
 }
 
 function AllocationTooltip({ active, language, payload }: AllocationTooltipProps) {
@@ -144,7 +147,7 @@ function AllocationTooltip({ active, language, payload }: AllocationTooltipProps
 export function HoldingsAllocationChart({ holdings, language }: HoldingsAllocationChartProps) {
   const copy = getUiCopy(language).holdings.allocation;
   const locale = getUiLocale(language);
-  const slices = buildAllocationSlices(holdings);
+  const slices = buildAllocationSlices(holdings, language);
 
   if (slices.length === 0) {
     return null;
