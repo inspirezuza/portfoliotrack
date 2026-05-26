@@ -48,7 +48,7 @@ Optional seed:
 npm run db:seed
 ```
 
-The committed SQL files are in `drizzle/` for review and manual database setup if needed. Apply the full schema before deploying changes that depend on new tables such as `market_refresh_runs`.
+The committed SQL files are in `drizzle/` for review and manual database setup if needed. Apply the full schema before deploying changes that depend on new tables or columns such as `market_refresh_runs` and its async progress fields.
 
 For local development, keep Neon credentials out of the dev loop and set `LOCAL_DATABASE_URL` instead:
 
@@ -74,7 +74,7 @@ After deploy:
 
 - Visit the public URL while logged out and confirm dashboard, transactions, and asset detail pages load read-only. `/holdings` should redirect to the dashboard.
 - Confirm the Vercel Cron entries exist for `GET /api/cron/market-data/1800`, `/1900`, `/2000`, `/2030`, `/2100`, `/2200`, `/2300`, `/0000`, and `/0300`, scheduled through the evening plus US market open and close in `Asia/Bangkok`. On Vercel Hobby, cron timing is hourly best-effort, so treat these as target windows rather than exact minute triggers.
-- Visit `/login`, sign in as admin, then confirm create/update/delete and refresh controls appear.
+- Visit `/login`, sign in as admin, then confirm create/update/delete and refresh controls appear. Manual refresh should start quickly, show a running status, and complete through the protected worker instead of holding the original browser request open.
 - On `/transactions`, confirm the Dime/Webull broker selector is available in the admin transaction form, the Excel template downloads, ledger export requires admin, and an uploaded template can be previewed. Rows with `Instrument Action = CREATE` should create missing instruments during commit.
 - Use `/api/auth/logout` through the header logout button to return to public read-only mode.
 
@@ -83,5 +83,5 @@ After deploy:
 - Public users can view all current pages and portfolio data.
 - Public users can download the blank transaction import template.
 - Public users cannot call protected write/import/export APIs; they return `401`.
-- Scheduled market-cache writes run through guarded `daily-auto` refresh slots from `GET /api/cron/market-data/[slot]`, authorized by `CRON_SECRET`. Admin manual refresh is still required for on-demand updates.
+- Scheduled market-cache writes run through guarded `daily-auto` refresh slots from `GET /api/cron/market-data/[slot]`, authorized by `CRON_SECRET`. Cron and admin manual refreshes start a `market_refresh_runs` row, then `POST /api/market-data/refresh/work` processes the run in protected batches. Admin manual refresh is still required for on-demand updates.
 - Vercel and Neon are free within their published free-tier limits. Higher traffic, storage, or compute can require a paid plan.

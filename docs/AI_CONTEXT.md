@@ -37,8 +37,10 @@ API routes:
 - `POST /api/transactions/import`: admin-only Excel import preview or commit.
 - `POST /api/instruments`: admin-only instrument creation.
 - `GET /api/instruments/search`: admin-only Yahoo instrument search.
-- `POST /api/market-data/refresh`: admin-only explicit market-data refresh for form/manual requests.
-- `GET /api/cron/market-data/[slot]`: Vercel Cron-only slot refresh, authorized with `CRON_SECRET`, scheduled by `vercel.json` through the evening plus US market open and close in `Asia/Bangkok`, and run for every portfolio.
+- `POST /api/market-data/refresh`: admin-only explicit market-data refresh starter for form/manual requests. It returns quickly with a run id and schedules protected batch work.
+- `GET /api/market-data/refresh/status?runId=...`: admin-only refresh run status for UI polling.
+- `POST /api/market-data/refresh/work`: protected refresh worker route authorized with `CRON_SECRET` in production.
+- `GET /api/cron/market-data/[slot]`: Vercel Cron-only slot starter, authorized with `CRON_SECRET`, scheduled by `vercel.json` through the evening plus US market open and close in `Asia/Bangkok`, and started for every portfolio.
 - `POST /api/auth/login` and `POST /api/auth/logout`: admin session lifecycle.
 
 ## Source Tree
@@ -81,7 +83,7 @@ Tables:
 - `priceSnapshots`: latest quote per instrument, unique by `instrumentId`.
 - `historicalPrices`: daily close history, unique by `(instrumentId, priceDate)`.
 - `intradayPrices`: intraday close data, unique by `(instrumentId, interval, observedAt)`.
-- `marketRefreshRuns`: daily/manual market refresh run tracking with selected portfolio, Bangkok refresh date, status, attempt counts, result counts, and error text.
+- `marketRefreshRuns`: daily/manual market refresh run tracking with selected portfolio, Bangkok refresh date, status, attempt counts, progress counts, current symbol, worker heartbeat, result counts, and error text.
 - `appSettings`: small key/value settings such as benchmark symbol and market refresh interval.
 
 Schema deployment:
@@ -90,7 +92,7 @@ Schema deployment:
 npm run db:migrate
 ```
 
-This runs `drizzle-kit push` against `LOCAL_DATABASE_URL` when set, then `DATABASE_URL`, with a machine-level local Postgres fallback in development. The baseline SQL is `drizzle/0000_initial_postgres.sql`; `drizzle/0001_multi_portfolios.sql` adds portfolio support and migrates existing transactions into `Main Portfolio`; `drizzle/0002_market_refresh_runs.sql` adds refresh run tracking for guarded background market updates.
+This runs `drizzle-kit push` against `LOCAL_DATABASE_URL` when set, then `DATABASE_URL`, with a machine-level local Postgres fallback in development. The baseline SQL is `drizzle/0000_initial_postgres.sql`; `drizzle/0001_multi_portfolios.sql` adds portfolio support and migrates existing transactions into `Main Portfolio`; `drizzle/0002_transaction_broker.sql` adds the broker field; `drizzle/0003_market_refresh_runs.sql` adds refresh run tracking; `drizzle/0004_market_refresh_progress.sql` adds worker progress fields for async refresh batches.
 
 Seed:
 
@@ -125,10 +127,11 @@ Public users can read current app pages and switch portfolios. Admin-only contro
 ## Server Modules
 
 - `src/server/portfolios.ts`: validates, lists, creates, updates, defaults, and deletes portfolios.
-- `src/server/dashboard.ts`: `getDashboardSnapshot({ portfolioId, ensureFresh })`; app pages pass `false` so navigation renders cached data without waiting on market refresh.
+- `src/server/dashboard.ts`: `getDashboardSnapshot({ portfolioId | portfolioIds, ensureFresh })`; app pages pass `false` so navigation renders cached data without waiting on market refresh.
 - `src/server/holdings.ts`: builds selected-portfolio open/closed position snapshots and currency breakdowns.
 - `src/server/transactions.ts`: validates transaction input, enforces selected-portfolio sell quantity, maps service errors, and provides the consolidated transactions workspace loader.
-- `src/server/market-refresh.ts`: separates admin manual refresh from guarded daily cron refresh and records refresh run outcomes.
+- `src/server/market-refresh.ts`: starts admin manual refreshes and guarded daily cron refreshes, records progress/outcomes, and processes batch runs.
+- `src/server/market-refresh-batches.ts`: schedules and authorizes the protected refresh worker route.
 - `src/server/transaction-import-export.ts`: builds selected-portfolio Excel exports and evaluates/imports template workbooks against existing or explicitly created instruments, duplicate keys, validation, and position constraints.
 - `src/server/assets.ts`: `getAssetDetail(symbol, { portfolioId, allowMarketRefresh })`; public pages render cached data only.
 
@@ -166,10 +169,10 @@ Performance behavior:
 - `src/lib/portfolio/timeline.ts` replays all non-future transactions in the selected portfolio, including closed positions, for the benchmark chart.
 - The benchmark chart is cash-flow-adjusted TWR-style performance indexed from `100`; gap is portfolio TWR minus benchmark price return, and drawdown is from each series high watermark.
 - `src/server/dashboard.ts` also returns an absolute performance summary: total P&L, net invested, and absolute return when net invested is positive. IRR/MWR is intentionally deferred until the app has explicit deposit, withdrawal, dividend, tax, and FX cash-flow records.
-- `GET /api/cron/market-data/[slot]` triggers `daily-auto` refreshes from Vercel Cron at 18:00, 19:00, 20:00, 20:30, 21:00, 22:00, 23:00, 00:00, and 03:00 Thailand time.
-- Slot cron refresh is guarded by `market_refresh_runs`: one success per Bangkok date/slot key per portfolio, with at most two attempts after failed or stale-running jobs.
+- `GET /api/cron/market-data/[slot]` starts `daily-auto` refreshes from Vercel Cron at 18:00, 19:00, 20:00, 20:30, 21:00, 22:00, 23:00, 00:00, and 03:00 Thailand time.
+- Slot cron refresh is guarded by `market_refresh_runs`: one running/success run per Bangkok date/slot key per portfolio, with at most two attempts after failed or stale-running jobs.
 - Vercel Hobby cron timing is hourly best-effort, so these slot labels are target windows and not exact minute guarantees.
-- Admin manual refresh uses the existing button/form path, bypasses the scheduled slot limit, records a `manual` run, and preserves the dashboard banner flow.
+- Admin manual refresh uses the existing button/form path, bypasses the scheduled slot limit, records a `manual` run, schedules the protected worker, and preserves the dashboard banner/status flow without holding the original request open.
 
 ## UI Shell, Theme, And Language
 
