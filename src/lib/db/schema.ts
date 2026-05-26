@@ -202,6 +202,11 @@ export const marketRefreshRuns = pgTable(
     historicalBarCount: integer("historical_bar_count").notNull().default(0),
     intradayBarCount: integer("intraday_bar_count").notNull().default(0),
     issueCount: integer("issue_count").notNull().default(0),
+    targetCount: integer("target_count").notNull().default(0),
+    processedTargetCount: integer("processed_target_count").notNull().default(0),
+    currentSymbol: text("current_symbol"),
+    workerHeartbeatAt: timestamp("worker_heartbeat_at", { mode: "string" }),
+    lastProcessedInstrumentId: integer("last_processed_instrument_id"),
     latestSuccessfulAsOf: text("latest_successful_as_of"),
     errorMessage: text("error_message"),
     startedAt: timestamp("started_at", { mode: "string" }),
@@ -219,7 +224,12 @@ export const marketRefreshRuns = pgTable(
     ),
     modeCheck: check("market_refresh_runs_mode_check", sql`${table.mode} in ('daily-auto', 'manual')`),
     statusCheck: check("market_refresh_runs_status_check", sql`${table.status} in ('running', 'success', 'failed')`),
-    attemptCountPositive: check("market_refresh_runs_attempt_count_positive", sql`${table.attemptCount} >= 0`)
+    attemptCountPositive: check("market_refresh_runs_attempt_count_positive", sql`${table.attemptCount} >= 0`),
+    targetCountPositive: check("market_refresh_runs_target_count_positive", sql`${table.targetCount} >= 0`),
+    processedTargetCountPositive: check(
+      "market_refresh_runs_processed_target_count_positive",
+      sql`${table.processedTargetCount} >= 0`
+    )
   })
 );
 

@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type CSSProperties, useMemo, useState, useTransition } from "react";
+import { type CSSProperties, useCallback, useMemo, useState, useTransition } from "react";
 import { InstrumentLogo } from "@/components/instrument-logo";
 import { ButtonLoadingContent, PendingBanner } from "@/components/loading-indicator";
+import { MarketRefreshStatus, type MarketRefreshStatusRun } from "@/components/market-refresh-status";
 import { formatCurrency, formatPercentRatio, formatQuantity } from "@/lib/format";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
@@ -35,8 +36,7 @@ type SortState = {
 };
 
 type RefreshResponse = {
-  quoteRefreshCount?: number;
-  issues?: unknown[];
+  run?: MarketRefreshStatusRun;
   error?: {
     message?: string;
   };
@@ -252,6 +252,7 @@ export function HoldingsTable({
   const router = useRouter();
   const [isRefreshing, startRefreshTransition] = useTransition();
   const [isRefreshRequestPending, setIsRefreshRequestPending] = useState(false);
+  const [activeRefreshRunId, setActiveRefreshRunId] = useState<number | null>(null);
   const [sort, setSort] = useState<SortState>({ key: "marketValue", direction: "desc" });
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<HoldingFilter>("all");
@@ -340,6 +341,31 @@ export function HoldingsTable({
     );
   }
 
+  const handleRefreshSettled = useCallback(
+    (run: MarketRefreshStatusRun) => {
+      setActiveRefreshRunId(null);
+
+      if (run.status === "success") {
+        setRefreshTone(run.issueCount > 0 ? "warning" : "success");
+        setRefreshMessage(
+          run.issueCount > 0
+            ? copy.holdings.table.updatedWithIssues(run.issueCount)
+            : copy.holdings.table.updatedPrices(run.quoteRefreshCount)
+        );
+        startRefreshTransition(() => {
+          router.refresh();
+        });
+        return;
+      }
+
+      if (run.status === "failed") {
+        setRefreshTone("warning");
+        setRefreshMessage(run.errorMessage ?? copy.holdings.table.refreshFailed);
+      }
+    },
+    [copy.holdings.table, router]
+  );
+
   async function handleRefresh() {
     setRefreshMessage(null);
     setIsRefreshRequestPending(true);
@@ -352,17 +378,13 @@ export function HoldingsTable({
         throw new Error(payload.error?.message ?? copy.holdings.table.refreshFailed);
       }
 
-      const issueCount = payload.issues?.length ?? 0;
-      setRefreshTone(issueCount > 0 ? "warning" : "success");
-      setRefreshMessage(
-        issueCount > 0
-          ? copy.holdings.table.updatedWithIssues(issueCount)
-          : copy.holdings.table.updatedPrices(payload.quoteRefreshCount ?? 0)
-      );
+      if (payload.run == null) {
+        throw new Error(copy.holdings.table.refreshFailed);
+      }
 
-      startRefreshTransition(() => {
-        router.refresh();
-      });
+      setActiveRefreshRunId(payload.run.id);
+      setRefreshTone("success");
+      setRefreshMessage(copy.holdings.table.refreshStarted);
     } catch (error) {
       setRefreshTone("warning");
       setRefreshMessage(error instanceof Error ? error.message : copy.holdings.table.refreshFailed);
@@ -371,7 +393,7 @@ export function HoldingsTable({
     }
   }
 
-  const isRefreshBusy = isRefreshRequestPending || isRefreshing;
+  const isRefreshBusy = isRefreshRequestPending || isRefreshing || activeRefreshRunId != null;
 
   return (
     <article className="surface-card holdings-table-card" aria-busy={isRefreshBusy}>
@@ -399,6 +421,14 @@ export function HoldingsTable({
       </div>
 
       {isRefreshBusy ? <PendingBanner label={copy.holdings.table.refreshing} /> : null}
+
+      {activeRefreshRunId != null ? (
+        <MarketRefreshStatus
+          language={language}
+          onSettled={handleRefreshSettled}
+          runId={activeRefreshRunId}
+        />
+      ) : null}
 
       {holdings.length === 0 ? (
         <div className="transaction-empty-state">

@@ -133,7 +133,7 @@ The production database lives in Neon Postgres. See [docs/DEPLOYMENT.md](docs/DE
 
 The database schema is declared in `src/lib/db/schema.ts`, with SQL migrations in `drizzle/`. Use `npm run db:migrate` after schema changes.
 
-Market refresh runs are tracked in `market_refresh_runs`. Vercel Cron calls slot-specific routes in `Asia/Bangkok`: `/api/cron/market-data/1800`, `/1900`, `/2000`, `/2030` for US market open, `/2100`, `/2200`, `/2300`, `/0000`, and `/0300` for US market close. Each route requires `Authorization: Bearer $CRON_SECRET`, refreshes every portfolio through the guarded `daily-auto` path, and records one run per Bangkok day per portfolio per slot. Admin manual refresh remains available from the app and bypasses the scheduled slot limit. Vercel Hobby cron timing is hourly best-effort, so these slots are target windows rather than exact minute guarantees.
+Market refresh runs are tracked in `market_refresh_runs`. Vercel Cron calls slot-specific routes in `Asia/Bangkok`: `/api/cron/market-data/1800`, `/1900`, `/2000`, `/2030` for US market open, `/2100`, `/2200`, `/2300`, `/0000`, and `/0300` for US market close. Each route requires `Authorization: Bearer $CRON_SECRET`, starts every portfolio through the guarded `daily-auto` path, and records one run per Bangkok day per portfolio per slot. Admin manual refresh remains available from the app and bypasses the scheduled slot limit. Manual and cron refreshes return quickly, then a protected worker processes market data in batches and updates run progress so older portfolios do not hold a browser request open until Vercel times out. Vercel Hobby cron timing is hourly best-effort, so these slots are target windows rather than exact minute guarantees.
 
 ## Notes For Future Work
 
@@ -143,7 +143,7 @@ Market refresh runs are tracked in `market_refresh_runs`. Vercel Cron calls slot
 - Excel transaction import is template-only for now: unknown instruments can be created with `Instrument Action = CREATE`, duplicate rows are skipped, broker defaults to Dime when omitted, and valid rows are inserted as one batch.
 - Transactions are scoped by selected portfolio; instruments and market price caches are shared across portfolios.
 - Local seed data includes a Thai/DR demo, a US stock demo with THB reporting through USDTHB snapshots, and a closed-trades demo so new tickets can be tested without hand-building data first.
-- Market data comes from Yahoo Finance and can fail or return missing/currency-mismatched data. UI code should preserve clear missing-data states.
+- Market data comes from Yahoo Finance and can fail or return missing/currency-mismatched data. UI code should preserve clear missing-data states. Refresh UI should read `market_refresh_runs` status through `/api/market-data/refresh/status` instead of assuming the original POST completed all Yahoo and cache work.
 - Dashboard performance separates money-result metrics from strategy-return metrics: absolute return uses total P&L divided by positive net invested capital, while the benchmark chart can switch between cash-flow-adjusted TWR and an absolute-return view indexed from `100`.
 - SPY benchmark comparison is native-currency price-return based and compared by percentage; it is not total-return, FX-converted, or money-weighted. IRR/MWR needs an explicit cash-flow ledger before it can be trustworthy.
 - Dashboard and transactions render from cached local data first. Scheduled market-data refreshes are guarded and best-effort so pages keep opening quickly when Yahoo is slow.

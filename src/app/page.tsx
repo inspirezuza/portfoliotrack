@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BenchmarkChart } from "@/components/benchmark-chart";
 import { HoldingsTable } from "@/components/holdings-table";
 import { HoldingsAllocationChart } from "@/components/holdings-allocation-chart";
+import { MarketRefreshStatus } from "@/components/market-refresh-status";
 import { PendingSubmitButton } from "@/components/pending-submit-button";
 import { PortfolioChart } from "@/components/portfolio-chart";
 import { SummaryCards } from "@/components/summary-cards";
@@ -23,6 +24,7 @@ type DashboardPageProps = {
     quoteCount?: string;
     issueCount?: string;
     message?: string;
+    runId?: string;
   }>;
 };
 
@@ -229,6 +231,14 @@ function buildRefreshMessage(
     } as const;
   }
 
+  if (refresh === "started" || refresh === "already-running") {
+    return {
+      tone: "success",
+      title: copy.refresh.startedTitle,
+      body: copy.refresh.statusLoading
+    } as const;
+  }
+
   if (refresh === "error") {
     return {
       tone: "warning",
@@ -256,6 +266,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   });
   const resolvedSearchParams = (await searchParams) ?? {};
   const refreshMessage = buildRefreshMessage(resolvedSearchParams, copy.dashboard);
+  const refreshRunId = (() => {
+    const runId = Number(resolvedSearchParams.runId);
+
+    return Number.isInteger(runId) && runId > 0 ? runId : null;
+  })();
   const leadingHoldings = holdingsSnapshot.holdings.slice(0, 5);
   const marketCurrency = summary.openPositionCurrency ?? DEFAULT_DISPLAY_CURRENCY;
   const marketValueLabel = formatDashboardMoney(summary.totalMarketValue, marketCurrency, locale);
@@ -322,6 +337,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             <p className="status-banner-copy">{refreshMessage.body}</p>
           </div>
         </article>
+      ) : null}
+
+      {refreshRunId != null && !isAggregatePortfolio ? (
+        <MarketRefreshStatus language={language} runId={refreshRunId} />
       ) : null}
 
       <section className="workstation-metrics" aria-label={copy.dashboard.portfolioSummary}>

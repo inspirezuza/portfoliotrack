@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ensureDefaultPortfolio, listPortfolios } from "@/server/portfolios";
-import { runDailyAutoMarketRefresh, type DailyAutoRefreshResponse } from "@/server/market-refresh";
+import { scheduleMarketRefreshWorker } from "@/server/market-refresh-batches";
+import { startDailyAutoMarketRefresh, type DailyAutoRefreshResponse } from "@/server/market-refresh";
 
 export const MARKET_REFRESH_CRON_SLOTS = new Map([
   ["1800", "18:00"],
@@ -51,6 +52,10 @@ function getAggregateStatus(results: PortfolioRefreshResult[]) {
     return "success";
   }
 
+  if (results.some(({ result }) => result.status === "started")) {
+    return "started";
+  }
+
   return "skipped";
 }
 
@@ -81,7 +86,11 @@ export async function handleMarketDataCronRequest(request: Request, slotInput: s
     const results: PortfolioRefreshResult[] = [];
 
     for (const portfolio of portfolios) {
-      const result = await runDailyAutoMarketRefresh({ portfolioId: portfolio.id, refreshSlot: slot });
+      const result = await startDailyAutoMarketRefresh({ portfolioId: portfolio.id, refreshSlot: slot });
+
+      if (result.runId != null) {
+        scheduleMarketRefreshWorker(request, result.runId);
+      }
 
       results.push({
         portfolioId: portfolio.id,

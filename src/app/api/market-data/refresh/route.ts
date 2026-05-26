@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth/admin";
 import { AggregatePortfolioSelectionError, getSelectedPortfolioId } from "@/lib/portfolio/selection";
-import { runManualMarketRefresh } from "@/server/market-refresh";
+import { scheduleMarketRefreshWorker } from "@/server/market-refresh-batches";
+import { startManualMarketRefresh } from "@/server/market-refresh";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 function jsonErrorResponse(code: string, message: string, status: number) {
   return NextResponse.json(
@@ -102,23 +106,28 @@ export async function POST(request: Request) {
     }
 
     const portfolioId = await getSelectedPortfolioId();
-    const result = await runManualMarketRefresh({ portfolioId });
+    const result = await startManualMarketRefresh({ portfolioId });
+
+    if (result.status === "started") {
+      scheduleMarketRefreshWorker(request, result.run.id);
+    }
 
     if (formSearchParams != null && formSearchParams.has("redirectTo")) {
       const redirectUrl = buildRedirectUrl(request, formSearchParams);
       redirectUrl.searchParams.set("eventAt", new Date().toISOString());
-      redirectUrl.searchParams.set("refresh", "success");
-      redirectUrl.searchParams.set("quoteCount", result.quoteRefreshCount.toString());
-      redirectUrl.searchParams.set("issueCount", result.issues.length.toString());
-
-      if (result.latestSuccessfulAsOf != null) {
-        redirectUrl.searchParams.set("refreshedAt", result.latestSuccessfulAsOf);
-      }
+      redirectUrl.searchParams.set("refresh", result.status);
+      redirectUrl.searchParams.set("runId", result.run.id.toString());
 
       return NextResponse.redirect(redirectUrl, { status: 303 });
     }
 
-    return NextResponse.json(result);
+    return NextResponse.json(
+      {
+        ...result,
+        statusUrl: `/api/market-data/refresh/status?runId=${result.run.id}`
+      },
+      { status: 202 }
+    );
   } catch (error) {
     if (error instanceof AggregatePortfolioSelectionError) {
       if (expectsRedirect) {

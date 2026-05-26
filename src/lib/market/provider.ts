@@ -50,15 +50,23 @@ export type MarketDataRefreshResult = {
   issues: MarketRefreshIssue[];
 };
 
-type RefreshTarget = {
+export type RefreshTarget = {
   instrument: typeof instruments.$inferSelect;
   historyStartDate: string | null;
 };
 
-type RefreshContext = {
+export type RefreshContext = {
   benchmarkSymbol: string | null;
   marketRefreshMinutes: number;
   targets: RefreshTarget[];
+};
+
+export type MarketDataRefreshBatchResult = MarketDataRefreshResult & {
+  currentSymbol: string | null;
+  hasMore: boolean;
+  lastProcessedInstrumentId: number | null;
+  processedTargetCount: number;
+  targetCount: number;
 };
 
 type InflightRefresh = {
@@ -449,6 +457,32 @@ async function hasIncompleteHistoricalData({
   });
 }
 
+async function withIncrementalHistoryStartDates(targets: RefreshTarget[]) {
+  const coverageByInstrument = await getHistoryCoverageByInstrument(targets);
+
+  return targets.map((target) => {
+    if (target.historyStartDate == null) {
+      return target;
+    }
+
+    const coverage = coverageByInstrument.get(target.instrument.id);
+
+    if (
+      coverage == null ||
+      coverage.earliestPriceDate == null ||
+      coverage.latestPriceDate == null ||
+      coverage.earliestPriceDate > target.historyStartDate
+    ) {
+      return target;
+    }
+
+    return {
+      ...target,
+      historyStartDate: coverage.latestPriceDate
+    };
+  });
+}
+
 export async function ensureFreshMarketDataCache({
   portfolioId,
   includeBenchmark = true,
@@ -495,11 +529,72 @@ export async function refreshMarketDataCache(
   return runRefreshWithDedup(context);
 }
 
+export async function refreshMarketDataCacheBatch({
+  portfolioId,
+  afterInstrumentId = null,
+  maxTargets
+}: {
+  portfolioId: number;
+  afterInstrumentId?: number | null;
+  maxTargets: number;
+}): Promise<MarketDataRefreshBatchResult> {
+  const context = await buildRefreshContext({ portfolioId });
+  const sortedTargets = [...context.targets].sort((left, right) => left.instrument.id - right.instrument.id);
+  const remainingTargets = sortedTargets.filter((target) =>
+    afterInstrumentId == null ? true : target.instrument.id > afterInstrumentId
+  );
+  const batchTargets = remainingTargets.slice(0, Math.max(1, maxTargets));
+  const lastProcessedInstrumentId =
+    batchTargets[batchTargets.length - 1]?.instrument.id ?? afterInstrumentId ?? null;
+  const hasMore =
+    lastProcessedInstrumentId == null
+      ? false
+      : sortedTargets.some((target) => target.instrument.id > lastProcessedInstrumentId);
+
+  if (batchTargets.length === 0) {
+    return {
+      refreshedAt: new Date().toISOString(),
+      benchmarkSymbol: context.benchmarkSymbol,
+      marketRefreshMinutes: context.marketRefreshMinutes,
+      requestedSymbols: [],
+      quoteRefreshCount: 0,
+      historicalBarCount: 0,
+      intradayBarCount: 0,
+      latestSuccessfulAsOf: null,
+      issues: [],
+      currentSymbol: null,
+      hasMore,
+      lastProcessedInstrumentId,
+      processedTargetCount: 0,
+      targetCount: sortedTargets.length
+    };
+  }
+
+  const result = await performRefreshMarketDataCache(
+    {
+      ...context,
+      targets: batchTargets
+    },
+    { incrementalHistorical: true }
+  );
+
+  return {
+    ...result,
+    currentSymbol: batchTargets[0]?.instrument.symbol ?? null,
+    hasMore,
+    lastProcessedInstrumentId,
+    processedTargetCount: batchTargets.length,
+    targetCount: sortedTargets.length
+  };
+}
+
 async function performRefreshMarketDataCache(
-  context: RefreshContext
+  context: RefreshContext,
+  { incrementalHistorical = false }: { incrementalHistorical?: boolean } = {}
 ): Promise<MarketDataRefreshResult> {
   const { benchmarkSymbol, marketRefreshMinutes, targets } = context;
-  const providerSymbols = targets.map((target) => target.instrument.providerSymbol);
+  const refreshTargets = incrementalHistorical ? await withIncrementalHistoryStartDates(targets) : targets;
+  const providerSymbols = refreshTargets.map((target) => target.instrument.providerSymbol);
 
   if (providerSymbols.length === 0) {
     return {
@@ -520,7 +615,7 @@ async function performRefreshMarketDataCache(
   const quoteByProviderSymbol = new Map(
     quoteRows.map((quote) => [quote.providerSymbol, quote] satisfies [string, MarketQuoteSnapshot])
   );
-  const historyTargets = targets.filter((target) => target.historyStartDate != null);
+  const historyTargets = refreshTargets.filter((target) => target.historyStartDate != null);
   const historicalResults = await Promise.all(
     historyTargets.map(async (target) => [
       target.instrument.id,
@@ -534,7 +629,7 @@ async function performRefreshMarketDataCache(
   );
   const now = new Date();
   const intradayResults = await Promise.all(
-    targets.flatMap((target) =>
+    refreshTargets.flatMap((target) =>
       INTRADAY_REFRESH_WINDOWS.map(async (window) => [
         target.instrument.id,
         window.interval,
@@ -550,7 +645,7 @@ async function performRefreshMarketDataCache(
   const validHistories = new Map<number, MarketHistoricalSeries>();
   const validIntradaySeries = new Map<string, { instrumentId: number; series: MarketIntradaySeries }>();
 
-  for (const target of targets) {
+  for (const target of refreshTargets) {
     const quote = quoteByProviderSymbol.get(target.instrument.providerSymbol);
 
     if (quote == null) {
@@ -706,7 +801,7 @@ async function performRefreshMarketDataCache(
     refreshedAt: new Date().toISOString(),
     benchmarkSymbol,
     marketRefreshMinutes,
-    requestedSymbols: targets.map((target) => target.instrument.symbol).sort((left, right) =>
+    requestedSymbols: refreshTargets.map((target) => target.instrument.symbol).sort((left, right) =>
       left.localeCompare(right)
     ),
     quoteRefreshCount: validQuotes.size,

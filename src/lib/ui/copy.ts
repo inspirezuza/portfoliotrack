@@ -90,6 +90,13 @@ const uiCopy = {
         symbolsNeedReview: (count: string) => `${count} symbols ยังต้องตรวจสอบ`,
         successTitle: "อัปเดตข้อมูลตลาดแล้ว",
         warningTitle: "อัปเดตข้อมูลตลาดแล้ว แต่มีคำเตือน",
+        startedTitle: "เริ่มรีเฟรชข้อมูลตลาดแล้ว",
+        statusLoading: "กำลังตรวจสอบสถานะรีเฟรช...",
+        statusUnavailable: "ไม่สามารถอ่านสถานะรีเฟรชได้",
+        runningProgress: (processed: number, total: number, symbol: string | null) =>
+          total > 0
+            ? `กำลังรีเฟรช ${processed}/${total}${symbol == null ? "" : ` | ${symbol}`}`
+            : "กำลังเตรียมรีเฟรช...",
         errorTitle: "รีเฟรชข้อมูลตลาดไม่สำเร็จ",
         fallbackErrorBody: "แดชบอร์ดยังใช้ราคาจากแคชล่าสุด"
       }
@@ -237,6 +244,7 @@ const uiCopy = {
         filtersLabel: "ตัวกรองหุ้นที่ถือ",
         refreshPrices: "รีเฟรชราคา",
         refreshing: "กำลังรีเฟรช...",
+        refreshStarted: "เริ่มรีเฟรชราคาแล้ว",
         noOpenPositions: "ยังไม่มีสถานะลงทุนที่เปิดอยู่ เพิ่มรายการซื้อ แล้วหุ้นที่ถือจะแสดงที่นี่",
         searchPlaceholder: "Symbol, ชื่อ, ตลาด",
         positionsUnit: "สถานะ",
@@ -503,6 +511,13 @@ const uiCopy = {
         symbolsNeedReview: (count: string) => `${count} symbols still need review`,
         successTitle: "Market data updated",
         warningTitle: "Market data updated with warnings",
+        startedTitle: "Market data refresh started",
+        statusLoading: "Checking refresh status...",
+        statusUnavailable: "Refresh status is unavailable.",
+        runningProgress: (processed: number, total: number, symbol: string | null) =>
+          total > 0
+            ? `Refreshing ${processed}/${total}${symbol == null ? "" : ` | ${symbol}`}`
+            : "Preparing refresh...",
         errorTitle: "Market data refresh failed",
         fallbackErrorBody: "The dashboard is still using the latest cached prices."
       }
@@ -650,6 +665,7 @@ const uiCopy = {
         filtersLabel: "Holdings filters",
         refreshPrices: "Refresh prices",
         refreshing: "Refreshing...",
+        refreshStarted: "Market data refresh started.",
         noOpenPositions: "No open positions yet. Add a buy transaction and holdings will appear here.",
         searchPlaceholder: "Symbol, name, market",
         positionsUnit: "positions",
