@@ -28,6 +28,7 @@ import {
   parseChartDate,
   type TimeAxisPoint
 } from "@/lib/charts/time-axis";
+import { useChartVisibilityKey } from "@/hooks/use-chart-visibility-key";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
 
@@ -286,6 +287,7 @@ export function PortfolioChart({ currency, language, series, status }: Portfolio
   const [timeframe, setTimeframe] = useState<TimeframeKey>("ALL");
   const [selection, setSelection] = useState<SelectionRange | null>(null);
   const isDraggingRef = useRef(false);
+  const { chartContainerRef, chartRenderKey } = useChartVisibilityKey();
   const hasSeries = series.length > 0;
   const visibleSeries = useMemo(() => getVisibleSeries(series, timeframe), [series, timeframe]);
   const chartData = useMemo<ChartPoint[]>(() => {
@@ -428,8 +430,8 @@ export function PortfolioChart({ currency, language, series, status }: Portfolio
             </div>
           )}
 
-          <div className="chart-shell">
-            <ResponsiveContainer width="100%" height={300}>
+          <div className="chart-shell" ref={chartContainerRef}>
+            <ResponsiveContainer height={300} key={chartRenderKey} width="100%">
               <AreaChart
                 data={chartData}
                 margin={{ top: 12, right: 10, left: 4, bottom: 8 }}
@@ -444,7 +446,7 @@ export function PortfolioChart({ currency, language, series, status }: Portfolio
                     <stop offset="100%" stopColor="rgba(10, 126, 101, 0.04)" />
                   </linearGradient>
                 </defs>
-                <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 6" vertical={false} />
+                <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="4 5" vertical={false} />
                 <XAxis
                   dataKey="timestamp"
                   type="number"

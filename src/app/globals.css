@@ -13,7 +13,7 @@
   --accent-soft: rgba(8, 116, 93, 0.1);
   --warm: #b87824;
   --danger: #b84b43;
-  --chart-grid: rgba(18, 31, 25, 0.08);
+  --chart-grid: rgba(18, 31, 25, 0.17);
   --chart-axis: rgba(98, 112, 105, 0.92);
   --tooltip-bg: rgba(255, 254, 248, 0.98);
   --tooltip-shadow: 0 22px 70px rgba(38, 43, 35, 0.16);
@@ -40,7 +40,7 @@ html[data-theme="dark"] {
   --accent-soft: rgba(113, 232, 176, 0.14);
   --warm: #f3bd6d;
   --danger: #ff8d82;
-  --chart-grid: rgba(255, 255, 255, 0.09);
+  --chart-grid: rgba(255, 255, 255, 0.17);
   --chart-axis: rgba(205, 220, 210, 0.82);
   --tooltip-bg: rgba(18, 28, 24, 0.98);
   --tooltip-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
@@ -3484,14 +3484,9 @@ html[data-theme="dark"] .subtabs .active {
   }
 
   .chart-timeframes {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 2px;
-    scrollbar-width: none;
-  }
-
-  .chart-timeframes::-webkit-scrollbar {
-    display: none;
+    flex-wrap: wrap;
+    overflow-x: visible;
+    padding-bottom: 0;
   }
 
   .chart-return-basis-group {
@@ -3506,7 +3501,7 @@ html[data-theme="dark"] .subtabs .active {
   }
 
   .chart-timeframes button {
-    flex: 0 0 auto;
+    flex: 1 1 calc(25% - 5px);
     min-width: 0;
   }
 
@@ -3813,7 +3808,7 @@ html[data-theme="dark"] .subtabs .active {
   }
 
   .chart-timeframes button {
-    flex: 0 0 auto;
+    flex: 1 1 calc(25% - 5px);
     min-height: 40px;
     padding-inline: 12px;
   }

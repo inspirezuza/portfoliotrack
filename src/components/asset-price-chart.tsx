@@ -25,6 +25,7 @@ import {
   type TimeAxisPoint
 } from "@/lib/charts/time-axis";
 import { formatCurrency } from "@/lib/format";
+import { useChartVisibilityKey } from "@/hooks/use-chart-visibility-key";
 import type { AssetDetail } from "@/server/assets";
 
 type AssetPriceChartProps = {
@@ -282,6 +283,7 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
   const [timeframe, setTimeframe] = useState<TimeframeKey>("ALL");
   const [selection, setSelection] = useState<SelectionRange | null>(null);
   const isDraggingRef = useRef(false);
+  const { chartContainerRef, chartRenderKey } = useChartVisibilityKey();
   const hasHistory = asset.marketData.priceHistory.length > 0;
   const hasAverageCostLine = asset.position.hasOpenPosition && asset.position.averageCost != null;
   const visibleHistory = useMemo(
@@ -443,8 +445,8 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
             </div>
           )}
 
-          <div className="chart-shell">
-            <ResponsiveContainer width="100%" height={360}>
+          <div className="chart-shell" ref={chartContainerRef}>
+            <ResponsiveContainer height={360} key={chartRenderKey} width="100%">
               <AreaChart
                 data={chartData}
                 margin={{ top: 12, right: 18, left: 14, bottom: 14 }}
@@ -459,7 +461,7 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
                     <stop offset="100%" stopColor="rgba(23, 107, 85, 0.04)" />
                   </linearGradient>
                 </defs>
-                <CartesianGrid stroke="var(--line)" strokeDasharray="3 6" vertical={false} />
+                <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="4 5" vertical={false} />
                 <XAxis
                   dataKey="timestamp"
                   type="number"

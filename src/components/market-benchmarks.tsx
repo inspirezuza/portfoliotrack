@@ -13,6 +13,7 @@ import {
   YAxis
 } from "recharts";
 import { formatCurrency } from "@/lib/format";
+import { useChartVisibilityKey } from "@/hooks/use-chart-visibility-key";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
 import type {
   DashboardBenchmarkMonthlyReturn,
@@ -276,6 +277,7 @@ export function MarketBenchmarks({
   const [selectedSymbol, setSelectedSymbol] = useState(quotes[0]?.symbol ?? "SPYM");
   const [mode, setMode] = useState<HistoricalMode>("GAP");
   const [timeframe, setTimeframe] = useState<BenchmarkTimeframe>("1Y");
+  const { chartContainerRef, chartRenderKey } = useChartVisibilityKey();
   const selectedQuote = quotes.find((quote) => quote.symbol === selectedSymbol) ?? quotes[0] ?? null;
   const benchmarkLabel = getBenchmarkLabel(selectedSymbol);
   const latestMonth = useMemo(() => getLatestMonth(monthlyReturns), [monthlyReturns]);
@@ -409,10 +411,10 @@ export function MarketBenchmarks({
         </div>
 
         {hasChartData ? (
-          <div className={styles.chartShell}>
-            <ResponsiveContainer width="100%" height={260}>
+          <div className={styles.chartShell} ref={chartContainerRef}>
+            <ResponsiveContainer height={260} key={chartRenderKey} width="100%">
               <BarChart data={chartData} margin={{ top: 18, right: 12, left: 0, bottom: 8 }}>
-                <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 6" vertical={false} />
+                <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="4 5" vertical={false} />
                 <XAxis
                   dataKey="label"
                   axisLine={false}

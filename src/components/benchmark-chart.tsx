@@ -24,6 +24,7 @@ import {
   parseChartDate,
   type TimeAxisPoint
 } from "@/lib/charts/time-axis";
+import { useChartVisibilityKey } from "@/hooks/use-chart-visibility-key";
 import type {
   BenchmarkComparisonBasis,
   BenchmarkTimelinePoint,
@@ -444,6 +445,7 @@ export function BenchmarkChart({
   const [mode, setMode] = useState<PerformanceMode>("INDEXED");
   const [selection, setSelection] = useState<SelectionRange | null>(null);
   const isDraggingRef = useRef(false);
+  const { chartContainerRef, chartRenderKey } = useChartVisibilityKey();
   const activeSeries =
     returnBasis === "ABSOLUTE"
       ? absoluteSeries
@@ -773,8 +775,8 @@ export function BenchmarkChart({
             </div>
           )}
 
-          <div className="chart-shell">
-            <ResponsiveContainer width="100%" height={300}>
+          <div className="chart-shell" ref={chartContainerRef}>
+            <ResponsiveContainer height={300} key={chartRenderKey} width="100%">
               <LineChart
                 data={chartData}
                 margin={{ top: 12, right: 10, left: 4, bottom: 8 }}
@@ -783,7 +785,7 @@ export function BenchmarkChart({
                 onMouseMove={handleChartMouseMove}
                 onMouseUp={handleChartMouseUp}
               >
-                <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 6" vertical={false} />
+                <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="4 5" vertical={false} />
                 <XAxis
                   dataKey="timestamp"
                   type="number"
