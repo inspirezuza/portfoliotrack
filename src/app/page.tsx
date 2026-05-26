@@ -273,7 +273,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   })();
   const leadingHoldings = holdingsSnapshot.holdings.slice(0, 5);
   const marketCurrency = summary.openPositionCurrency ?? DEFAULT_DISPLAY_CURRENCY;
-  const marketValueLabel = formatDashboardMoney(summary.totalMarketValue, marketCurrency, locale);
+  const marketValueLabel = formatSummaryMoney(summary, "totalMarketValue", locale, copy.shared);
   const latestPriceLabel = formatCacheDateParts(
     marketData.latestMarketDataAsOf,
     locale,
@@ -433,7 +433,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
             </div>
 
-            {!isAggregatePortfolio ? (
+            {isAdmin && !isAggregatePortfolio ? (
               <form action="/api/market-data/refresh" method="post" className="refresh-form">
                 <input type="hidden" name="redirectTo" value="/" />
                 <PendingSubmitButton className="secondary-button" pendingLabel={copy.dashboard.refreshing}>
