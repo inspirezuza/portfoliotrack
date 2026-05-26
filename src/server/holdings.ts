@@ -1,10 +1,15 @@
 import "server-only";
 
 import { and, asc, eq, inArray, lte } from "drizzle-orm";
-import { normalizeMoney, normalizePrice } from "@/lib/db/precision";
+import { normalizeMoney, normalizePrice, normalizeQuantity } from "@/lib/db/precision";
 import { applyKnownDrMetadata } from "@/lib/instruments/dr-metadata";
 import { ensureFreshMarketDataCache, getMarketSettings, getPriceAgeMinutes, isMarketDataStale } from "@/lib/market/provider";
-import { calculatePositions, type InstrumentPosition } from "@/lib/portfolio/positions";
+import {
+  calculatePositions,
+  sortTransactionsChronologically,
+  type InstrumentPosition,
+  type PositionTransaction
+} from "@/lib/portfolio/positions";
 import { db } from "@/lib/db/runtime";
 import {
   historicalPrices,
@@ -73,7 +78,9 @@ export type HoldingPerformanceTimeframe =
   | "5Y"
   | "MAX";
 
-export type HoldingPerformanceKey = HoldingPerformanceTimeframe | "COST_BASIS";
+export type HoldingCostBasisPerformanceKey = `COST_${HoldingPerformanceTimeframe}`;
+
+export type HoldingPerformanceKey = HoldingPerformanceTimeframe | HoldingCostBasisPerformanceKey;
 
 export type HoldingPerformance = {
   amount: number | null;
@@ -402,6 +409,112 @@ function calculatePeriodPerformance({
   };
 }
 
+function getCostBasisStartDate(timeframe: HoldingPerformanceTimeframe, latestDate: string | null) {
+  if (timeframe === "MAX") {
+    return null;
+  }
+
+  if (latestDate == null) {
+    return undefined;
+  }
+
+  return timeframe === "1D" ? latestDate : getTimeframeStartDate(timeframe, latestDate);
+}
+
+function calculateCostBasisPerformance({
+  fxRateToValuationCurrency,
+  lastPrice,
+  latestDate,
+  timeframe,
+  transactions
+}: {
+  fxRateToValuationCurrency: number | null;
+  lastPrice: number | null;
+  latestDate: string | null;
+  timeframe: HoldingPerformanceTimeframe;
+  transactions: PositionTransaction[];
+}): HoldingPerformance {
+  if (lastPrice == null) {
+    return getEmptyHoldingPerformance();
+  }
+
+  const startDate = getCostBasisStartDate(timeframe, latestDate);
+
+  if (startDate === undefined) {
+    return getEmptyHoldingPerformance();
+  }
+
+  let totalQuantity = 0;
+  let totalCost = 0;
+  let scopedQuantity = 0;
+  let scopedCost = 0;
+
+  for (const transaction of sortTransactionsChronologically(transactions)) {
+    const quantity = normalizeQuantity(transaction.quantity);
+    const grossAmount = normalizeMoney(quantity * transaction.price);
+    const transactionCost = normalizeMoney(grossAmount + transaction.fee);
+
+    if (transaction.side === "BUY") {
+      totalQuantity = normalizeQuantity(totalQuantity + quantity);
+      totalCost = normalizeMoney(totalCost + transactionCost);
+
+      if (startDate == null || transaction.tradeDate >= startDate) {
+        scopedQuantity = normalizeQuantity(scopedQuantity + quantity);
+        scopedCost = normalizeMoney(scopedCost + transactionCost);
+      }
+
+      continue;
+    }
+
+    if (totalQuantity <= 0) {
+      continue;
+    }
+
+    const soldQuantity = Math.min(quantity, totalQuantity);
+    const totalAverageCost = normalizePrice(totalCost / totalQuantity);
+    const totalRemovedCost = normalizeMoney(totalAverageCost * soldQuantity);
+
+    if (scopedQuantity > 0) {
+      const scopedShare = Math.min(1, scopedQuantity / totalQuantity);
+      const scopedSoldQuantity = normalizeQuantity(Math.min(scopedQuantity, soldQuantity * scopedShare));
+      const scopedAverageCost = normalizePrice(scopedCost / scopedQuantity);
+      const scopedRemovedCost = normalizeMoney(scopedAverageCost * scopedSoldQuantity);
+
+      scopedQuantity = normalizeQuantity(scopedQuantity - scopedSoldQuantity);
+      scopedCost = normalizeMoney(scopedCost - scopedRemovedCost);
+
+      if (scopedQuantity <= 0) {
+        scopedQuantity = 0;
+        scopedCost = 0;
+      }
+    }
+
+    totalQuantity = normalizeQuantity(totalQuantity - soldQuantity);
+    totalCost = normalizeMoney(totalCost - totalRemovedCost);
+
+    if (totalQuantity <= 0) {
+      totalQuantity = 0;
+      totalCost = 0;
+      scopedQuantity = 0;
+      scopedCost = 0;
+    }
+  }
+
+  if (scopedQuantity <= 0 || scopedCost <= 0) {
+    return getEmptyHoldingPerformance();
+  }
+
+  const marketValue = normalizeMoney(scopedQuantity * lastPrice);
+  const amount = normalizeMoney(marketValue - scopedCost);
+
+  return {
+    amount,
+    percent: amount / scopedCost,
+    amountInValuationCurrency:
+      fxRateToValuationCurrency == null ? null : normalizeMoney(amount * fxRateToValuationCurrency)
+  };
+}
+
 function buildHoldingPerformance({
   fxRateToValuationCurrency,
   historicalRows,
@@ -410,9 +523,7 @@ function buildHoldingPerformance({
   oneDayGainPercent,
   priceSnapshot,
   quantity,
-  unrealizedPnl,
-  unrealizedPnlInValuationCurrency,
-  unrealizedPnlPercent
+  transactions
 }: {
   fxRateToValuationCurrency: number | null;
   historicalRows: HistoricalPrice[];
@@ -421,9 +532,7 @@ function buildHoldingPerformance({
   oneDayGainPercent: number | null;
   priceSnapshot: PriceSnapshot | null;
   quantity: number;
-  unrealizedPnl: number | null;
-  unrealizedPnlInValuationCurrency: number | null;
-  unrealizedPnlPercent: number | null;
+  transactions: PositionTransaction[];
 }): Record<HoldingPerformanceKey, HoldingPerformance> {
   const oneDayAmountInValuationCurrency =
     oneDayGain == null || fxRateToValuationCurrency == null
@@ -501,11 +610,62 @@ function buildHoldingPerformance({
       quantity,
       timeframe: "MAX"
     }),
-    COST_BASIS: {
-      amount: unrealizedPnl,
-      percent: unrealizedPnlPercent,
-      amountInValuationCurrency: unrealizedPnlInValuationCurrency
-    }
+    COST_1D: calculateCostBasisPerformance({
+      fxRateToValuationCurrency,
+      lastPrice,
+      latestDate,
+      timeframe: "1D",
+      transactions
+    }),
+    COST_1W: calculateCostBasisPerformance({
+      fxRateToValuationCurrency,
+      lastPrice,
+      latestDate,
+      timeframe: "1W",
+      transactions
+    }),
+    COST_1M: calculateCostBasisPerformance({
+      fxRateToValuationCurrency,
+      lastPrice,
+      latestDate,
+      timeframe: "1M",
+      transactions
+    }),
+    COST_YTD: calculateCostBasisPerformance({
+      fxRateToValuationCurrency,
+      lastPrice,
+      latestDate,
+      timeframe: "YTD",
+      transactions
+    }),
+    COST_1Y: calculateCostBasisPerformance({
+      fxRateToValuationCurrency,
+      lastPrice,
+      latestDate,
+      timeframe: "1Y",
+      transactions
+    }),
+    COST_3Y: calculateCostBasisPerformance({
+      fxRateToValuationCurrency,
+      lastPrice,
+      latestDate,
+      timeframe: "3Y",
+      transactions
+    }),
+    COST_5Y: calculateCostBasisPerformance({
+      fxRateToValuationCurrency,
+      lastPrice,
+      latestDate,
+      timeframe: "5Y",
+      transactions
+    }),
+    COST_MAX: calculateCostBasisPerformance({
+      fxRateToValuationCurrency,
+      lastPrice,
+      latestDate,
+      timeframe: "MAX",
+      transactions
+    })
   };
 }
 
@@ -517,6 +677,7 @@ function buildHoldingRow({
   parentPriceSnapshot,
   position,
   priceSnapshot,
+  positionTransactions,
   valuationCurrency
 }: {
   fxRateToValuationCurrency: number | null;
@@ -526,6 +687,7 @@ function buildHoldingRow({
   parentPriceSnapshot: PriceSnapshot | null;
   position: InstrumentPosition;
   priceSnapshot: PriceSnapshot | null;
+  positionTransactions: PositionTransaction[];
   valuationCurrency: string;
 }): HoldingRow {
   const matchingPriceSnapshot =
@@ -607,9 +769,7 @@ function buildHoldingRow({
       oneDayGainPercent,
       priceSnapshot: matchingPriceSnapshot,
       quantity: position.quantity,
-      unrealizedPnl,
-      unrealizedPnlInValuationCurrency,
-      unrealizedPnlPercent
+      transactions: positionTransactions
     }),
     marketValue,
     unrealizedPnl,
@@ -734,6 +894,14 @@ export async function getHoldingsSnapshot({
   }
 
   const positions = calculatePositions(rows.map((row) => toChronologicalPositionTransaction(row.transaction)));
+  const transactionsByInstrumentId = new Map<number, PositionTransaction[]>();
+
+  for (const row of rows) {
+    const instrumentTransactions = transactionsByInstrumentId.get(row.transaction.instrumentId) ?? [];
+    instrumentTransactions.push(toChronologicalPositionTransaction(row.transaction));
+    transactionsByInstrumentId.set(row.transaction.instrumentId, instrumentTransactions);
+  }
+
   const historicalPriceRows =
     groupedInstruments.size === 0
       ? []
@@ -775,6 +943,7 @@ export async function getHoldingsSnapshot({
             ? null
             : fxSnapshotsByProviderSymbol.get(instrumentState.instrument.underlyingProviderSymbol) ?? null,
         position,
+        positionTransactions: transactionsByInstrumentId.get(position.instrumentId) ?? [],
         priceSnapshot: instrumentState.priceSnapshot,
         valuationCurrency
       });

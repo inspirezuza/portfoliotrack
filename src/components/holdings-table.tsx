@@ -50,7 +50,7 @@ type RefreshResponse = {
   };
 };
 
-const PRICE_PERFORMANCE_TIMEFRAMES: HoldingPerformanceTimeframe[] = [
+const PERFORMANCE_TIMEFRAMES: HoldingPerformanceTimeframe[] = [
   "1D",
   "1W",
   "1M",
@@ -101,7 +101,7 @@ function getPerformanceKey({
   basis: PerformanceBasis;
   timeframe: HoldingPerformanceTimeframe;
 }): HoldingPerformanceKey {
-  return basis === "cost" ? "COST_BASIS" : timeframe;
+  return basis === "cost" ? `COST_${timeframe}` : timeframe;
 }
 
 function getPerformanceColumnLabel({
@@ -113,9 +113,11 @@ function getPerformanceColumnLabel({
   copy: ReturnType<typeof getUiCopy>;
   timeframe: HoldingPerformanceTimeframe;
 }) {
+  const timeframeLabel = getPricePerformanceTimeframeLabel(copy, timeframe);
+
   return basis === "cost"
-    ? copy.holdings.table.columns.performance(copy.holdings.table.performanceBasis.cost)
-    : copy.holdings.table.columns.performance(getPricePerformanceTimeframeLabel(copy, timeframe));
+    ? copy.holdings.table.columns.performance(`${copy.holdings.table.performanceBasis.cost} ${timeframeLabel}`)
+    : copy.holdings.table.columns.performance(timeframeLabel);
 }
 
 function getValuationPerformanceAmount(holding: HoldingRow, performanceKey: HoldingPerformanceKey) {
@@ -640,24 +642,22 @@ export function HoldingsTable({
                     {copy.holdings.table.performanceBasis.cost}
                   </button>
                 </div>
-                {performanceBasis === "price" ? (
-                  <div
-                    className="table-filter-group holdings-timeframe-group"
-                    aria-label={copy.holdings.table.performanceTimeframesLabel}
-                  >
-                    {PRICE_PERFORMANCE_TIMEFRAMES.map((timeframe) => (
-                      <button
-                        key={timeframe}
-                        type="button"
-                        className="table-filter-button holdings-timeframe-button"
-                        aria-pressed={performanceTimeframe === timeframe}
-                        onClick={() => setPerformanceTimeframe(timeframe)}
-                      >
-                        {getPricePerformanceTimeframeLabel(copy, timeframe)}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
+                <div
+                  className="table-filter-group holdings-timeframe-group"
+                  aria-label={copy.holdings.table.performanceTimeframesLabel}
+                >
+                  {PERFORMANCE_TIMEFRAMES.map((timeframe) => (
+                    <button
+                      key={timeframe}
+                      type="button"
+                      className="table-filter-button holdings-timeframe-button"
+                      aria-pressed={performanceTimeframe === timeframe}
+                      onClick={() => setPerformanceTimeframe(timeframe)}
+                    >
+                      {getPricePerformanceTimeframeLabel(copy, timeframe)}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div className="table-filter-group" aria-label={copy.holdings.table.filtersLabel}>
                 {filterOptions.map((option) => (
