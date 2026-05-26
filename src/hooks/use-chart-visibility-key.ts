@@ -14,12 +14,14 @@ export function useChartVisibilityKey() {
       return;
     }
 
+    const observedContainer = container;
+
     function refreshWhenMeasurable() {
       if (hasBecomeVisibleRef.current) {
         return;
       }
 
-      const rect = container.getBoundingClientRect();
+      const rect = observedContainer.getBoundingClientRect();
 
       if (rect.width <= 0 || rect.height <= 0) {
         return;
@@ -35,7 +37,7 @@ export function useChartVisibilityKey() {
       }
     }, { threshold: 0.01 });
 
-    observer.observe(container);
+    observer.observe(observedContainer);
     requestAnimationFrame(refreshWhenMeasurable);
 
     return () => {
