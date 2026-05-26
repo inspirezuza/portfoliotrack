@@ -28,6 +28,7 @@ type ApiErrorResponse = {
 type TransactionSortKey =
   | "tradeDate"
   | "instrument"
+  | "portfolio"
   | "side"
   | "broker"
   | "quantity"
@@ -49,6 +50,10 @@ function getDeleteErrorMessage(error: ApiErrorResponse["error"], fallback: strin
 function getTransactionSortValue(transaction: TransactionListItem, key: TransactionSortKey) {
   if (key === "instrument") {
     return `${transaction.instrument.symbol} ${transaction.instrument.displayName} ${transaction.instrument.market}`;
+  }
+
+  if (key === "portfolio") {
+    return transaction.portfolioName ?? "";
   }
 
   return transaction[key];
@@ -79,6 +84,7 @@ function getTransactionSearchText(transaction: TransactionListItem) {
     transaction.side,
     transaction.broker,
     transaction.notes ?? "",
+    transaction.portfolioName ?? "",
     transaction.instrument.symbol,
     transaction.instrument.displayName,
     transaction.instrument.market,
@@ -144,6 +150,8 @@ export function TransactionTable({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [sort, setSort] = useState<SortState>({ key: "tradeDate", direction: "desc" });
   const [searchQuery, setSearchQuery] = useState("");
+  const showPortfolioColumn = transactions.some((transaction) => transaction.portfolioName != null);
+  const columnCount = (canEdit ? 10 : 9) + (showPortfolioColumn ? 1 : 0);
 
   const visibleTransactions = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -166,7 +174,10 @@ export function TransactionTable({
           }
         : {
             key: sortKey,
-            direction: sortKey === "instrument" || sortKey === "side" || sortKey === "broker" ? "asc" : "desc"
+            direction:
+              sortKey === "instrument" || sortKey === "portfolio" || sortKey === "side" || sortKey === "broker"
+                ? "asc"
+                : "desc"
           }
     );
   }
@@ -269,6 +280,7 @@ export function TransactionTable({
               <colgroup>
                 <col className="transaction-col-date" />
                 <col className="transaction-col-instrument" />
+                {showPortfolioColumn ? <col className="transaction-col-portfolio" /> : null}
                 <col className="transaction-col-side" />
                 <col className="transaction-col-broker" />
                 <col className="transaction-col-quantity" />
@@ -282,6 +294,9 @@ export function TransactionTable({
                 <tr>
                   <SortableHeader label={copy.transactions.table.columns.date} language={language} sortKey="tradeDate" sort={sort} onSort={handleSort} />
                   <SortableHeader label={copy.transactions.table.columns.instrument} language={language} sortKey="instrument" sort={sort} onSort={handleSort} />
+                  {showPortfolioColumn ? (
+                    <SortableHeader label={copy.transactions.table.columns.portfolio} language={language} sortKey="portfolio" sort={sort} onSort={handleSort} />
+                  ) : null}
                   <SortableHeader label={copy.transactions.table.columns.side} language={language} sortKey="side" sort={sort} onSort={handleSort} />
                   <SortableHeader label={copy.transactions.table.columns.broker} language={language} sortKey="broker" sort={sort} onSort={handleSort} />
                   <SortableHeader label={copy.transactions.table.columns.quantity} language={language} sortKey="quantity" sort={sort} onSort={handleSort} align="right" />
@@ -295,7 +310,7 @@ export function TransactionTable({
               <tbody>
                 {visibleTransactions.length === 0 ? (
                   <tr>
-                    <td colSpan={canEdit ? 10 : 9} className="table-empty-cell">
+                    <td colSpan={columnCount} className="table-empty-cell">
                       {copy.transactions.table.noMatches}
                     </td>
                   </tr>
@@ -324,6 +339,7 @@ export function TransactionTable({
                           </div>
                         </Link>
                       </td>
+                      {showPortfolioColumn ? <td>{transaction.portfolioName ?? "-"}</td> : null}
                       <td>
                         <span
                           className={`side-pill ${

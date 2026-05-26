@@ -27,7 +27,9 @@ type TransactionWorkspaceClientProps = {
   initialInstruments: TransactionInstrumentOption[];
   initialSummary: TransactionSummary;
   initialTransactions: TransactionListItem[];
+  isAggregatePortfolio: boolean;
   language: UiLanguage;
+  selectedPortfolioKey: string;
   selectedPortfolioName: string;
 };
 
@@ -80,7 +82,9 @@ export function TransactionWorkspaceClient({
   initialInstruments,
   initialSummary,
   initialTransactions,
+  isAggregatePortfolio,
   language,
+  selectedPortfolioKey,
   selectedPortfolioName
 }: TransactionWorkspaceClientProps) {
   const copy = getUiCopy(language);
@@ -91,6 +95,23 @@ export function TransactionWorkspaceClient({
   const [editingTransaction, setEditingTransaction] = useState(initialEditingTransaction);
   const [syncErrorMessage, setSyncErrorMessage] = useState<string | null>(null);
   const [isSyncingWorkspace, setIsSyncingWorkspace] = useState(false);
+
+  useEffect(() => {
+    setAllInstruments(initialAllInstruments);
+    setInstruments(initialInstruments);
+    setSummary(initialSummary);
+    setTransactions(initialTransactions);
+    setEditingTransaction(initialEditingTransaction);
+    setSyncErrorMessage(null);
+    setIsSyncingWorkspace(false);
+  }, [
+    initialAllInstruments,
+    initialEditingTransaction,
+    initialInstruments,
+    initialSummary,
+    initialTransactions,
+    selectedPortfolioKey
+  ]);
 
   const refreshWorkspace = useCallback(async () => {
     setSyncErrorMessage(null);
@@ -220,6 +241,9 @@ export function TransactionWorkspaceClient({
 
       {syncErrorMessage ? (
         <p className="form-banner form-banner-error">{syncErrorMessage}</p>
+      ) : null}
+      {isAggregatePortfolio ? (
+        <p className="form-banner">{copy.transactions.aggregateReadOnly}</p>
       ) : null}
       {isSyncingWorkspace ? <PendingBanner label={copy.transactions.syncing} /> : null}
 

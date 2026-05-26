@@ -6,19 +6,23 @@ import { useState, useTransition } from "react";
 import { LoadingIndicator } from "@/components/loading-indicator";
 import type { PortfolioListItem } from "@/server/portfolios";
 
+const ALL_PORTFOLIOS_SELECTION_KEY = "all";
+
 export function PortfolioSwitcher({
+  aggregateLabel,
   canManage,
   label,
   manageLabel,
   portfolios,
-  selectedPortfolioId,
+  selectedPortfolioKey,
   switchingLabel
 }: {
+  aggregateLabel: string;
   canManage: boolean;
   label: string;
   manageLabel: string;
   portfolios: PortfolioListItem[];
-  selectedPortfolioId: number;
+  selectedPortfolioKey: string;
   switchingLabel: string;
 }) {
   const router = useRouter();
@@ -48,11 +52,12 @@ export function PortfolioSwitcher({
     <div className="portfolio-switcher" aria-label={label} aria-busy={isBusy}>
       <select
         className="portfolio-select"
-        value={selectedPortfolioId}
+        value={selectedPortfolioKey}
         onChange={(event) => handlePortfolioChange(event.target.value)}
         disabled={isBusy || portfolios.length === 0}
         aria-label={label}
       >
+        <option value={ALL_PORTFOLIOS_SELECTION_KEY}>{aggregateLabel}</option>
         {portfolios.map((portfolio) => (
           <option key={portfolio.id} value={portfolio.id}>
             {portfolio.name}

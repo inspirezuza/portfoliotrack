@@ -7,7 +7,7 @@ import { PortfolioChart } from "@/components/portfolio-chart";
 import { SummaryCards } from "@/components/summary-cards";
 import { formatCurrency, formatPercentRatio, formatQuantity } from "@/lib/format";
 import { isAdminAuthenticated } from "@/lib/auth/admin";
-import { getPortfolioSelection } from "@/lib/portfolio/selection";
+import { getPortfolioSelection, isAllPortfoliosSelection } from "@/lib/portfolio/selection";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getServerUiLanguage } from "@/lib/ui/server";
 import { getUiLocale } from "@/lib/ui/translations";
@@ -245,9 +245,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const copy = getUiCopy(language);
   const locale = getUiLocale(language);
   const isAdmin = await isAdminAuthenticated();
-  const { selectedPortfolio } = await getPortfolioSelection();
+  const { portfolios, selectedPortfolio } = await getPortfolioSelection();
+  const isAggregatePortfolio = isAllPortfoliosSelection(selectedPortfolio);
+  const selectedPortfolioName = isAggregatePortfolio ? copy.shell.allPortfolios : selectedPortfolio.name;
   const { summary, holdingsSnapshot, marketData, performanceSummary, timeline } = await getDashboardSnapshot({
-    portfolioId: selectedPortfolio.id,
+    ...(isAggregatePortfolio
+      ? { portfolioIds: portfolios.map((portfolio) => portfolio.id) }
+      : { portfolioId: selectedPortfolio.id }),
     ensureFresh: false
   });
   const resolvedSearchParams = (await searchParams) ?? {};
@@ -298,10 +302,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <div>
           <p className="eyebrow">{copy.dashboard.workspace}</p>
           <h1>{copy.dashboard.title}</h1>
-          <p>{selectedPortfolio.name}</p>
+          <p>{selectedPortfolioName}</p>
         </div>
 
-        {isAdmin ? (
+        {isAdmin && !isAggregatePortfolio ? (
           <form action="/api/market-data/refresh" method="post" className="refresh-form">
             <input type="hidden" name="redirectTo" value="/" />
             <PendingSubmitButton className="primary-button" pendingLabel={copy.dashboard.refreshing}>
@@ -410,12 +414,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
             </div>
 
-            <form action="/api/market-data/refresh" method="post" className="refresh-form">
-              <input type="hidden" name="redirectTo" value="/" />
-              <PendingSubmitButton className="secondary-button" pendingLabel={copy.dashboard.refreshing}>
-                {copy.dashboard.updateMarketData}
-              </PendingSubmitButton>
-            </form>
+            {!isAggregatePortfolio ? (
+              <form action="/api/market-data/refresh" method="post" className="refresh-form">
+                <input type="hidden" name="redirectTo" value="/" />
+                <PendingSubmitButton className="secondary-button" pendingLabel={copy.dashboard.refreshing}>
+                  {copy.dashboard.updateMarketData}
+                </PendingSubmitButton>
+              </form>
+            ) : null}
           </article>
 
           <article className="surface-card holdings-preview-card">
@@ -487,7 +493,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               {copy.holdings.pageTitle}
             </h2>
           </div>
-          <span className="state-pill state-pill-muted">{selectedPortfolio.name}</span>
+          <span className="state-pill state-pill-muted">{selectedPortfolioName}</span>
         </div>
 
         <section className="asset-performance-grid dashboard-holdings-status" aria-label={copy.holdings.statusLabel}>
@@ -514,7 +520,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <HoldingsTable
           holdings={holdingsSnapshot.holdings}
           language={language}
-          canRefresh={isAdmin}
+          canRefresh={isAdmin && !isAggregatePortfolio}
         />
 
         <SummaryCards language={language} summary={summary} />

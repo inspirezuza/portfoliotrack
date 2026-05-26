@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, lte } from "drizzle-orm";
+import { and, asc, eq, inArray, lte } from "drizzle-orm";
 import { normalizeMoney, normalizePrice } from "@/lib/db/precision";
 import { applyKnownDrMetadata } from "@/lib/instruments/dr-metadata";
 import { ensureFreshMarketDataCache, getMarketSettings, getPriceAgeMinutes, isMarketDataStale } from "@/lib/market/provider";
@@ -257,7 +257,26 @@ function buildHoldingRow({
   };
 }
 
-async function listHoldingRows(asOfDate: string, portfolioId: number): Promise<HoldingJoinedRow[]> {
+function parsePortfolioScope({
+  portfolioId,
+  portfolioIds
+}: {
+  portfolioId?: number;
+  portfolioIds?: number[];
+}) {
+  if (portfolioIds != null) {
+    return portfolioIds.map(parsePortfolioId);
+  }
+
+  return [parsePortfolioId(portfolioId)];
+}
+
+async function listHoldingRows(asOfDate: string, portfolioIds: number[]): Promise<HoldingJoinedRow[]> {
+  const portfolioFilter =
+    portfolioIds.length === 1
+      ? eq(transactions.portfolioId, portfolioIds[0])
+      : inArray(transactions.portfolioId, portfolioIds);
+
   return db
     .select({
       instrument: instruments,
@@ -267,26 +286,33 @@ async function listHoldingRows(asOfDate: string, portfolioId: number): Promise<H
     .from(transactions)
     .innerJoin(instruments, eq(transactions.instrumentId, instruments.id))
     .leftJoin(priceSnapshots, eq(priceSnapshots.instrumentId, instruments.id))
-    .where(and(eq(transactions.portfolioId, portfolioId), lte(transactions.tradeDate, asOfDate)))
+    .where(and(portfolioFilter, lte(transactions.tradeDate, asOfDate)))
     .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id));
 }
 
 export async function getHoldingsSnapshot({
   portfolioId: portfolioIdInput,
+  portfolioIds: portfolioIdsInput,
   ensureFresh = false
 }: {
-  portfolioId: number;
+  portfolioId?: number;
+  portfolioIds?: number[];
   ensureFresh?: boolean;
 }): Promise<HoldingsSnapshot> {
-  const portfolioId = parsePortfolioId(portfolioIdInput);
+  const portfolioIds = parsePortfolioScope({
+    portfolioId: portfolioIdInput,
+    portfolioIds: portfolioIdsInput
+  });
 
   if (ensureFresh) {
-    await ensureFreshMarketDataCache({ portfolioId, includeBenchmark: true });
+    await Promise.all(
+      portfolioIds.map((portfolioId) => ensureFreshMarketDataCache({ portfolioId, includeBenchmark: true }))
+    );
   }
 
   const asOfDate = getCurrentLocalIsoDate();
   const [rows, marketSettings, instrumentRows, snapshotRows] = await Promise.all([
-    listHoldingRows(asOfDate, portfolioId),
+    listHoldingRows(asOfDate, portfolioIds),
     getMarketSettings(),
     db.select().from(instruments),
     db.select().from(priceSnapshots)

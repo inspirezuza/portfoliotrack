@@ -186,22 +186,48 @@ function buildPerformanceSummary({
   };
 }
 
+function parsePortfolioScope({
+  portfolioId,
+  portfolioIds
+}: {
+  portfolioId?: number;
+  portfolioIds?: number[];
+}) {
+  if (portfolioIds != null) {
+    return portfolioIds.map(parsePortfolioId);
+  }
+
+  return [parsePortfolioId(portfolioId)];
+}
+
 export async function getDashboardSnapshot({
   portfolioId: portfolioIdInput,
+  portfolioIds: portfolioIdsInput,
   ensureFresh = false
 }: {
-  portfolioId: number;
+  portfolioId?: number;
+  portfolioIds?: number[];
   ensureFresh?: boolean;
 }): Promise<DashboardSnapshot> {
-  const portfolioId = parsePortfolioId(portfolioIdInput);
+  const portfolioIds = parsePortfolioScope({
+    portfolioId: portfolioIdInput,
+    portfolioIds: portfolioIdsInput
+  });
 
   if (ensureFresh) {
-    await ensureFreshMarketDataCache({ portfolioId, includeBenchmark: true });
+    await Promise.all(
+      portfolioIds.map((portfolioId) => ensureFreshMarketDataCache({ portfolioId, includeBenchmark: true }))
+    );
   }
+
+  const portfolioFilter =
+    portfolioIds.length === 1
+      ? eq(transactions.portfolioId, portfolioIds[0])
+      : inArray(transactions.portfolioId, portfolioIds);
 
   const [holdingsSnapshot, marketSettings, transactionRows, instrumentRows] =
     await Promise.all([
-      getHoldingsSnapshot({ portfolioId, ensureFresh: false }),
+      getHoldingsSnapshot({ portfolioIds, ensureFresh: false }),
       getMarketSettings(),
       db
         .select({
@@ -215,7 +241,7 @@ export async function getDashboardSnapshot({
           id: transactions.id
         })
         .from(transactions)
-        .where(eq(transactions.portfolioId, portfolioId))
+        .where(portfolioFilter)
         .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id)),
       db.select().from(instruments)
     ]);

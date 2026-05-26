@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { PORTFOLIO_COOKIE_KEY } from "@/lib/portfolio/selection";
+import {
+  ALL_PORTFOLIOS_SELECTION_KEY,
+  getAllPortfoliosSelection,
+  PORTFOLIO_COOKIE_KEY
+} from "@/lib/portfolio/selection";
 import { getPortfolioById, PortfolioServiceError, parsePortfolioId } from "@/server/portfolios";
 
 function jsonErrorResponse(code: string, message: string, status: number) {
@@ -14,8 +18,8 @@ function jsonErrorResponse(code: string, message: string, status: number) {
   );
 }
 
-function setPortfolioCookie(response: NextResponse, portfolioId: number) {
-  response.cookies.set(PORTFOLIO_COOKIE_KEY, String(portfolioId), {
+function setPortfolioCookie(response: NextResponse, portfolioKey: string) {
+  response.cookies.set(PORTFOLIO_COOKIE_KEY, portfolioKey, {
     path: "/",
     maxAge: 60 * 60 * 24 * 365,
     sameSite: "lax"
@@ -30,7 +34,16 @@ export async function POST(request: Request) {
       throw new PortfolioServiceError("VALIDATION_ERROR", "Portfolio selection payload must be an object.");
     }
 
-    const portfolioId = parsePortfolioId((payload as Record<string, unknown>).portfolioId);
+    const portfolioKey = (payload as Record<string, unknown>).portfolioId;
+
+    if (portfolioKey === ALL_PORTFOLIOS_SELECTION_KEY) {
+      const response = NextResponse.json({ portfolio: getAllPortfoliosSelection() });
+      setPortfolioCookie(response, ALL_PORTFOLIOS_SELECTION_KEY);
+
+      return response;
+    }
+
+    const portfolioId = parsePortfolioId(portfolioKey);
     const portfolio = await getPortfolioById(portfolioId);
 
     if (portfolio == null) {
@@ -38,7 +51,7 @@ export async function POST(request: Request) {
     }
 
     const response = NextResponse.json({ portfolio });
-    setPortfolioCookie(response, portfolio.id);
+    setPortfolioCookie(response, String(portfolio.id));
 
     return response;
   } catch (error) {

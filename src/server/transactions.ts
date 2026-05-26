@@ -8,8 +8,10 @@ import { getKnownDrMetadata } from "@/lib/instruments/dr-metadata";
 import { sortInstrumentOptions } from "@/lib/transactions/instrument-selection";
 import {
   instruments,
+  portfolios,
   transactions,
   type Instrument,
+  type Portfolio,
   type NewTransaction,
   type Transaction
 } from "@/lib/db/schema";
@@ -42,6 +44,7 @@ export type TransactionListItem = {
   notes: string | null;
   createdAt: string;
   updatedAt: string;
+  portfolioName: string | null;
   instrument: {
     id: number;
     symbol: string;
@@ -132,6 +135,7 @@ export function toChronologicalPositionTransaction(
 function mapTransactionListItem(row: {
   transaction: Transaction;
   instrument: Instrument;
+  portfolio?: Pick<Portfolio, "name">;
 }): TransactionListItem {
   const grossAmount = normalizeMoney(row.transaction.quantity * row.transaction.price);
   const netAmount =
@@ -152,6 +156,7 @@ function mapTransactionListItem(row: {
     notes: row.transaction.notes,
     createdAt: row.transaction.createdAt,
     updatedAt: row.transaction.updatedAt,
+    portfolioName: row.portfolio?.name ?? null,
     instrument: {
       id: row.instrument.id,
       symbol: row.instrument.symbol,
@@ -672,6 +677,54 @@ export async function getTransactionWorkspace({
     allInstruments,
     editingTransaction,
     formInstruments,
+    instruments: selectableInstruments,
+    summary: {
+      allInstrumentCount: allInstruments.length,
+      latestTradeDate: transactionsList[0]?.tradeDate ?? null,
+      openInstrumentCount: allInstruments.filter((instrument) => instrument.currentQuantity > 0).length,
+      selectableInstrumentCount: selectableInstruments.length,
+      transactionCount: transactionsList.length,
+      uniqueInstrumentCount: new Set(transactionsList.map((transaction) => transaction.instrumentId)).size
+    },
+    transactions: transactionsList
+  };
+}
+
+export async function getAggregateTransactionWorkspace({
+  editTransactionId
+}: {
+  editTransactionId: number | null;
+}) {
+  const [transactionRows, instrumentRows] = await Promise.all([
+    db
+      .select({
+        transaction: transactions,
+        instrument: instruments,
+        portfolio: portfolios
+      })
+      .from(transactions)
+      .innerJoin(instruments, eq(transactions.instrumentId, instruments.id))
+      .innerJoin(portfolios, eq(transactions.portfolioId, portfolios.id))
+      .orderBy(...getTransactionOrder("desc")),
+    db.select().from(instruments).orderBy(asc(instruments.symbol))
+  ]);
+  const transactionsList = transactionRows.map(mapTransactionListItem);
+  const positions = calculatePositions(
+    transactionRows.map((row) => toChronologicalPositionTransaction(row.transaction))
+  );
+  const allInstruments = instrumentRows.map((instrument) =>
+    mapInstrumentOption(instrument, positions.get(instrument.id)?.quantity ?? 0)
+  );
+  const selectableInstruments = allInstruments.filter(isTransactionInstrumentSelectable);
+  const editingTransaction =
+    editTransactionId == null
+      ? null
+      : transactionsList.find((transaction) => transaction.id === editTransactionId) ?? null;
+
+  return {
+    allInstruments,
+    editingTransaction,
+    formInstruments: selectableInstruments,
     instruments: selectableInstruments,
     summary: {
       allInstrumentCount: allInstruments.length,

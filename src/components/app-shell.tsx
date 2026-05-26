@@ -97,12 +97,12 @@ export function AppShell({
   children,
   isAdmin,
   portfolios,
-  selectedPortfolioId
+  selectedPortfolioKey
 }: {
   children: ReactNode;
   isAdmin: boolean;
   portfolios: PortfolioListItem[];
-  selectedPortfolioId: number;
+  selectedPortfolioKey: string;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -148,11 +148,12 @@ export function AppShell({
 
             <div className="shell-actions">
               <PortfolioSwitcher
+                aggregateLabel={copy.allPortfolios}
                 canManage={isAdmin}
                 label={copy.portfolioLabel}
                 manageLabel={copy.managePortfolios}
                 portfolios={portfolios}
-                selectedPortfolioId={selectedPortfolioId}
+                selectedPortfolioKey={selectedPortfolioKey}
                 switchingLabel={copy.switchingPortfolio}
               />
 

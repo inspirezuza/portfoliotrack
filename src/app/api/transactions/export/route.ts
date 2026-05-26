@@ -1,5 +1,6 @@
 import { isAdminAuthenticated } from "@/lib/auth/admin";
-import { getSelectedPortfolioId } from "@/lib/portfolio/selection";
+import { AggregatePortfolioSelectionError, getSelectedPortfolioId } from "@/lib/portfolio/selection";
+import { ensureDefaultPortfolio } from "@/server/portfolios";
 import { buildTransactionExport } from "@/server/transaction-import-export";
 
 export const runtime = "nodejs";
@@ -21,7 +22,15 @@ export async function GET(request: Request) {
       );
     }
 
-    const portfolioId = await getSelectedPortfolioId();
+    const portfolioId = template
+      ? await getSelectedPortfolioId().catch(async (error: unknown) => {
+          if (error instanceof AggregatePortfolioSelectionError) {
+            return (await ensureDefaultPortfolio()).id;
+          }
+
+          throw error;
+        })
+      : await getSelectedPortfolioId();
     const exportFile = await buildTransactionExport({ portfolioId, template });
 
     return new Response(new Uint8Array(exportFile.buffer), {
@@ -32,6 +41,18 @@ export async function GET(request: Request) {
       }
     });
   } catch (error) {
+    if (error instanceof AggregatePortfolioSelectionError) {
+      return Response.json(
+        {
+          error: {
+            code: "AGGREGATE_PORTFOLIO_SELECTION",
+            message: "Choose a specific portfolio before exporting transactions."
+          }
+        },
+        { status: 409 }
+      );
+    }
+
     console.error("Unexpected transaction export failure", error);
 
     return Response.json(

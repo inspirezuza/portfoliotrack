@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth/admin";
-import { getSelectedPortfolioId } from "@/lib/portfolio/selection";
+import {
+  AggregatePortfolioSelectionError,
+  getPortfolioSelection,
+  getSelectedPortfolioId,
+  isAllPortfoliosSelection
+} from "@/lib/portfolio/selection";
 import {
   createTransaction,
   deleteTransaction,
+  getAggregateTransactionWorkspace,
   getTransactionWorkspace,
   TransactionServiceError,
   updateTransaction,
@@ -42,6 +48,14 @@ function jsonErrorResponse(
   );
 }
 
+function aggregateSelectionErrorResponse() {
+  return jsonErrorResponse(
+    "AGGREGATE_PORTFOLIO_SELECTION",
+    "Choose a specific portfolio before changing transactions.",
+    409
+  );
+}
+
 function sortTransactionsByOrder(transactions: TransactionListItem[], order: "asc" | "desc") {
   if (order === "desc") {
     return transactions;
@@ -65,11 +79,17 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const editTransactionId = Number(searchParams.get("edit"));
     const order = searchParams.get("order") === "asc" ? "asc" : "desc";
-    const portfolioId = await getSelectedPortfolioId();
-    const workspace = await getTransactionWorkspace({
-      editTransactionId: Number.isInteger(editTransactionId) && editTransactionId > 0 ? editTransactionId : null,
-      portfolioId
-    });
+    const selection = await getPortfolioSelection();
+    const parsedEditTransactionId =
+      Number.isInteger(editTransactionId) && editTransactionId > 0 ? editTransactionId : null;
+    const workspace = isAllPortfoliosSelection(selection.selectedPortfolio)
+      ? await getAggregateTransactionWorkspace({
+          editTransactionId: parsedEditTransactionId
+        })
+      : await getTransactionWorkspace({
+          editTransactionId: parsedEditTransactionId,
+          portfolioId: selection.selectedPortfolio.id
+        });
 
     return NextResponse.json({
       allInstruments: workspace.allInstruments,
@@ -102,6 +122,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ transaction }, { status: 201 });
   } catch (error) {
+    if (error instanceof AggregatePortfolioSelectionError) {
+      return aggregateSelectionErrorResponse();
+    }
+
     if (error instanceof TransactionServiceError) {
       return jsonErrorResponse(error.code, error.message, getStatusCode(error), error.details);
     }
@@ -137,6 +161,10 @@ export async function PUT(request: Request) {
 
     return NextResponse.json({ transaction });
   } catch (error) {
+    if (error instanceof AggregatePortfolioSelectionError) {
+      return aggregateSelectionErrorResponse();
+    }
+
     if (error instanceof TransactionServiceError) {
       return jsonErrorResponse(error.code, error.message, getStatusCode(error), error.details);
     }
@@ -171,6 +199,10 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ transaction: deletedTransaction });
   } catch (error) {
+    if (error instanceof AggregatePortfolioSelectionError) {
+      return aggregateSelectionErrorResponse();
+    }
+
     if (error instanceof TransactionServiceError) {
       return jsonErrorResponse(error.code, error.message, getStatusCode(error), error.details);
     }

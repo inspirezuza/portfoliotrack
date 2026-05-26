@@ -52,7 +52,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           <AppShell
             isAdmin={session != null}
             portfolios={portfolioSelection.portfolios}
-            selectedPortfolioId={portfolioSelection.selectedPortfolio.id}
+            selectedPortfolioKey={portfolioSelection.selectedPortfolio.key}
           >
             {children}
           </AppShell>

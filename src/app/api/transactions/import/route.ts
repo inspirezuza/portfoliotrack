@@ -1,5 +1,5 @@
 import { isAdminAuthenticated } from "@/lib/auth/admin";
-import { getSelectedPortfolioId } from "@/lib/portfolio/selection";
+import { AggregatePortfolioSelectionError, getSelectedPortfolioId } from "@/lib/portfolio/selection";
 import {
   commitTransactionImport,
   previewTransactionImport,
@@ -7,6 +7,9 @@ import {
 } from "@/server/transaction-import-export";
 
 export const runtime = "nodejs";
+
+const AGGREGATE_SELECTION_MESSAGE =
+  "Choose a specific portfolio before importing transactions.";
 
 function getStatusCode(error: TransactionImportExportError) {
   switch (error.code) {
@@ -84,6 +87,10 @@ export async function POST(request: Request) {
       preview
     });
   } catch (error) {
+    if (error instanceof AggregatePortfolioSelectionError) {
+      return jsonErrorResponse("AGGREGATE_PORTFOLIO_SELECTION", AGGREGATE_SELECTION_MESSAGE, 409);
+    }
+
     if (error instanceof TransactionImportExportError) {
       return jsonErrorResponse(
         error.code,

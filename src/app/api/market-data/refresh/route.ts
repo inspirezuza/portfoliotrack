@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth/admin";
-import { getSelectedPortfolioId } from "@/lib/portfolio/selection";
+import { AggregatePortfolioSelectionError, getSelectedPortfolioId } from "@/lib/portfolio/selection";
 import { runManualMarketRefresh } from "@/server/market-refresh";
 
 function jsonErrorResponse(code: string, message: string, status: number) {
@@ -120,6 +120,22 @@ export async function POST(request: Request) {
 
     return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof AggregatePortfolioSelectionError) {
+      if (expectsRedirect) {
+        const redirectUrl = buildRedirectUrl(request, formSearchParams ?? new URLSearchParams());
+        redirectUrl.searchParams.set("eventAt", new Date().toISOString());
+        redirectUrl.searchParams.set("refresh", "error");
+        redirectUrl.searchParams.set("message", "Choose a specific portfolio before refreshing market data.");
+        return NextResponse.redirect(redirectUrl, { status: 303 });
+      }
+
+      return jsonErrorResponse(
+        "AGGREGATE_PORTFOLIO_SELECTION",
+        "Choose a specific portfolio before refreshing market data.",
+        409
+      );
+    }
+
     console.error("Unexpected market data refresh failure", error);
 
     if (expectsRedirect) {
