@@ -2425,6 +2425,14 @@ html[data-theme="dark"] .transaction-table tfoot td {
   flex-wrap: wrap;
 }
 
+.table-toolbar-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .table-search {
   position: relative;
   display: block;
@@ -2543,6 +2551,15 @@ html[data-theme="dark"] .table-filter-group {
 html[data-theme="dark"] .table-filter-button[aria-pressed="true"] {
   color: #06100c;
   background: var(--accent);
+}
+
+.holdings-timeframe-group {
+  border-color: rgba(8, 116, 93, 0.14);
+  background: rgba(8, 116, 93, 0.055);
+}
+
+.holdings-timeframe-button {
+  min-width: 42px;
 }
 
 .table-sort-button {
@@ -3657,6 +3674,10 @@ html[data-theme="dark"] .subtabs .active {
   .table-toolbar {
     align-items: stretch;
     gap: 8px;
+  }
+
+  .table-toolbar-controls {
+    justify-content: flex-start;
   }
 
   .table-filter-group {

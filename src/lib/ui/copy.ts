@@ -252,6 +252,7 @@ const uiCopy = {
         title: "สถานะปัจจุบัน",
         toolsLabel: "เครื่องมือตารางหุ้นที่ถือ",
         filtersLabel: "ตัวกรองหุ้นที่ถือ",
+        performanceTimeframesLabel: "ช่วงเวลา Performance",
         refreshPrices: "รีเฟรชราคา",
         refreshing: "กำลังรีเฟรช...",
         refreshStarted: "เริ่มรีเฟรชราคาแล้ว",
@@ -272,6 +273,17 @@ const uiCopy = {
           loss: "ขาดทุน",
           missing: "ขาดราคา"
         },
+        timeframes: {
+          "1D": "1D",
+          "1W": "1W",
+          "1M": "1M",
+          YTD: "YTD",
+          "1Y": "1Y",
+          "3Y": "3Y",
+          "5Y": "5Y",
+          MAX: "MAX",
+          SINCE_BUY: "ตั้งแต่ซื้อ"
+        },
         columns: {
           symbol: "Symbol",
           quantity: "จำนวน",
@@ -279,6 +291,7 @@ const uiCopy = {
           totalCost: "ต้นทุนรวม",
           lastPrice: "ราคาล่าสุด",
           oneDayGain: "1D",
+          performance: (timeframe: string) => `Performance ${timeframe}`,
           marketValue: "มูลค่าตลาด",
           unrealizedPnl: "Unrealized P&L",
           weight: "น้ำหนัก"
@@ -684,6 +697,7 @@ const uiCopy = {
         title: "Current positions",
         toolsLabel: "Holdings table tools",
         filtersLabel: "Holdings filters",
+        performanceTimeframesLabel: "Performance timeframe",
         refreshPrices: "Refresh prices",
         refreshing: "Refreshing...",
         refreshStarted: "Market data refresh started.",
@@ -704,6 +718,17 @@ const uiCopy = {
           loss: "Loss",
           missing: "Missing price"
         },
+        timeframes: {
+          "1D": "1D",
+          "1W": "1W",
+          "1M": "1M",
+          YTD: "YTD",
+          "1Y": "1Y",
+          "3Y": "3Y",
+          "5Y": "5Y",
+          MAX: "MAX",
+          SINCE_BUY: "Since buy"
+        },
         columns: {
           symbol: "Symbol",
           quantity: "Quantity",
@@ -711,6 +736,7 @@ const uiCopy = {
           totalCost: "Total cost",
           lastPrice: "Last price",
           oneDayGain: "1D",
+          performance: (timeframe: string) => `Performance ${timeframe}`,
           marketValue: "Market value",
           unrealizedPnl: "Unrealized P&L",
           weight: "Weight"
