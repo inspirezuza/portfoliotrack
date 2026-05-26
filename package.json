@@ -12,6 +12,8 @@
     "verify": "npm run lint && npm run test && npm run build",
     "verify:full": "npm run lint && npm run test && npm run test:e2e && npm run build",
     "lint": "eslint .",
+    "format": "prettier --write . --ignore-unknown",
+    "format:check": "prettier --check . --ignore-unknown",
     "db:local:up": "echo Use the machine-level PostgreSQL service from pgAdmin on localhost:5432, then run npm run db:migrate.",
     "db:local:down": "echo Stop the machine-level PostgreSQL service from Windows Services if you need to stop local Postgres.",
     "db:migrate": "drizzle-kit push",
@@ -42,8 +44,10 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.0.0",
+    "eslint-config-prettier": "^10.1.8",
     "playwright": "^1.60.0",
     "postcss": "^8.4.49",
+    "prettier": "^3.8.3",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
   }

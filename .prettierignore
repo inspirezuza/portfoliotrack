@@ -1,0 +1,16 @@
+node_modules/
+.next/
+.tmp-node-path/
+.superpowers/
+data/portfolio.sqlite
+data/portfolio.sqlite-shm
+data/portfolio.sqlite-wal
+drizzle/*.sqlite
+*.log
+*.err.log
+tsconfig.tsbuildinfo
+test-results/
+playwright-report/
+.env
+.env.*
+.vercel/
