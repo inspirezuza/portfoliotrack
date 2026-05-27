@@ -24,6 +24,10 @@ import {
   parseChartDate,
   type TimeAxisPoint,
 } from "@/lib/charts/time-axis";
+import {
+  getRechartsPayloadPoint,
+  type RechartsMouseState,
+} from "@/lib/charts/recharts-state";
 import { formatCurrency } from "@/lib/format";
 import { useChartVisibilityKey } from "@/hooks/use-chart-visibility-key";
 import type { AssetDetail } from "@/server/assets";
@@ -38,8 +42,6 @@ type ChartPoint = AssetDetail["marketData"]["priceHistory"][number] &
   TimeAxisPoint & {
     changeFromRangeStart: number | null;
   };
-
-type ChartMouseState = unknown;
 
 type SelectionRange = {
   startDate: string;
@@ -237,13 +239,6 @@ function hasSelectionSpan(points: ReturnType<typeof getSelectionPoints>) {
   return points != null && points.startPoint.date !== points.endPoint.date;
 }
 
-function getChartPoint(state: ChartMouseState) {
-  return (
-    (state as { activePayload?: Array<{ payload?: ChartPoint }> } | undefined)?.activePayload?.[0]
-      ?.payload ?? null
-  );
-}
-
 function calculatePercentChange(startValue: number, endValue: number) {
   if (startValue === 0) {
     return null;
@@ -350,8 +345,8 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
   const xAxisTicks = useMemo(() => buildTimeAxisTicks(chartData), [chartData]);
   const xAxisSpan = xDomain == null ? 0 : xDomain[1] - xDomain[0];
 
-  function handleChartMouseDown(state: ChartMouseState | undefined) {
-    const point = getChartPoint(state);
+  function handleChartMouseDown(state: RechartsMouseState | undefined) {
+    const point = getRechartsPayloadPoint<ChartPoint>(state);
 
     if (point == null) {
       return;
@@ -364,8 +359,8 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
     });
   }
 
-  function handleChartMouseMove(state: ChartMouseState | undefined) {
-    const point = getChartPoint(state);
+  function handleChartMouseMove(state: RechartsMouseState | undefined) {
+    const point = getRechartsPayloadPoint<ChartPoint>(state);
 
     if (!isDraggingRef.current || point == null) {
       return;

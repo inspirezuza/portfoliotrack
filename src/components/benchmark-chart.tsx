@@ -20,6 +20,10 @@ import {
   isIntradayDate,
   parseChartDate,
 } from "@/lib/charts/time-axis";
+import {
+  getRechartsPayloadPoint,
+  type RechartsMouseState,
+} from "@/lib/charts/recharts-state";
 import { useChartVisibilityKey } from "@/hooks/use-chart-visibility-key";
 import {
   BenchmarkComparisonPicker,
@@ -72,8 +76,6 @@ type BenchmarkPerformanceSummary = {
   netInvested: number | null;
   absoluteReturn: number | null;
 };
-
-type ChartMouseState = unknown;
 
 type SelectionRange = {
   startDate: string;
@@ -381,13 +383,6 @@ function getSelectionPoints(data: ChartPoint[], selection: SelectionRange | null
 
 function hasSelectionSpan(points: ReturnType<typeof getSelectionPoints>) {
   return points != null && points.startPoint.date !== points.endPoint.date;
-}
-
-function getChartPoint(state: ChartMouseState) {
-  return (
-    (state as { activePayload?: Array<{ payload?: ChartPoint }> } | undefined)?.activePayload?.[0]
-      ?.payload ?? null
-  );
 }
 
 function BenchmarkChartTooltip({
@@ -737,8 +732,8 @@ export function BenchmarkChart({
     );
   }
 
-  function handleChartMouseDown(state: ChartMouseState | undefined) {
-    const point = getChartPoint(state);
+  function handleChartMouseDown(state: RechartsMouseState | undefined) {
+    const point = getRechartsPayloadPoint<ChartPoint>(state);
 
     if (point == null) {
       return;
@@ -751,8 +746,8 @@ export function BenchmarkChart({
     });
   }
 
-  function handleChartMouseMove(state: ChartMouseState | undefined) {
-    const point = getChartPoint(state);
+  function handleChartMouseMove(state: RechartsMouseState | undefined) {
+    const point = getRechartsPayloadPoint<ChartPoint>(state);
 
     if (point != null) {
       setHoverPoint(point);

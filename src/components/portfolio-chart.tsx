@@ -28,6 +28,10 @@ import {
   parseChartDate,
   type TimeAxisPoint,
 } from "@/lib/charts/time-axis";
+import {
+  getRechartsPayloadPoint,
+  type RechartsMouseState,
+} from "@/lib/charts/recharts-state";
 import { useChartVisibilityKey } from "@/hooks/use-chart-visibility-key";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
@@ -45,8 +49,6 @@ type ChartPoint = PortfolioTimelinePoint &
   TimeAxisPoint & {
     changeFromRangeStart: number | null;
   };
-
-type ChartMouseState = unknown;
 
 type SelectionRange = {
   startDate: string;
@@ -246,13 +248,6 @@ function hasSelectionSpan(points: ReturnType<typeof getSelectionPoints>) {
   return points != null && points.startPoint.date !== points.endPoint.date;
 }
 
-function getChartPoint(state: ChartMouseState) {
-  return (
-    (state as { activePayload?: Array<{ payload?: ChartPoint }> } | undefined)?.activePayload?.[0]
-      ?.payload ?? null
-  );
-}
-
 function PortfolioChartTooltip({
   active,
   label,
@@ -335,8 +330,8 @@ export function PortfolioChart({ currency, language, series, status }: Portfolio
   const xAxisTicks = useMemo(() => buildTimeAxisTicks(chartData), [chartData]);
   const xAxisSpan = xDomain == null ? 0 : xDomain[1] - xDomain[0];
 
-  function handleChartMouseDown(state: ChartMouseState | undefined) {
-    const point = getChartPoint(state);
+  function handleChartMouseDown(state: RechartsMouseState | undefined) {
+    const point = getRechartsPayloadPoint<ChartPoint>(state);
 
     if (point == null) {
       return;
@@ -349,8 +344,8 @@ export function PortfolioChart({ currency, language, series, status }: Portfolio
     });
   }
 
-  function handleChartMouseMove(state: ChartMouseState | undefined) {
-    const point = getChartPoint(state);
+  function handleChartMouseMove(state: RechartsMouseState | undefined) {
+    const point = getRechartsPayloadPoint<ChartPoint>(state);
 
     if (!isDraggingRef.current || point == null) {
       return;
