@@ -5,6 +5,7 @@ import { normalizeMoney } from "@/lib/db/precision";
 import { db } from "@/lib/db/runtime";
 import { historicalPrices, instruments, intradayPrices, priceSnapshots, transactions } from "@/lib/db/schema";
 import {
+  ensureBenchmarkWatchlistInstruments,
   ensureFreshMarketDataCache,
   BENCHMARK_WATCHLIST,
   getMarketSettings,
@@ -513,6 +514,8 @@ export async function getDashboardSnapshot({
     portfolioId: portfolioIdInput,
     portfolioIds: portfolioIdsInput
   });
+
+  await ensureBenchmarkWatchlistInstruments();
 
   if (ensureFresh) {
     await Promise.all(

@@ -460,10 +460,9 @@ export function MarketBenchmarks({
             </ResponsiveContainer>
           </div>
         ) : (
-          <div className={styles.loadingGrid} aria-hidden="true">
-            <div className="loading-skeleton-panel" />
-            <div className="loading-skeleton-panel" />
-            <div className="loading-skeleton-panel" />
+          <div className="empty-panel">
+            <strong>No return cache</strong>
+            <p>Benchmark returns will appear after the next market data refresh.</p>
           </div>
         )}
       </article>
