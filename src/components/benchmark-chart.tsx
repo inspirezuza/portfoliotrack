@@ -379,7 +379,7 @@ function getRoundedPercentAxis(values: number[]) {
   const min = Math.min(0, ...finiteValues);
   const max = Math.max(0, ...finiteValues);
   const spread = max - min;
-  const step = Math.max(10, Math.ceil(Math.max(spread, 10) / 80) * 10);
+  const step = spread <= 4 ? 1 : spread <= 20 ? 5 : 10;
   let lower = Math.floor(min / step) * step;
   let upper = Math.ceil(max / step) * step;
 
