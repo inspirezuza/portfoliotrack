@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { LoadingIndicator } from "@/components/loading-indicator";
 import { formatCurrency } from "@/lib/format";
 import { normalizeInstrumentSearchValue } from "@/lib/transactions/instrument-selection";
@@ -264,6 +265,119 @@ export function BenchmarkComparisonPicker({
     }
   }
 
+  const dialog = !isDialogOpen ? null : (
+    <div
+      className={styles.modal}
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          closeDialog();
+        }
+      }}
+    >
+      <button
+        aria-label={labels.close}
+        className={styles.backdrop}
+        onClick={closeDialog}
+        type="button"
+      />
+      <div
+        aria-label={labels.dialogTitle}
+        aria-modal="true"
+        className={styles.dialog}
+        onMouseDown={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <div className={styles.dialogHeader}>
+          <strong>{labels.dialogTitle}</strong>
+          <button aria-label={labels.close} onClick={closeDialog} type="button">
+            <span aria-hidden="true">x</span>
+          </button>
+        </div>
+
+        <label className={styles.searchField}>
+          <span>{labels.search}</span>
+          <input
+            autoComplete="off"
+            autoFocus
+            disabled={addingProviderSymbol != null}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder={labels.searchPlaceholder}
+            type="text"
+            value={searchQuery}
+          />
+        </label>
+
+        {errorMessage == null ? null : <p className={styles.error}>{errorMessage}</p>}
+
+        <div className={styles.dialogList}>
+          {searchQuery.trim().length >= 2 ? (
+            isSearching ? (
+              <div className={styles.empty} role="status">
+                <LoadingIndicator label={labels.searching} size="sm" />
+              </div>
+            ) : searchResults.length > 0 ? (
+              searchResults.map((instrument) => {
+                const existingItem = items.find((item) => matchesExistingItem(item, instrument));
+                const isSelected = existingItem?.selected ?? false;
+                const isAdding = addingProviderSymbol === instrument.providerSymbol;
+
+                return (
+                  <button
+                    className={styles.result}
+                    disabled={isSelected || addingProviderSymbol != null}
+                    key={instrument.providerSymbol}
+                    onClick={() => void addSearchResult(instrument)}
+                    type="button"
+                  >
+                    <span className={styles.resultSymbol}>{instrument.symbol}</span>
+                    <span className={styles.resultName}>{instrument.displayName}</span>
+                    <span className={styles.resultMeta}>
+                      {isAdding ? labels.adding : isSelected ? labels.saved : instrument.instrumentType}
+                      {" / "}
+                      {instrument.market}
+                      {" / "}
+                      {instrument.currency}
+                      {" / "}
+                      {instrument.providerSymbol}
+                    </span>
+                  </button>
+                );
+              })
+            ) : (
+              <div className={styles.empty} role="status">
+                {labels.noMatches}
+              </div>
+            )
+          ) : availableItems.length > 0 ? (
+            availableItems.map((item) => (
+              <button
+                className={styles.result}
+                key={item.providerSymbol}
+                onClick={() => addExistingItem(item)}
+                type="button"
+              >
+                <span className={styles.resultSymbol}>{item.symbol}</span>
+                <span className={styles.resultName}>{shortName(item.displayName)}</span>
+                <span className={styles.resultMeta}>
+                  {formatPrice({ currency: item.currency, locale, price: item.price })}
+                  {" / "}
+                  <em className={getToneClassName(item.returnPercent)}>
+                    {formatSignedPercent(item.returnPercent)}
+                  </em>
+                </span>
+              </button>
+            ))
+          ) : (
+            <div className={styles.empty} role="status">
+              {labels.noMatches}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <section className={styles.section} aria-label={labels.aria}>
       <div className={styles.toolbar}>
@@ -284,119 +398,30 @@ export function BenchmarkComparisonPicker({
         </button>
       </div>
 
-      {!isDialogOpen ? null : (
-        <div
-          className={styles.modal}
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              closeDialog();
-            }
-          }}
-        >
-          <button
-            aria-label={labels.close}
-            className={styles.backdrop}
-            onClick={closeDialog}
-            type="button"
-          />
-          <div
-            aria-label={labels.dialogTitle}
-            aria-modal="true"
-            className={styles.dialog}
-            onMouseDown={(event) => event.stopPropagation()}
-            role="dialog"
-          >
-            <div className={styles.dialogHeader}>
-              <strong>{labels.dialogTitle}</strong>
-              <button aria-label={labels.close} onClick={closeDialog} type="button">
-                <span aria-hidden="true">x</span>
-              </button>
-            </div>
-
-            <label className={styles.searchField}>
-              <span>{labels.search}</span>
-              <input
-                autoComplete="off"
-                autoFocus
-                disabled={addingProviderSymbol != null}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder={labels.searchPlaceholder}
-                type="text"
-                value={searchQuery}
-              />
-            </label>
-
-            {errorMessage == null ? null : <p className={styles.error}>{errorMessage}</p>}
-
-            <div className={styles.dialogList}>
-              {searchQuery.trim().length >= 2 ? (
-                isSearching ? (
-                  <div className={styles.empty} role="status">
-                    <LoadingIndicator label={labels.searching} size="sm" />
-                  </div>
-                ) : searchResults.length > 0 ? (
-                  searchResults.map((instrument) => {
-                    const existingItem = items.find((item) => matchesExistingItem(item, instrument));
-                    const isSelected = existingItem?.selected ?? false;
-                    const isAdding = addingProviderSymbol === instrument.providerSymbol;
-
-                    return (
-                      <button
-                        className={styles.result}
-                        disabled={isSelected || addingProviderSymbol != null}
-                        key={instrument.providerSymbol}
-                        onClick={() => void addSearchResult(instrument)}
-                        type="button"
-                      >
-                        <span className={styles.resultSymbol}>{instrument.symbol}</span>
-                        <span className={styles.resultName}>{instrument.displayName}</span>
-                        <span className={styles.resultMeta}>
-                          {isAdding ? labels.adding : isSelected ? labels.saved : instrument.instrumentType}
-                          {" / "}
-                          {instrument.market}
-                          {" / "}
-                          {instrument.currency}
-                          {" / "}
-                          {instrument.providerSymbol}
-                        </span>
-                      </button>
-                    );
-                  })
-                ) : (
-                  <div className={styles.empty} role="status">
-                    {labels.noMatches}
-                  </div>
-                )
-              ) : availableItems.length > 0 ? (
-                availableItems.map((item) => (
-                  <button
-                    className={styles.result}
-                    key={item.providerSymbol}
-                    onClick={() => addExistingItem(item)}
-                    type="button"
-                  >
-                    <span className={styles.resultSymbol}>{item.symbol}</span>
-                    <span className={styles.resultName}>{shortName(item.displayName)}</span>
-                    <span className={styles.resultMeta}>
-                      {formatPrice({ currency: item.currency, locale, price: item.price })}
-                      {" / "}
-                      <em className={getToneClassName(item.returnPercent)}>
-                        {formatSignedPercent(item.returnPercent)}
-                      </em>
-                    </span>
-                  </button>
-                ))
-              ) : (
-                <div className={styles.empty} role="status">
-                  {labels.noMatches}
-                </div>
-              )}
-            </div>
-
-          </div>
+      {items.length > 0 ? (
+        <div className={styles.cardStrip}>
+          {items.map((item) => (
+            <button
+              aria-pressed={item.selected}
+              className={styles.card}
+              key={item.providerSymbol}
+              onClick={() => onToggle(item.symbol)}
+              type="button"
+            >
+              <span className={styles.cardTitle}>{shortName(item.displayName)}</span>
+              <strong>{formatPrice({ currency: item.currency, locale, price: item.price })}</strong>
+              <span className={styles.cardMeta}>
+                <span>{item.symbol}</span>
+                <em className={getToneClassName(item.returnPercent)}>
+                  {formatSignedPercent(item.returnPercent)}
+                </em>
+              </span>
+            </button>
+          ))}
         </div>
-      )}
+      ) : null}
+
+      {typeof document === "undefined" || dialog == null ? null : createPortal(dialog, document.body)}
     </section>
   );
 }

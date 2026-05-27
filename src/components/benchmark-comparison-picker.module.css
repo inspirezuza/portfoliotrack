@@ -34,13 +34,78 @@
   opacity: 0.64;
 }
 
+.cardStrip {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.card {
+  display: grid;
+  flex: 0 0 176px;
+  gap: 5px;
+  min-height: 78px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: var(--ink);
+  text-align: left;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.card:hover,
+.card:focus-visible {
+  border-color: var(--line-strong);
+  outline: none;
+}
+
+.card[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface));
+}
+
+.cardTitle {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 0.75rem;
+  font-weight: 740;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card strong {
+  font-size: 0.94rem;
+  font-weight: 820;
+  line-height: 1.15;
+}
+
+.cardMeta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 760;
+}
+
+.cardMeta em {
+  flex-shrink: 0;
+  font-style: normal;
+}
+
 .modal {
   position: fixed;
-  z-index: 90;
+  z-index: 120;
   inset: 0;
   display: grid;
   align-items: center;
   justify-items: center;
+  min-height: 100dvh;
   padding: clamp(16px, 4vw, 44px) 12px;
   background: rgba(18, 31, 25, 0.46);
   backdrop-filter: blur(10px);
@@ -229,5 +294,9 @@
   .result {
     grid-template-columns: minmax(58px, 0.28fr) minmax(0, 1fr);
     padding: 11px 12px;
+  }
+
+  .card {
+    flex-basis: 156px;
   }
 }
