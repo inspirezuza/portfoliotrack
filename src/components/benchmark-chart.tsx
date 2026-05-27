@@ -27,7 +27,7 @@ import {
 } from "@/components/benchmark-comparison-picker";
 import {
   buildBenchmarkChartData,
-  calculatePercentChange,
+  calculateOverlayReturnAtDate,
   calculateSelectionChange,
   selectVisibleTimeframePoints,
 } from "@/components/benchmark-chart/chart-data";
@@ -332,10 +332,7 @@ function getInitialSelectedComparisonSymbols(
     : [benchmarkSymbol];
 }
 
-function mergeOverlays(
-  overlays: DashboardBenchmarkOverlay[],
-  overlay: DashboardBenchmarkOverlay,
-) {
+function mergeOverlays(overlays: DashboardBenchmarkOverlay[], overlay: DashboardBenchmarkOverlay) {
   return [
     ...overlays.filter(
       (currentOverlay) => currentOverlay.providerSymbol !== overlay.providerSymbol,
@@ -351,28 +348,6 @@ function mergeQuotes(quotes: DashboardBenchmarkQuote[], quote: DashboardBenchmar
   ];
 }
 
-function getPointTimestamp(point: { date: string }) {
-  return getUtcDateTime(point.date);
-}
-
-function getPointValueAtOrBefore(
-  points: Array<{ date: string; value: number }>,
-  targetDate: string,
-) {
-  const targetTime = getUtcDateTime(targetDate);
-  let value: number | null = null;
-
-  for (const point of points) {
-    if (getPointTimestamp(point) > targetTime) {
-      break;
-    }
-
-    value = point.value;
-  }
-
-  return value;
-}
-
 function getVisibleOverlayPoints(
   points: DashboardBenchmarkOverlay["points"],
   timeframe: TimeframeKey,
@@ -382,21 +357,8 @@ function getVisibleOverlayPoints(
     anchorDate: latestDate,
     includeBaselinePoint: true,
     points,
-    timeframe
+    timeframe,
   });
-}
-
-function getOverlayReturnAtDate(
-  points: DashboardBenchmarkOverlay["points"],
-  startDate: string,
-  targetDate: string,
-) {
-  const startValue = getPointValueAtOrBefore(points, startDate);
-  const currentValue = getPointValueAtOrBefore(points, targetDate);
-
-  return startValue == null || currentValue == null
-    ? null
-    : calculatePercentChange(startValue, currentValue);
 }
 
 function getSelectionPoints(data: ChartPoint[], selection: SelectionRange | null) {
@@ -534,7 +496,9 @@ export function BenchmarkChart({
   useEffect(() => {
     setComparisonOverlayState(benchmarkOverlays);
     setComparisonQuoteState(benchmarkQuotes);
-    setSelectedComparisonSymbols(getInitialSelectedComparisonSymbols(benchmarkOverlays, benchmarkSymbol));
+    setSelectedComparisonSymbols(
+      getInitialSelectedComparisonSymbols(benchmarkOverlays, benchmarkSymbol),
+    );
     setHoverPoint(null);
     setSelection(null);
   }, [benchmarkOverlays, benchmarkQuotes, benchmarkSymbol]);
@@ -553,7 +517,7 @@ export function BenchmarkChart({
         .filter((overlay): overlay is DashboardBenchmarkOverlay => overlay != null),
     [comparisonOverlays, selectedComparisonSymbols],
   );
-  const shouldShowOverlayComparisons = returnBasis === "TWR" && mode === "INDEXED";
+  const shouldShowOverlayComparisons = mode === "INDEXED";
   const visibleOverlayPointsBySymbol = useMemo(() => {
     const latestPoint = visibleSeries[visibleSeries.length - 1] ?? null;
 
@@ -586,11 +550,12 @@ export function BenchmarkChart({
           ? Object.fromEntries(
               selectedOverlays.map((overlay) => [
                 getOverlayDataKey(overlay.symbol),
-                getOverlayReturnAtDate(
-                  visibleOverlayPointsBySymbol.get(overlay.symbol) ?? [],
-                  firstPoint.date,
-                  point.date,
-                ),
+                calculateOverlayReturnAtDate({
+                  points: visibleOverlayPointsBySymbol.get(overlay.symbol) ?? [],
+                  returnBasis,
+                  startDate: firstPoint.date,
+                  targetDate: point.date,
+                }),
               ]),
             )
           : {};
@@ -659,7 +624,7 @@ export function BenchmarkChart({
           yAxisLabel: returnBasisCopy.yAxisLabel,
         }
       : copy.charts.benchmark.modeCopy[mode];
-  const shouldShowPrimaryBenchmarkLine = mode !== "INDEXED" || returnBasis !== "TWR";
+  const shouldShowPrimaryBenchmarkLine = mode !== "INDEXED" || !shouldShowOverlayComparisons;
   const yAxis = useMemo(
     () =>
       getRoundedPercentAxis(
@@ -670,17 +635,22 @@ export function BenchmarkChart({
                 ? [point.portfolioDisplay, point.benchmarkDisplay]
                 : [point.portfolioDisplay]
               : [point.portfolioDisplay, point.benchmarkDisplay];
-          const overlayValues =
-            shouldShowOverlayComparisons
-              ? selectedOverlays
-                  .map((overlay) => point[getOverlayDataKey(overlay.symbol)])
-                  .filter((value): value is number => typeof value === "number")
-              : [];
+          const overlayValues = shouldShowOverlayComparisons
+            ? selectedOverlays
+                .map((overlay) => point[getOverlayDataKey(overlay.symbol)])
+                .filter((value): value is number => typeof value === "number")
+            : [];
 
           return [...primaryValues, ...overlayValues];
         }),
       ),
-    [chartData, mode, selectedOverlays, shouldShowOverlayComparisons, shouldShowPrimaryBenchmarkLine],
+    [
+      chartData,
+      mode,
+      selectedOverlays,
+      shouldShowOverlayComparisons,
+      shouldShowPrimaryBenchmarkLine,
+    ],
   );
   const xDomain = useMemo(() => getTimeAxisDomain(chartData), [chartData]);
   const xAxisTicks = useMemo(() => buildTimeAxisTicks(chartData), [chartData]);
@@ -696,11 +666,12 @@ export function BenchmarkChart({
       const returnPercent =
         firstPoint == null || latestPoint == null
           ? null
-          : getOverlayReturnAtDate(
-              visibleOverlayPointsBySymbol.get(overlay.symbol) ?? [],
-              firstPoint.date,
-              latestPoint.date,
-            );
+          : calculateOverlayReturnAtDate({
+              points: visibleOverlayPointsBySymbol.get(overlay.symbol) ?? [],
+              returnBasis,
+              startDate: firstPoint.date,
+              targetDate: latestPoint.date,
+            });
 
       return {
         symbol: overlay.symbol,
@@ -718,6 +689,7 @@ export function BenchmarkChart({
     comparisonQuoteState,
     comparisonOverlays,
     benchmarkSymbol,
+    returnBasis,
     selectedComparisonSymbols,
     visibleOverlayPointsBySymbol,
     visibleSeries,
@@ -737,7 +709,9 @@ export function BenchmarkChart({
     setComparisonOverlayState((currentOverlays) => mergeOverlays(currentOverlays, overlay));
     setComparisonQuoteState((currentQuotes) => mergeQuotes(currentQuotes, quote));
     setSelectedComparisonSymbols((currentSymbols) =>
-      currentSymbols.includes(overlay.symbol) ? currentSymbols : [...currentSymbols, overlay.symbol],
+      currentSymbols.includes(overlay.symbol)
+        ? currentSymbols
+        : [...currentSymbols, overlay.symbol],
     );
     setHoverPoint(null);
     setSelection(null);
@@ -758,7 +732,9 @@ export function BenchmarkChart({
     }
 
     setSelectedComparisonSymbols((currentSymbols) =>
-      currentSymbols.includes(benchmarkSymbol) ? currentSymbols : [...currentSymbols, benchmarkSymbol],
+      currentSymbols.includes(benchmarkSymbol)
+        ? currentSymbols
+        : [...currentSymbols, benchmarkSymbol],
     );
   }
 
@@ -1116,7 +1092,13 @@ export function BenchmarkChart({
                     strokeDasharray: "2 1",
                     strokeWidth: 1.25,
                   }}
-                  content={<BenchmarkChartTooltip language={language} mode={mode} returnBasis={returnBasis} />}
+                  content={
+                    <BenchmarkChartTooltip
+                      language={language}
+                      mode={mode}
+                      returnBasis={returnBasis}
+                    />
+                  }
                 />
                 {!hasActiveSelection || selection == null ? null : (
                   <ReferenceArea

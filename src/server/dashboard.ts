@@ -725,6 +725,31 @@ export async function getDashboardSnapshot({
           };
     })
     .filter((row): row is typeof intradayPriceRows[number] => row != null);
+  const convertedSnapshotPriceRows: TimelineIntradayPrice[] = priceSnapshotRows
+    .filter((row) =>
+      !fxInstrumentIds.includes(row.instrumentId) &&
+      (row.instrumentId !== benchmarkInstrument?.id || transactionInstrumentIds.has(row.instrumentId))
+    )
+    .map((row) => {
+      const instrument = instrumentById.get(row.instrumentId);
+
+      if (instrument == null) {
+        return null;
+      }
+
+      const convertedClose = convertIntradayValue(instrument.currency, row.asOf, row.price);
+
+      return convertedClose == null
+        ? null
+        : {
+            instrumentId: row.instrumentId,
+            observedAt: row.asOf,
+            close: convertedClose,
+            currency: valuationCurrency,
+            interval: "1h" as const
+          };
+    })
+    .filter((row): row is NonNullable<typeof row> => row != null);
   const convertedInstrumentRows = instrumentRows.map((instrument) => ({
     ...instrument,
     currency: fxInstrumentIds.includes(instrument.id) ? instrument.currency : valuationCurrency
@@ -751,11 +776,33 @@ export async function getDashboardSnapshot({
   const convertedIntradayPriceKeys = new Set(
     convertedIntradayPriceRows.map((row) => `${row.instrumentId}:${row.observedAt}:${row.currency}:${row.interval}`)
   );
+  const convertedSnapshotPriceKeys = new Set(
+    convertedSnapshotPriceRows.map((row) => `${row.instrumentId}:${row.observedAt}:${row.currency}:${row.interval}`)
+  );
+  const benchmarkSnapshotPriceRows: TimelineIntradayPrice[] = benchmarkInstrument == null
+    ? []
+    : priceSnapshotRows
+        .filter((row) => row.instrumentId === benchmarkInstrument.id && row.currency === benchmarkInstrument.currency)
+        .map((row) => ({
+          instrumentId: row.instrumentId,
+          observedAt: row.asOf,
+          close: row.price,
+          currency: row.currency,
+          interval: "1h" as const
+        }));
   const timelineIntradayPriceRows = [
     ...convertedIntradayPriceRows,
+    ...convertedSnapshotPriceRows,
     ...benchmarkIntradayPriceRows.filter(
-      (row) => !convertedIntradayPriceKeys.has(`${row.instrumentId}:${row.observedAt}:${row.currency}:${row.interval}`)
-    )
+      (row) =>
+        !convertedIntradayPriceKeys.has(`${row.instrumentId}:${row.observedAt}:${row.currency}:${row.interval}`) &&
+        !convertedSnapshotPriceKeys.has(`${row.instrumentId}:${row.observedAt}:${row.currency}:${row.interval}`)
+    ),
+    ...benchmarkSnapshotPriceRows.filter(
+      (row) =>
+        !convertedIntradayPriceKeys.has(`${row.instrumentId}:${row.observedAt}:${row.currency}:${row.interval}`) &&
+        !convertedSnapshotPriceKeys.has(`${row.instrumentId}:${row.observedAt}:${row.currency}:${row.interval}`)
+    ),
   ];
   const performanceSummary = buildPerformanceSummary({
     holdingsSnapshot,

@@ -5,7 +5,7 @@
 - Commit only files changed for the current task. Never include pre-existing unrelated dirty or untracked files.
 - When using Superpowers skills or workflows, do not create commits silently; mention the commit hash in the final summary.
 - Keep related changes bundled together instead of splitting tiny commits unless the user asks otherwise.
-- Never write or update tests unless the user explicitly asks to do so.
+- Write or update focused tests when they materially improve confidence in the current change; keep tests scoped to the touched behavior and avoid broad test churn.
 - When showing a plan, always include explicit file operations with exact paths for `Create`, `Update`, and `Delete`, using `none` when a category is empty.
 
 ## Testing And Verification
