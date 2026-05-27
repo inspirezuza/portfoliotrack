@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BenchmarkChart } from "@/components/benchmark-chart";
-import { HoldingsTable } from "@/components/holdings-table";
-import { HoldingsAllocationChart } from "@/components/holdings-allocation-chart";
-import { MarketBenchmarks } from "@/components/market-benchmarks";
+import {
+  DeferredBenchmarkChart,
+  DeferredHoldingsAllocationChart,
+  DeferredHoldingsTable,
+  DeferredMarketBenchmarks,
+  DeferredPortfolioChart,
+} from "@/components/dashboard-deferred-widgets";
 import { MarketRefreshStatus } from "@/components/market-refresh-status";
 import { PendingSubmitButton } from "@/components/pending-submit-button";
-import { PortfolioChart } from "@/components/portfolio-chart";
 import { SummaryCards } from "@/components/summary-cards";
 import { formatCurrency, formatPercentRatio, formatQuantity } from "@/lib/format";
 import { isAdminAuthenticated } from "@/lib/auth/admin";
@@ -483,7 +485,7 @@ export default async function DashboardPage({ portfolioKey, searchParams }: Dash
 
       <section className="workstation-grid">
         <div className="workstation-main-stack">
-          <BenchmarkChart
+          <DeferredBenchmarkChart
             benchmarkOverlays={benchmarkWatchlist.overlays}
             benchmarkQuotes={benchmarkWatchlist.quotes}
             benchmarkSymbol={timeline.benchmarkSymbol}
@@ -496,7 +498,7 @@ export default async function DashboardPage({ portfolioKey, searchParams }: Dash
             status={timeline.status}
           />
 
-          <PortfolioChart
+          <DeferredPortfolioChart
             currency={timeline.portfolioCurrency}
             language={language}
             series={timeline.portfolio}
@@ -574,7 +576,10 @@ export default async function DashboardPage({ portfolioKey, searchParams }: Dash
               </div>
             ) : (
               <>
-                <HoldingsAllocationChart holdings={holdingsSnapshot.holdings} language={language} />
+                <DeferredHoldingsAllocationChart
+                  holdings={holdingsSnapshot.holdings}
+                  language={language}
+                />
 
                 <ul className="holding-bars">
                   {leadingHoldings.map((holding) => (
@@ -618,7 +623,7 @@ export default async function DashboardPage({ portfolioKey, searchParams }: Dash
         </aside>
       </section>
 
-      <MarketBenchmarks
+      <DeferredMarketBenchmarks
         language={language}
         monthlyReturns={benchmarkWatchlist.monthlyReturns}
         quotes={benchmarkWatchlist.quotes}
@@ -659,7 +664,7 @@ export default async function DashboardPage({ portfolioKey, searchParams }: Dash
           </article>
         </section>
 
-        <HoldingsTable
+        <DeferredHoldingsTable
           holdings={holdingsSnapshot.holdings}
           language={language}
           canEdit={isAdmin}

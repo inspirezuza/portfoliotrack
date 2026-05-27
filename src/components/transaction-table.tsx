@@ -1,14 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { PendingBanner } from "@/components/loading-indicator";
 import { formatCurrency, formatQuantity } from "@/lib/format";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
 import type { TransactionListItem } from "@/server/transactions";
 import { InstrumentLogo } from "@/components/instrument-logo";
-import { TransactionDeleteDialog } from "@/components/transaction-delete-dialog";
 
 type TransactionTableProps = {
   transactions: TransactionListItem[];
@@ -25,6 +24,12 @@ type ApiErrorResponse = {
     message?: string;
   };
 };
+
+const TransactionDeleteDialog = lazy(() =>
+  import("@/components/transaction-delete-dialog").then((module) => ({
+    default: module.TransactionDeleteDialog,
+  })),
+);
 
 type TransactionSortKey =
   | "tradeDate"
@@ -155,18 +160,27 @@ export function TransactionTable({
   const [searchQuery, setSearchQuery] = useState("");
   const showPortfolioColumn = transactions.some((transaction) => transaction.portfolioName != null);
   const columnCount = (canEdit ? 10 : 9) + (showPortfolioColumn ? 1 : 0);
+  const searchableTransactions = useMemo(
+    () =>
+      transactions.map((transaction) => ({
+        searchText: getTransactionSearchText(transaction),
+        transaction,
+      })),
+    [transactions],
+  );
 
   const visibleTransactions = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
 
-    return transactions
-      .filter((transaction) =>
+    return searchableTransactions
+      .filter(({ searchText }) =>
         normalizedQuery.length === 0
           ? true
-          : getTransactionSearchText(transaction).includes(normalizedQuery),
+          : searchText.includes(normalizedQuery),
       )
+      .map(({ transaction }) => transaction)
       .sort((left, right) => compareTransactions(left, right, sort));
-  }, [searchQuery, sort, transactions]);
+  }, [searchQuery, searchableTransactions, sort]);
 
   function handleSort(sortKey: TransactionSortKey) {
     setSort((currentSort) =>
@@ -257,16 +271,18 @@ export function TransactionTable({
       ) : null}
 
       {pendingDeleteTransaction ? (
-        <TransactionDeleteDialog
-          transaction={pendingDeleteTransaction}
-          language={language}
-          isDeleting={deletingTransactionId === pendingDeleteTransaction.id}
-          onCancel={() => {
-            setPendingDeleteTransaction(null);
-            setDeleteErrorMessage(null);
-          }}
-          onConfirm={handleDelete}
-        />
+        <Suspense fallback={null}>
+          <TransactionDeleteDialog
+            transaction={pendingDeleteTransaction}
+            language={language}
+            isDeleting={deletingTransactionId === pendingDeleteTransaction.id}
+            onCancel={() => {
+              setPendingDeleteTransaction(null);
+              setDeleteErrorMessage(null);
+            }}
+            onConfirm={handleDelete}
+          />
+        </Suspense>
       ) : null}
 
       {transactions.length === 0 ? (

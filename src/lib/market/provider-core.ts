@@ -192,22 +192,29 @@ function addDays(date: Date, days: number) {
 }
 
 export async function ensureBenchmarkWatchlistInstruments() {
-  const existingRows = await db.select().from(instruments);
+  const benchmarkSymbols = BENCHMARK_WATCHLIST.map((benchmark) => benchmark.symbol);
+  const existingRows = await db
+    .select({ symbol: instruments.symbol })
+    .from(instruments)
+    .where(inArray(instruments.symbol, benchmarkSymbols));
   const existingSymbols = new Set(existingRows.map((instrument) => instrument.symbol));
+  const missingBenchmarks = BENCHMARK_WATCHLIST.filter(
+    (benchmark) => !existingSymbols.has(benchmark.symbol),
+  );
 
-  for (const benchmark of BENCHMARK_WATCHLIST) {
-    if (existingSymbols.has(benchmark.symbol)) {
-      continue;
-    }
-
-    await db
-      .insert(instruments)
-      .values({
-        ...benchmark,
-        isActive: true
-      })
-      .onConflictDoNothing();
+  if (missingBenchmarks.length === 0) {
+    return;
   }
+
+  await db
+    .insert(instruments)
+    .values(
+      missingBenchmarks.map((benchmark) => ({
+        ...benchmark,
+        isActive: true,
+      })),
+    )
+    .onConflictDoNothing();
 }
 
 function toIsoDate(value: Date) {
@@ -584,7 +591,11 @@ export async function ensureFreshMarketDataCache({
     return null;
   }
 
-  const snapshotRows = await db.select().from(priceSnapshots);
+  const targetInstrumentIds = targets.map((target) => target.instrument.id);
+  const snapshotRows = await db
+    .select()
+    .from(priceSnapshots)
+    .where(inArray(priceSnapshots.instrumentId, targetInstrumentIds));
   const snapshotByInstrumentId = new Map(
     snapshotRows.map((snapshot) => [snapshot.instrumentId, snapshot] as const)
   );

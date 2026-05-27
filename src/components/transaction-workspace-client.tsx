@@ -1,14 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { PendingBanner } from "@/components/loading-indicator";
 import { sortInstrumentOptions } from "@/lib/transactions/instrument-selection";
 import { getUiCopy } from "@/lib/ui/copy";
 import type { UiLanguage } from "@/lib/ui/translations";
 import type { TransactionInstrumentOption, TransactionListItem } from "@/server/transactions";
-import { TransactionEditModal } from "@/components/transaction-edit-modal";
-import { TransactionExcelTools } from "@/components/transaction-excel-tools";
-import { TransactionForm } from "@/components/transaction-form";
 import { TransactionTable } from "@/components/transaction-table";
 
 type TransactionSummary = {
@@ -43,6 +40,22 @@ type WorkspaceApiResponse = {
     message?: string;
   };
 };
+
+const TransactionEditModal = lazy(() =>
+  import("@/components/transaction-edit-modal").then((module) => ({
+    default: module.TransactionEditModal,
+  })),
+);
+const TransactionExcelTools = lazy(() =>
+  import("@/components/transaction-excel-tools").then((module) => ({
+    default: module.TransactionExcelTools,
+  })),
+);
+const TransactionForm = lazy(() =>
+  import("@/components/transaction-form").then((module) => ({
+    default: module.TransactionForm,
+  })),
+);
 
 function getEditTransactionIdFromUrl() {
   const edit = new URLSearchParams(window.location.search).get("edit");
@@ -265,7 +278,7 @@ export function TransactionWorkspaceClient({
       {isSyncingWorkspace ? <PendingBanner label={copy.transactions.syncing} /> : null}
 
       {canEdit ? (
-        <>
+        <Suspense fallback={null}>
           <TransactionForm
             instruments={instruments}
             language={language}
@@ -281,7 +294,7 @@ export function TransactionWorkspaceClient({
             />
           ) : null}
           <TransactionExcelTools language={language} onWorkspaceRefresh={refreshWorkspace} />
-        </>
+        </Suspense>
       ) : null}
       <TransactionTable
         transactions={transactions}

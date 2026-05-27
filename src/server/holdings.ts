@@ -29,11 +29,21 @@ import {
 import { toChronologicalPositionTransaction } from "@/server/transactions";
 import { parsePortfolioId } from "@/server/portfolios";
 
-type HoldingJoinedRow = {
+export type HoldingJoinedRow = {
   instrument: Instrument;
   portfolio: Pick<typeof portfolios.$inferSelect, "name">;
   transaction: typeof transactions.$inferSelect;
   priceSnapshot: PriceSnapshot | null;
+};
+
+export type HoldingsSnapshotSource = {
+  asOfDate: string;
+  historicalPriceRows: HistoricalPrice[];
+  instrumentRows: Instrument[];
+  marketSettings: Awaited<ReturnType<typeof getMarketSettings>>;
+  portfolioIds: number[];
+  rows: HoldingJoinedRow[];
+  snapshotRows: PriceSnapshot[];
 };
 
 export type HoldingLot = {
@@ -245,12 +255,21 @@ function getPreviousClose({
   }
 
   const asOfDate = priceSnapshot.asOf.slice(0, 10);
+  let previousClose: number | null = null;
+  let previousDate: string | null = null;
 
-  return (
-    historicalRows
-      .filter((row) => row.currency === priceSnapshot.currency && row.priceDate < asOfDate)
-      .sort((left, right) => right.priceDate.localeCompare(left.priceDate))[0]?.close ?? null
-  );
+  for (const row of historicalRows) {
+    if (
+      row.currency === priceSnapshot.currency &&
+      row.priceDate < asOfDate &&
+      (previousDate == null || row.priceDate > previousDate)
+    ) {
+      previousDate = row.priceDate;
+      previousClose = row.close;
+    }
+  }
+
+  return previousClose;
 }
 
 function calculateOneDayGain({
@@ -370,11 +389,21 @@ function getHistoricalCloseAtOrBefore({
   historicalRows: HistoricalPrice[];
   startDate: string;
 }) {
-  return (
-    historicalRows
-      .filter((row) => row.currency === currency && row.priceDate <= startDate)
-      .sort((left, right) => right.priceDate.localeCompare(left.priceDate))[0]?.close ?? null
-  );
+  let close: number | null = null;
+  let latestDate: string | null = null;
+
+  for (const row of historicalRows) {
+    if (
+      row.currency === currency &&
+      row.priceDate <= startDate &&
+      (latestDate == null || row.priceDate > latestDate)
+    ) {
+      latestDate = row.priceDate;
+      close = row.close;
+    }
+  }
+
+  return close;
 }
 
 function getEarliestHistoricalClose({
@@ -384,11 +413,17 @@ function getEarliestHistoricalClose({
   currency: string;
   historicalRows: HistoricalPrice[];
 }) {
-  return (
-    historicalRows
-      .filter((row) => row.currency === currency)
-      .sort((left, right) => left.priceDate.localeCompare(right.priceDate))[0]?.close ?? null
-  );
+  let close: number | null = null;
+  let earliestDate: string | null = null;
+
+  for (const row of historicalRows) {
+    if (row.currency === currency && (earliestDate == null || row.priceDate < earliestDate)) {
+      earliestDate = row.priceDate;
+      close = row.close;
+    }
+  }
+
+  return close;
 }
 
 function calculatePeriodPerformance({
@@ -1012,6 +1047,14 @@ export async function getHoldingsSnapshot({
     );
   }
 
+  return buildHoldingsSnapshotFromSource(await loadHoldingsSnapshotSource({ portfolioIds }));
+}
+
+export async function loadHoldingsSnapshotSource({
+  portfolioIds,
+}: {
+  portfolioIds: number[];
+}): Promise<HoldingsSnapshotSource> {
   const asOfDate = getCurrentLocalIsoDate();
   const [rows, marketSettings, instrumentRows, snapshotRows] = await Promise.all([
     listHoldingRows(asOfDate, portfolioIds),
@@ -1019,6 +1062,35 @@ export async function getHoldingsSnapshot({
     db.select().from(instruments),
     db.select().from(priceSnapshots),
   ]);
+
+  const groupedInstrumentIds = Array.from(new Set(rows.map((row) => row.instrument.id)));
+  const historicalPriceRows =
+    groupedInstrumentIds.length === 0
+      ? []
+      : await db
+          .select()
+          .from(historicalPrices)
+          .where(inArray(historicalPrices.instrumentId, groupedInstrumentIds));
+
+  return {
+    asOfDate,
+    historicalPriceRows,
+    instrumentRows,
+    marketSettings,
+    portfolioIds,
+    rows,
+    snapshotRows,
+  };
+}
+
+export function buildHoldingsSnapshotFromSource({
+  historicalPriceRows,
+  instrumentRows,
+  marketSettings,
+  portfolioIds,
+  rows,
+  snapshotRows,
+}: HoldingsSnapshotSource): HoldingsSnapshot {
   const valuationCurrency = marketSettings.baseCurrency;
   const instrumentById = new Map(instrumentRows.map((instrument) => [instrument.id, instrument]));
   const fxSnapshotsByProviderSymbol = new Map<string, PriceSnapshot>();
@@ -1088,13 +1160,6 @@ export async function getHoldingsSnapshot({
     transactionsByInstrumentId.set(row.transaction.instrumentId, instrumentTransactions);
   }
 
-  const historicalPriceRows =
-    groupedInstruments.size === 0
-      ? []
-      : await db
-          .select()
-          .from(historicalPrices)
-          .where(inArray(historicalPrices.instrumentId, Array.from(groupedInstruments.keys())));
   const historicalPricesByInstrumentId = new Map<number, HistoricalPrice[]>();
 
   for (const row of historicalPriceRows) {

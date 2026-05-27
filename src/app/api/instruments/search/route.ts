@@ -10,6 +10,9 @@ const yahooFinance = new YahooFinance({
 });
 const INSTRUMENT_SEARCH_TIMEOUT_MS = 5000;
 const INSTRUMENT_QUOTE_TIMEOUT_MS = 4000;
+const INSTRUMENT_SEARCH_CACHE_TTL_MS = 60_000;
+const INSTRUMENT_SEARCH_CACHE_MAX_SIZE = 100;
+const INSTRUMENT_QUOTE_LIMIT = 6;
 
 type SearchQuote = {
   symbol?: string;
@@ -20,6 +23,22 @@ type SearchQuote = {
   exchDisp?: string;
   score?: number;
 };
+
+type InstrumentSearchResult = {
+  symbol: string;
+  displayName: string;
+  market: string;
+  instrumentType: string;
+  currency: string;
+  providerSymbol: string;
+  exchangeName: string | null;
+  score: number;
+};
+
+const instrumentSearchCache = new Map<string, {
+  expiresAt: number;
+  results: InstrumentSearchResult[];
+}>();
 
 function normalizeSearchQuery(query: string) {
   return query.trim();
@@ -57,6 +76,37 @@ function getMarket(providerSymbol: string, exchange?: string, market?: string) {
   return exchange ?? "OTHER";
 }
 
+function getCachedSearchResults(query: string, now = Date.now()) {
+  const cacheKey = query.toLowerCase();
+  const cached = instrumentSearchCache.get(cacheKey);
+
+  if (cached == null) {
+    return null;
+  }
+
+  if (cached.expiresAt <= now) {
+    instrumentSearchCache.delete(cacheKey);
+    return null;
+  }
+
+  return cached.results;
+}
+
+function setCachedSearchResults(query: string, results: InstrumentSearchResult[], now = Date.now()) {
+  if (instrumentSearchCache.size >= INSTRUMENT_SEARCH_CACHE_MAX_SIZE) {
+    const oldestKey = instrumentSearchCache.keys().next().value;
+
+    if (typeof oldestKey === "string") {
+      instrumentSearchCache.delete(oldestKey);
+    }
+  }
+
+  instrumentSearchCache.set(query.toLowerCase(), {
+    expiresAt: now + INSTRUMENT_SEARCH_CACHE_TTL_MS,
+    results
+  });
+}
+
 export async function GET(request: Request) {
   if (!(await isAdminAuthenticated())) {
     return NextResponse.json(
@@ -76,6 +126,12 @@ export async function GET(request: Request) {
 
   if (query.length < 2) {
     return NextResponse.json({ results: [] });
+  }
+
+  const cachedResults = getCachedSearchResults(query);
+
+  if (cachedResults != null) {
+    return NextResponse.json({ results: cachedResults });
   }
 
   try {
@@ -107,7 +163,7 @@ export async function GET(request: Request) {
 
     const quoteRows = await Promise.all(
       Array.from(quotesBySymbol.values())
-        .slice(0, 8)
+        .slice(0, INSTRUMENT_QUOTE_LIMIT)
         .map(async (searchQuote) => {
           try {
             const quote = await withOperationTimeout(
@@ -155,6 +211,8 @@ export async function GET(request: Request) {
       .filter((row): row is NonNullable<typeof row> => row != null)
       .sort((left, right) => right.score - left.score)
       .slice(0, 6);
+
+    setCachedSearchResults(query, results);
 
     return NextResponse.json({ results });
   } catch (error) {

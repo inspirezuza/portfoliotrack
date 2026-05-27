@@ -78,7 +78,7 @@ export function MarketRefreshStatus({
           settledRunIdRef.current = payload.run.id;
           onSettled?.(payload.run);
 
-          if (payload.run.status === "success") {
+          if (payload.run.status === "success" && onSettled == null) {
             router.refresh();
           }
         }

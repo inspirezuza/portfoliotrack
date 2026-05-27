@@ -581,19 +581,28 @@ export function HoldingsTable({
     basis: performanceBasis,
     timeframe: performanceTimeframe,
   });
+  const searchableHoldings = useMemo(
+    () =>
+      holdings.map((holding) => ({
+        holding,
+        searchText: getHoldingSearchText(holding),
+      })),
+    [holdings],
+  );
 
   const visibleHoldings = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
 
-    return holdings
-      .filter((holding) => matchesHoldingFilter(holding, filter))
-      .filter((holding) =>
+    return searchableHoldings
+      .filter(({ holding }) => matchesHoldingFilter(holding, filter))
+      .filter(({ searchText }) =>
         normalizedQuery.length === 0
           ? true
-          : getHoldingSearchText(holding).includes(normalizedQuery),
+          : searchText.includes(normalizedQuery),
       )
+      .map(({ holding }) => holding)
       .sort((left, right) => compareHoldings(left, right, sort, selectedPerformanceKey));
-  }, [filter, holdings, searchQuery, selectedPerformanceKey, sort]);
+  }, [filter, searchQuery, searchableHoldings, selectedPerformanceKey, sort]);
   const visibleSummaryCurrency = visibleHoldings[0]?.valuationCurrency ?? null;
 
   const visibleSummary = useMemo(

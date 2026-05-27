@@ -666,6 +666,24 @@ async function getAssetRows(symbol: string, portfolioIds: number[]) {
   };
 }
 
+async function getAssetMarketRows(instrumentId: number) {
+  const [snapshot, historyRows, intradayRows] = await Promise.all([
+    db
+      .select()
+      .from(priceSnapshots)
+      .where(eq(priceSnapshots.instrumentId, instrumentId))
+      .then((rows) => rows[0] ?? null),
+    db.select().from(historicalPrices).where(eq(historicalPrices.instrumentId, instrumentId)),
+    db.select().from(intradayPrices).where(eq(intradayPrices.instrumentId, instrumentId))
+  ]);
+
+  return {
+    historyRows,
+    intradayRows,
+    snapshot
+  };
+}
+
 export async function getAssetDetail(
   symbol: string,
   {
@@ -762,11 +780,12 @@ export async function getAssetDetail(
   ]);
   const didRefreshAnyMarketData =
     quoteRefreshResult.attempted || historyRefreshResult.attempted || intradayRefreshResult.attempted;
-  const latestRows = didRefreshAnyMarketData ? await getAssetRows(normalizedSymbol, portfolioIds) : initialRows;
-
-  if (latestRows == null) {
-    return null;
-  }
+  const latestRows = didRefreshAnyMarketData
+    ? {
+        ...initialRows,
+        ...(await getAssetMarketRows(instrument.id))
+      }
+    : initialRows;
 
   const position = calculatePositionForInstrument(
     currentTransactionRows.map((row) => toChronologicalPositionTransaction(row as Transaction))

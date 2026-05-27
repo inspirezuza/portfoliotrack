@@ -1,28 +1,28 @@
 import "server-only";
 
-import { and, asc, eq, gte, inArray } from "drizzle-orm";
+import { and, gte, inArray } from "drizzle-orm";
 import { normalizeMoney } from "@/lib/db/precision";
 import { db } from "@/lib/db/runtime";
-import { historicalPrices, instruments, intradayPrices, priceSnapshots, transactions } from "@/lib/db/schema";
+import { historicalPrices, instruments, intradayPrices, priceSnapshots } from "@/lib/db/schema";
 import {
   ensureBenchmarkWatchlistInstruments,
   ensureFreshMarketDataCache,
   BENCHMARK_WATCHLIST,
-  getMarketSettings,
   getPriceAgeMinutes,
-  isMarketDataStale
+  isMarketDataStale,
 } from "@/lib/market/provider";
 import {
   buildPortfolioBenchmarkTimeline,
   type TimelineIntradayPrice,
   type TimelinePointInterval,
-  type PortfolioBenchmarkTimeline
+  type PortfolioBenchmarkTimeline,
 } from "@/lib/portfolio/timeline";
 import {
-  getHoldingsSnapshot,
+  buildHoldingsSnapshotFromSource,
+  loadHoldingsSnapshotSource,
   type CurrencyBreakdown,
   type HoldingsSnapshot,
-  type RealizedBreakdown
+  type RealizedBreakdown,
 } from "@/server/holdings";
 import { buildBenchmarkComparisonPayload } from "@/server/benchmark-comparisons";
 import { parsePortfolioId } from "@/server/portfolios";
@@ -127,28 +127,53 @@ function getFxProviderSymbol(fromCurrency: string, toCurrency: string) {
   return `${fromCurrency}${toCurrency}=X`;
 }
 
-function findLatestDailyFxRate(
-  rows: Array<{ priceDate: string; close: number }>,
-  date: string
-) {
-  return [...rows]
-    .filter((row) => row.priceDate <= date)
-    .sort((left, right) => right.priceDate.localeCompare(left.priceDate))[0]?.close ?? null;
+function findLatestDailyFxRate(rows: Array<{ priceDate: string; close: number }>, date: string) {
+  let lowerIndex = 0;
+  let upperIndex = rows.length - 1;
+  let close: number | null = null;
+
+  while (lowerIndex <= upperIndex) {
+    const middleIndex = Math.floor((lowerIndex + upperIndex) / 2);
+    const row = rows[middleIndex];
+
+    if (row.priceDate <= date) {
+      close = row.close;
+      lowerIndex = middleIndex + 1;
+    } else {
+      upperIndex = middleIndex - 1;
+    }
+  }
+
+  return close;
 }
 
 function findLatestIntradayFxRate(
   rows: Array<{ observedAt: string; close: number }>,
-  observedAt: string
+  observedAt: string,
 ) {
-  return [...rows]
-    .filter((row) => row.observedAt <= observedAt)
-    .sort((left, right) => right.observedAt.localeCompare(left.observedAt))[0]?.close ?? null;
+  let lowerIndex = 0;
+  let upperIndex = rows.length - 1;
+  let close: number | null = null;
+
+  while (lowerIndex <= upperIndex) {
+    const middleIndex = Math.floor((lowerIndex + upperIndex) / 2);
+    const row = rows[middleIndex];
+
+    if (row.observedAt <= observedAt) {
+      close = row.close;
+      lowerIndex = middleIndex + 1;
+    } else {
+      upperIndex = middleIndex - 1;
+    }
+  }
+
+  return close;
 }
 
 function buildPerformanceSummary({
   holdingsSnapshot,
   instrumentRows,
-  transactionRows
+  transactionRows,
 }: {
   holdingsSnapshot: HoldingsSnapshot;
   instrumentRows: Array<{ id: number; currency: string }>;
@@ -162,7 +187,9 @@ function buildPerformanceSummary({
   }>;
 }): DashboardPerformanceSummary {
   const today = getCurrentLocalIsoDate();
-  const nonFutureTransactions = transactionRows.filter((transaction) => transaction.tradeDate <= today);
+  const nonFutureTransactions = transactionRows.filter(
+    (transaction) => transaction.tradeDate <= today,
+  );
 
   if (nonFutureTransactions.length === 0) {
     return {
@@ -170,7 +197,7 @@ function buildPerformanceSummary({
       currency: null,
       totalPnl: null,
       netInvested: null,
-      absoluteReturn: null
+      absoluteReturn: null,
     };
   }
 
@@ -179,8 +206,8 @@ function buildPerformanceSummary({
     new Set(
       nonFutureTransactions
         .map((transaction) => instrumentsById.get(transaction.instrumentId)?.currency ?? null)
-        .filter((currency): currency is string => currency != null)
-    )
+        .filter((currency): currency is string => currency != null),
+    ),
   );
   const currency = currencies.length === 1 ? currencies[0] : null;
 
@@ -190,7 +217,7 @@ function buildPerformanceSummary({
       currency: null,
       totalPnl: null,
       netInvested: null,
-      absoluteReturn: null
+      absoluteReturn: null,
     };
   }
 
@@ -202,7 +229,7 @@ function buildPerformanceSummary({
     netInvested = normalizeMoney(
       transaction.side === "BUY"
         ? netInvested + grossAmount + transaction.fee
-        : netInvested - (grossAmount - transaction.fee)
+        : netInvested - (grossAmount - transaction.fee),
     );
   }
 
@@ -212,12 +239,12 @@ function buildPerformanceSummary({
       currency,
       totalPnl: null,
       netInvested,
-      absoluteReturn: null
+      absoluteReturn: null,
     };
   }
 
   const totalPnl = normalizeMoney(
-    holdingsSnapshot.totalRealizedPnl + holdingsSnapshot.totalUnrealizedPnl
+    holdingsSnapshot.totalRealizedPnl + holdingsSnapshot.totalUnrealizedPnl,
   );
   const absoluteReturn = netInvested > 0 ? totalPnl / netInvested : null;
 
@@ -226,13 +253,13 @@ function buildPerformanceSummary({
     currency,
     totalPnl,
     netInvested,
-    absoluteReturn
+    absoluteReturn,
   };
 }
 
 function parsePortfolioScope({
   portfolioId,
-  portfolioIds
+  portfolioIds,
 }: {
   portfolioId?: number;
   portfolioIds?: number[];
@@ -268,17 +295,19 @@ const LOCAL_DEMO_MONTHS = [
   "2026-02",
   "2026-03",
   "2026-04",
-  "2026-05"
+  "2026-05",
 ] as const;
 
-const LOCAL_DEMO_PORTFOLIO_RETURNS = [3.4, -2.1, 4.8, 1.6, -5.7, 2.2, -1.8, 7.9, -3.8, 6.1, 2.4, 3.7];
+const LOCAL_DEMO_PORTFOLIO_RETURNS = [
+  3.4, -2.1, 4.8, 1.6, -5.7, 2.2, -1.8, 7.9, -3.8, 6.1, 2.4, 3.7,
+];
 
 const LOCAL_DEMO_BENCHMARK_RETURNS: Record<string, number[]> = {
   SPYM: [2.6, 1.4, 3.2, -0.8, -2.0, 2.8, 1.1, 4.3, -1.2, 3.5, 1.8, 2.9],
   QQQ: [4.1, 2.8, 5.4, -1.5, -3.6, 3.9, 1.7, 6.2, -2.8, 5.9, 2.1, 4.6],
   TDEX: [1.2, -0.7, 0.9, 1.6, -1.4, 0.8, 1.9, 2.1, -0.4, 1.2, 0.7, 1.5],
   NVDA: [8.5, -4.4, 9.8, 6.0, -8.1, 7.2, 3.3, 13.8, -6.5, 11.4, 4.7, 9.1],
-  GOOGL: [3.0, 1.6, 4.2, -1.1, -2.9, 3.4, 2.5, 5.6, -2.2, 4.8, 1.9, 3.5]
+  GOOGL: [3.0, 1.6, 4.2, -1.1, -2.9, 3.4, 2.5, 5.6, -2.2, 4.8, 1.9, 3.5],
 };
 
 const LOCAL_DEMO_QUOTES: Record<string, { price: number; dailyChange: number; asOf: string }> = {
@@ -286,7 +315,7 @@ const LOCAL_DEMO_QUOTES: Record<string, { price: number; dailyChange: number; as
   QQQ: { price: 609.11, dailyChange: 8.7, asOf: "2026-05-26T20:00:00.000Z" },
   TDEX: { price: 12.4, dailyChange: 0.08, asOf: "2026-05-26T10:00:00.000Z" },
   NVDA: { price: 214.77, dailyChange: 3.64, asOf: "2026-05-26T20:00:00.000Z" },
-  GOOGL: { price: 189.43, dailyChange: 1.16, asOf: "2026-05-26T20:00:00.000Z" }
+  GOOGL: { price: 189.43, dailyChange: 1.16, asOf: "2026-05-26T20:00:00.000Z" },
 };
 
 function shouldUseLocalDemoMarketData(monthCount: number) {
@@ -298,7 +327,8 @@ function shouldUseLocalDemoMarketData(monthCount: number) {
 }
 
 function buildLocalDemoOverlayPoints(symbol: string): DashboardBenchmarkOverlayPoint[] {
-  const benchmarkReturns = LOCAL_DEMO_BENCHMARK_RETURNS[symbol] ?? LOCAL_DEMO_BENCHMARK_RETURNS.SPYM;
+  const benchmarkReturns =
+    LOCAL_DEMO_BENCHMARK_RETURNS[symbol] ?? LOCAL_DEMO_BENCHMARK_RETURNS.SPYM;
   let value = 100;
 
   return LOCAL_DEMO_MONTHS.map((month, index) => {
@@ -307,7 +337,7 @@ function buildLocalDemoOverlayPoints(symbol: string): DashboardBenchmarkOverlayP
     return {
       date: `${month}-01`,
       interval: "1d" as const,
-      value
+      value,
     };
   });
 }
@@ -330,24 +360,26 @@ function buildPortfolioMonthlyReturns(timeline: PortfolioBenchmarkTimeline) {
 
       return [
         month,
-        calculateReturnPercent(firstPoint?.portfolio ?? null, lastPoint?.portfolio ?? null)
+        calculateReturnPercent(firstPoint?.portfolio ?? null, lastPoint?.portfolio ?? null),
       ] as const;
-    })
+    }),
   );
 }
 
 function buildLocalDemoMonthlyReturns({
   portfolioMonthlyReturns,
-  symbol
+  symbol,
 }: {
   portfolioMonthlyReturns: Map<string, number | null>;
   symbol: string;
 }): DashboardBenchmarkMonthlyReturn[] {
-  const benchmarkReturns = LOCAL_DEMO_BENCHMARK_RETURNS[symbol] ?? LOCAL_DEMO_BENCHMARK_RETURNS.SPYM;
+  const benchmarkReturns =
+    LOCAL_DEMO_BENCHMARK_RETURNS[symbol] ?? LOCAL_DEMO_BENCHMARK_RETURNS.SPYM;
 
   return LOCAL_DEMO_MONTHS.map((month, index) => {
     const benchmarkReturn = benchmarkReturns[index] ?? null;
-    const portfolioReturn = LOCAL_DEMO_PORTFOLIO_RETURNS[index] ?? portfolioMonthlyReturns.get(month) ?? null;
+    const portfolioReturn =
+      LOCAL_DEMO_PORTFOLIO_RETURNS[index] ?? portfolioMonthlyReturns.get(month) ?? null;
 
     return {
       symbol,
@@ -355,7 +387,9 @@ function buildLocalDemoMonthlyReturns({
       returnPercent: benchmarkReturn,
       portfolioReturnPercent: portfolioReturn,
       excessReturnPercent:
-        benchmarkReturn == null || portfolioReturn == null ? null : portfolioReturn - benchmarkReturn
+        benchmarkReturn == null || portfolioReturn == null
+          ? null
+          : portfolioReturn - benchmarkReturn,
     };
   });
 }
@@ -365,7 +399,7 @@ function buildBenchmarkWatchlist({
   instrumentRows,
   intradayPriceRows,
   priceSnapshotRows,
-  timeline
+  timeline,
 }: {
   historicalPriceRows: Array<typeof historicalPrices.$inferSelect>;
   instrumentRows: Array<typeof instruments.$inferSelect>;
@@ -373,26 +407,47 @@ function buildBenchmarkWatchlist({
   priceSnapshotRows: Array<typeof priceSnapshots.$inferSelect>;
   timeline: PortfolioBenchmarkTimeline;
 }) {
-  const instrumentsBySymbol = new Map(instrumentRows.map((instrument) => [instrument.symbol, instrument]));
+  const instrumentsBySymbol = new Map(
+    instrumentRows.map((instrument) => [instrument.symbol, instrument]),
+  );
+  const comparisonPayloadByInstrumentId = new Map<
+    number,
+    ReturnType<typeof buildBenchmarkComparisonPayload>
+  >();
+  const getComparisonPayload = (instrument: typeof instruments.$inferSelect) => {
+    const cachedPayload = comparisonPayloadByInstrumentId.get(instrument.id);
+
+    if (cachedPayload != null) {
+      return cachedPayload;
+    }
+
+    const payload = buildBenchmarkComparisonPayload({
+      historicalPriceRows,
+      instrument,
+      intradayPriceRows,
+      priceSnapshotRows,
+    });
+
+    comparisonPayloadByInstrumentId.set(instrument.id, payload);
+    return payload;
+  };
   const quotes = BENCHMARK_WATCHLIST.map((benchmark) => {
     const instrument = instrumentsBySymbol.get(benchmark.symbol) ?? null;
-    const historyRows = instrument == null
-      ? []
-      : historicalPriceRows
-          .filter((row) => row.instrumentId === instrument.id && row.currency === benchmark.currency)
-          .sort((left, right) => left.priceDate.localeCompare(right.priceDate));
+    const historyRows =
+      instrument == null
+        ? []
+        : historicalPriceRows
+            .filter(
+              (row) => row.instrumentId === instrument.id && row.currency === benchmark.currency,
+            )
+            .sort((left, right) => left.priceDate.localeCompare(right.priceDate));
     const localDemoQuote = shouldUseLocalDemoMarketData(historyRows.length)
-      ? LOCAL_DEMO_QUOTES[benchmark.symbol] ?? null
+      ? (LOCAL_DEMO_QUOTES[benchmark.symbol] ?? null)
       : null;
     const comparisonQuote =
       instrument == null
         ? null
-        : buildBenchmarkComparisonPayload({
-            historicalPriceRows,
-            instrument,
-            intradayPriceRows,
-            priceSnapshotRows
-          }).quote;
+        : getComparisonPayload(instrument).quote;
     const price = comparisonQuote?.price ?? localDemoQuote?.price ?? null;
     const dailyChange =
       comparisonQuote?.dailyChange ??
@@ -408,7 +463,7 @@ function buildBenchmarkWatchlist({
       price,
       asOf: comparisonQuote?.asOf ?? localDemoQuote?.asOf ?? null,
       dailyChange: price == null || previousClose == null ? null : price - previousClose,
-      dailyChangePercent: calculateReturnPercent(previousClose, price)
+      dailyChangePercent: calculateReturnPercent(previousClose, price),
     };
   });
   const portfolioMonthlyReturns = buildPortfolioMonthlyReturns(timeline);
@@ -419,7 +474,7 @@ function buildBenchmarkWatchlist({
       return shouldUseLocalDemoMarketData(0)
         ? buildLocalDemoMonthlyReturns({
             portfolioMonthlyReturns,
-            symbol: benchmark.symbol
+            symbol: benchmark.symbol,
           })
         : [];
     }
@@ -440,15 +495,17 @@ function buildBenchmarkWatchlist({
     if (shouldUseLocalDemoMarketData(rowsByMonth.size)) {
       return buildLocalDemoMonthlyReturns({
         portfolioMonthlyReturns,
-        symbol: benchmark.symbol
+        symbol: benchmark.symbol,
       });
     }
 
     return Array.from(rowsByMonth, ([month, monthRows]) => {
-      const orderedRows = monthRows.sort((left, right) => left.priceDate.localeCompare(right.priceDate));
+      const orderedRows = monthRows.sort((left, right) =>
+        left.priceDate.localeCompare(right.priceDate),
+      );
       const benchmarkReturn = calculateReturnPercent(
         orderedRows[0]?.close ?? null,
-        orderedRows[orderedRows.length - 1]?.close ?? null
+        orderedRows[orderedRows.length - 1]?.close ?? null,
       );
       const portfolioReturn = portfolioMonthlyReturns.get(month) ?? null;
 
@@ -458,28 +515,27 @@ function buildBenchmarkWatchlist({
         returnPercent: benchmarkReturn,
         portfolioReturnPercent: portfolioReturn,
         excessReturnPercent:
-          benchmarkReturn == null || portfolioReturn == null ? null : portfolioReturn - benchmarkReturn
+          benchmarkReturn == null || portfolioReturn == null
+            ? null
+            : portfolioReturn - benchmarkReturn,
       };
     });
   }).sort((left, right) =>
-    left.month === right.month ? left.symbol.localeCompare(right.symbol) : left.month.localeCompare(right.month)
+    left.month === right.month
+      ? left.symbol.localeCompare(right.symbol)
+      : left.month.localeCompare(right.month),
   );
   const overlays = BENCHMARK_WATCHLIST.map((benchmark) => {
     const instrument = instrumentsBySymbol.get(benchmark.symbol) ?? null;
     const comparisonOverlay =
       instrument == null
         ? null
-        : buildBenchmarkComparisonPayload({
-            historicalPriceRows,
-            instrument,
-            intradayPriceRows,
-            priceSnapshotRows
-          }).overlay;
+        : getComparisonPayload(instrument).overlay;
     const dailyPointCount =
       instrument == null
         ? 0
         : historicalPriceRows.filter(
-            (row) => row.instrumentId === instrument.id && row.currency === benchmark.currency
+            (row) => row.instrumentId === instrument.id && row.currency === benchmark.currency,
           ).length;
 
     return {
@@ -490,21 +546,21 @@ function buildBenchmarkWatchlist({
       currency: benchmark.currency,
       points: shouldUseLocalDemoMarketData(dailyPointCount)
         ? buildLocalDemoOverlayPoints(benchmark.symbol)
-        : comparisonOverlay?.points ?? []
+        : (comparisonOverlay?.points ?? []),
     };
   });
 
   return {
     monthlyReturns,
     overlays,
-    quotes
+    quotes,
   };
 }
 
 export async function getDashboardSnapshot({
   portfolioId: portfolioIdInput,
   portfolioIds: portfolioIdsInput,
-  ensureFresh = false
+  ensureFresh = false,
 }: {
   portfolioId?: number;
   portfolioIds?: number[];
@@ -512,48 +568,45 @@ export async function getDashboardSnapshot({
 }): Promise<DashboardSnapshot> {
   const portfolioIds = parsePortfolioScope({
     portfolioId: portfolioIdInput,
-    portfolioIds: portfolioIdsInput
+    portfolioIds: portfolioIdsInput,
   });
 
   await ensureBenchmarkWatchlistInstruments();
 
   if (ensureFresh) {
     await Promise.all(
-      portfolioIds.map((portfolioId) => ensureFreshMarketDataCache({ portfolioId, includeBenchmark: true }))
+      portfolioIds.map((portfolioId) =>
+        ensureFreshMarketDataCache({ portfolioId, includeBenchmark: true }),
+      ),
     );
   }
 
-  const portfolioFilter =
-    portfolioIds.length === 1
-      ? eq(transactions.portfolioId, portfolioIds[0])
-      : inArray(transactions.portfolioId, portfolioIds);
-
-  const [holdingsSnapshot, marketSettings, transactionRows, instrumentRows] =
-    await Promise.all([
-      getHoldingsSnapshot({ portfolioIds, ensureFresh: false }),
-      getMarketSettings(),
-      db
-        .select({
-          instrumentId: transactions.instrumentId,
-          tradeDate: transactions.tradeDate,
-          side: transactions.side,
-          quantity: transactions.quantity,
-          price: transactions.price,
-          fee: transactions.fee,
-          createdAt: transactions.createdAt,
-          id: transactions.id
-        })
-        .from(transactions)
-        .where(portfolioFilter)
-        .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id)),
-      db.select().from(instruments)
-    ]);
+  const holdingsSource = await loadHoldingsSnapshotSource({ portfolioIds });
+  const holdingsSnapshot = buildHoldingsSnapshotFromSource(holdingsSource);
+  const marketSettings = holdingsSource.marketSettings;
+  const instrumentRows = holdingsSource.instrumentRows;
+  const transactionRows = holdingsSource.rows.map(({ transaction }) => ({
+    instrumentId: transaction.instrumentId,
+    tradeDate: transaction.tradeDate,
+    side: transaction.side,
+    quantity: transaction.quantity,
+    price: transaction.price,
+    fee: transaction.fee,
+    createdAt: transaction.createdAt,
+    id: transaction.id,
+  }));
+  const instrumentBySymbol = new Map(
+    instrumentRows.map((instrument) => [instrument.symbol, instrument]),
+  );
+  const instrumentByProviderSymbol = new Map(
+    instrumentRows.map((instrument) => [instrument.providerSymbol, instrument]),
+  );
   const benchmarkInstrument =
     marketSettings.benchmarkSymbol == null
       ? null
-      : instrumentRows.find((instrument) => instrument.symbol === marketSettings.benchmarkSymbol) ?? null;
-  const benchmarkWatchlistInstrumentIds = BENCHMARK_WATCHLIST.map((benchmark) =>
-    instrumentRows.find((instrument) => instrument.symbol === benchmark.symbol)?.id ?? null
+      : (instrumentBySymbol.get(marketSettings.benchmarkSymbol) ?? null);
+  const benchmarkWatchlistInstrumentIds = BENCHMARK_WATCHLIST.map(
+    (benchmark) => instrumentBySymbol.get(benchmark.symbol)?.id ?? null,
   ).filter((id): id is number => id != null);
   const instrumentById = new Map(instrumentRows.map((instrument) => [instrument.id, instrument]));
   const valuationCurrency = holdingsSnapshot.valuationCurrency;
@@ -561,58 +614,75 @@ export async function getDashboardSnapshot({
     new Set(
       transactionRows
         .map((transaction) => instrumentById.get(transaction.instrumentId)?.currency ?? null)
-        .filter((currency): currency is string => currency != null && currency !== valuationCurrency)
-        .map((currency) => getFxProviderSymbol(currency, valuationCurrency))
-        .map((providerSymbol) =>
-          instrumentRows.find((instrument) => instrument.providerSymbol === providerSymbol)?.id ?? null
+        .filter(
+          (currency): currency is string => currency != null && currency !== valuationCurrency,
         )
-        .filter((id): id is number => id != null)
-    )
+        .map((currency) => getFxProviderSymbol(currency, valuationCurrency))
+        .map((providerSymbol) => instrumentByProviderSymbol.get(providerSymbol)?.id ?? null)
+        .filter((id): id is number => id != null),
+    ),
   );
+  const fxInstrumentIdSet = new Set(fxInstrumentIds);
   const relevantInstrumentIds = Array.from(
     new Set([
       ...transactionRows.map((transaction) => transaction.instrumentId),
       ...(benchmarkInstrument == null ? [] : [benchmarkInstrument.id]),
       ...benchmarkWatchlistInstrumentIds,
-      ...fxInstrumentIds
-    ])
+      ...fxInstrumentIds,
+    ]),
   );
-  const earliestTradeDate =
-    transactionRows
-      .map((transaction) => transaction.tradeDate)
-      .sort((left, right) => left.localeCompare(right))[0] ?? null;
-  const [historicalPriceRows, intradayPriceRows, priceSnapshotRows] =
+  const preloadedHistoricalInstrumentIds = new Set(
+    holdingsSource.rows.map((row) => row.instrument.id),
+  );
+  const missingHistoricalInstrumentIds = relevantInstrumentIds.filter(
+    (instrumentId) => !preloadedHistoricalInstrumentIds.has(instrumentId),
+  );
+  let earliestTradeDate: string | null = null;
+
+  for (const transaction of transactionRows) {
+    if (earliestTradeDate == null || transaction.tradeDate < earliestTradeDate) {
+      earliestTradeDate = transaction.tradeDate;
+    }
+  }
+
+  const [additionalHistoricalPriceRows, intradayPriceRows] = await Promise.all([
+    missingHistoricalInstrumentIds.length === 0
+      ? Promise.resolve([])
+      : db
+          .select()
+          .from(historicalPrices)
+          .where(inArray(historicalPrices.instrumentId, missingHistoricalInstrumentIds)),
     relevantInstrumentIds.length === 0
-      ? [[], [], []]
-      : await Promise.all([
-          db
-            .select()
-            .from(historicalPrices)
-            .where(inArray(historicalPrices.instrumentId, relevantInstrumentIds)),
-          db
-            .select()
-            .from(intradayPrices)
-            .where(
-              earliestTradeDate == null
-                ? inArray(intradayPrices.instrumentId, relevantInstrumentIds)
-                : and(
-                    inArray(intradayPrices.instrumentId, relevantInstrumentIds),
-                    gte(intradayPrices.observedAt, `${earliestTradeDate}T00:00:00.000Z`)
-                  )
-            ),
-          db
-            .select()
-            .from(priceSnapshots)
-            .where(inArray(priceSnapshots.instrumentId, relevantInstrumentIds))
-        ]);
-  const benchmarkSnapshot = benchmarkInstrument == null
-    ? null
-    : priceSnapshotRows.find((snapshot) => snapshot.instrumentId === benchmarkInstrument.id) ?? null;
+      ? Promise.resolve([])
+      : db
+          .select()
+          .from(intradayPrices)
+          .where(
+            earliestTradeDate == null
+              ? inArray(intradayPrices.instrumentId, relevantInstrumentIds)
+              : and(
+                  inArray(intradayPrices.instrumentId, relevantInstrumentIds),
+                  gte(intradayPrices.observedAt, `${earliestTradeDate}T00:00:00.000Z`),
+                ),
+          ),
+  ]);
+  const historicalPriceRows = [
+    ...holdingsSource.historicalPriceRows,
+    ...additionalHistoricalPriceRows,
+  ];
+  const priceSnapshotRows = holdingsSource.snapshotRows;
+  const benchmarkSnapshot =
+    benchmarkInstrument == null
+      ? null
+      : (priceSnapshotRows.find((snapshot) => snapshot.instrumentId === benchmarkInstrument.id) ??
+        null);
   const latestMarketDataAsOf =
     [holdingsSnapshot.latestPriceAsOf, benchmarkSnapshot?.asOf ?? null]
       .filter((value): value is string => value != null)
       .sort((left, right) => right.localeCompare(left))[0] ?? null;
-  const transactionInstrumentIds = new Set(transactionRows.map((transaction) => transaction.instrumentId));
+  const transactionInstrumentIds = new Set(
+    transactionRows.map((transaction) => transaction.instrumentId),
+  );
   const fxHistoricalRowsByCurrency = new Map<string, Array<{ priceDate: string; close: number }>>();
   const fxIntradayRowsByCurrency = new Map<string, Array<{ observedAt: string; close: number }>>();
 
@@ -630,12 +700,14 @@ export async function getDashboardSnapshot({
       historicalPriceRows
         .filter((row) => row.instrumentId === fxInstrumentId && row.currency === valuationCurrency)
         .map((row) => ({ priceDate: row.priceDate, close: row.close }))
+        .sort((left, right) => left.priceDate.localeCompare(right.priceDate)),
     );
     fxIntradayRowsByCurrency.set(
       sourceCurrency,
       intradayPriceRows
         .filter((row) => row.instrumentId === fxInstrumentId && row.currency === valuationCurrency)
         .map((row) => ({ observedAt: row.observedAt, close: row.close }))
+        .sort((left, right) => left.observedAt.localeCompare(right.observedAt)),
     );
   }
 
@@ -675,14 +747,16 @@ export async function getDashboardSnapshot({
       return {
         ...row,
         fee: convertedFee,
-        price: convertedPrice
+        price: convertedPrice,
       };
     })
-    .filter((row): row is typeof transactionRows[number] => row != null);
+    .filter((row): row is (typeof transactionRows)[number] => row != null);
   const convertedHistoricalPriceRows = historicalPriceRows
-    .filter((row) =>
-      !fxInstrumentIds.includes(row.instrumentId) &&
-      (row.instrumentId !== benchmarkInstrument?.id || transactionInstrumentIds.has(row.instrumentId))
+    .filter(
+      (row) =>
+        !fxInstrumentIdSet.has(row.instrumentId) &&
+        (row.instrumentId !== benchmarkInstrument?.id ||
+          transactionInstrumentIds.has(row.instrumentId)),
     )
     .map((row) => {
       const instrument = instrumentById.get(row.instrumentId);
@@ -698,14 +772,16 @@ export async function getDashboardSnapshot({
         : {
             ...row,
             close: convertedClose,
-            currency: valuationCurrency
+            currency: valuationCurrency,
           };
     })
-    .filter((row): row is typeof historicalPriceRows[number] => row != null);
+    .filter((row): row is (typeof historicalPriceRows)[number] => row != null);
   const convertedIntradayPriceRows = intradayPriceRows
-    .filter((row) =>
-      !fxInstrumentIds.includes(row.instrumentId) &&
-      (row.instrumentId !== benchmarkInstrument?.id || transactionInstrumentIds.has(row.instrumentId))
+    .filter(
+      (row) =>
+        !fxInstrumentIdSet.has(row.instrumentId) &&
+        (row.instrumentId !== benchmarkInstrument?.id ||
+          transactionInstrumentIds.has(row.instrumentId)),
     )
     .map((row) => {
       const instrument = instrumentById.get(row.instrumentId);
@@ -721,14 +797,16 @@ export async function getDashboardSnapshot({
         : {
             ...row,
             close: convertedClose,
-            currency: valuationCurrency
+            currency: valuationCurrency,
           };
     })
-    .filter((row): row is typeof intradayPriceRows[number] => row != null);
+    .filter((row): row is (typeof intradayPriceRows)[number] => row != null);
   const convertedSnapshotPriceRows: TimelineIntradayPrice[] = priceSnapshotRows
-    .filter((row) =>
-      !fxInstrumentIds.includes(row.instrumentId) &&
-      (row.instrumentId !== benchmarkInstrument?.id || transactionInstrumentIds.has(row.instrumentId))
+    .filter(
+      (row) =>
+        !fxInstrumentIdSet.has(row.instrumentId) &&
+        (row.instrumentId !== benchmarkInstrument?.id ||
+          transactionInstrumentIds.has(row.instrumentId)),
     )
     .map((row) => {
       const instrument = instrumentById.get(row.instrumentId);
@@ -746,74 +824,100 @@ export async function getDashboardSnapshot({
             observedAt: row.asOf,
             close: convertedClose,
             currency: valuationCurrency,
-            interval: "1h" as const
+            interval: "1h" as const,
           };
     })
     .filter((row): row is NonNullable<typeof row> => row != null);
   const convertedInstrumentRows = instrumentRows.map((instrument) => ({
     ...instrument,
-    currency: fxInstrumentIds.includes(instrument.id) ? instrument.currency : valuationCurrency
+    currency: fxInstrumentIdSet.has(instrument.id) ? instrument.currency : valuationCurrency,
   }));
-  const benchmarkHistoricalPriceRows = benchmarkInstrument == null
-    ? []
-    : historicalPriceRows.filter((row) =>
-        row.instrumentId === benchmarkInstrument.id && row.currency === benchmarkInstrument.currency
-      );
+  const benchmarkHistoricalPriceRows =
+    benchmarkInstrument == null
+      ? []
+      : historicalPriceRows.filter(
+          (row) =>
+            row.instrumentId === benchmarkInstrument.id &&
+            row.currency === benchmarkInstrument.currency,
+        );
   const convertedHistoricalPriceKeys = new Set(
-    convertedHistoricalPriceRows.map((row) => `${row.instrumentId}:${row.priceDate}:${row.currency}`)
+    convertedHistoricalPriceRows.map(
+      (row) => `${row.instrumentId}:${row.priceDate}:${row.currency}`,
+    ),
   );
   const timelineHistoricalPriceRows = [
     ...convertedHistoricalPriceRows,
     ...benchmarkHistoricalPriceRows.filter(
-      (row) => !convertedHistoricalPriceKeys.has(`${row.instrumentId}:${row.priceDate}:${row.currency}`)
-    )
+      (row) =>
+        !convertedHistoricalPriceKeys.has(`${row.instrumentId}:${row.priceDate}:${row.currency}`),
+    ),
   ];
-  const benchmarkIntradayPriceRows = benchmarkInstrument == null
-    ? []
-    : intradayPriceRows.filter((row) =>
-        row.instrumentId === benchmarkInstrument.id && row.currency === benchmarkInstrument.currency
-      );
+  const benchmarkIntradayPriceRows =
+    benchmarkInstrument == null
+      ? []
+      : intradayPriceRows.filter(
+          (row) =>
+            row.instrumentId === benchmarkInstrument.id &&
+            row.currency === benchmarkInstrument.currency,
+        );
   const convertedIntradayPriceKeys = new Set(
-    convertedIntradayPriceRows.map((row) => `${row.instrumentId}:${row.observedAt}:${row.currency}:${row.interval}`)
+    convertedIntradayPriceRows.map(
+      (row) => `${row.instrumentId}:${row.observedAt}:${row.currency}:${row.interval}`,
+    ),
   );
   const convertedSnapshotPriceKeys = new Set(
-    convertedSnapshotPriceRows.map((row) => `${row.instrumentId}:${row.observedAt}:${row.currency}:${row.interval}`)
+    convertedSnapshotPriceRows.map(
+      (row) => `${row.instrumentId}:${row.observedAt}:${row.currency}:${row.interval}`,
+    ),
   );
-  const benchmarkSnapshotPriceRows: TimelineIntradayPrice[] = benchmarkInstrument == null
-    ? []
-    : priceSnapshotRows
-        .filter((row) => row.instrumentId === benchmarkInstrument.id && row.currency === benchmarkInstrument.currency)
-        .map((row) => ({
-          instrumentId: row.instrumentId,
-          observedAt: row.asOf,
-          close: row.price,
-          currency: row.currency,
-          interval: "1h" as const
-        }));
+  const benchmarkSnapshotPriceRows: TimelineIntradayPrice[] =
+    benchmarkInstrument == null
+      ? []
+      : priceSnapshotRows
+          .filter(
+            (row) =>
+              row.instrumentId === benchmarkInstrument.id &&
+              row.currency === benchmarkInstrument.currency,
+          )
+          .map((row) => ({
+            instrumentId: row.instrumentId,
+            observedAt: row.asOf,
+            close: row.price,
+            currency: row.currency,
+            interval: "1h" as const,
+          }));
   const timelineIntradayPriceRows = [
     ...convertedIntradayPriceRows,
     ...convertedSnapshotPriceRows,
     ...benchmarkIntradayPriceRows.filter(
       (row) =>
-        !convertedIntradayPriceKeys.has(`${row.instrumentId}:${row.observedAt}:${row.currency}:${row.interval}`) &&
-        !convertedSnapshotPriceKeys.has(`${row.instrumentId}:${row.observedAt}:${row.currency}:${row.interval}`)
+        !convertedIntradayPriceKeys.has(
+          `${row.instrumentId}:${row.observedAt}:${row.currency}:${row.interval}`,
+        ) &&
+        !convertedSnapshotPriceKeys.has(
+          `${row.instrumentId}:${row.observedAt}:${row.currency}:${row.interval}`,
+        ),
     ),
     ...benchmarkSnapshotPriceRows.filter(
       (row) =>
-        !convertedIntradayPriceKeys.has(`${row.instrumentId}:${row.observedAt}:${row.currency}:${row.interval}`) &&
-        !convertedSnapshotPriceKeys.has(`${row.instrumentId}:${row.observedAt}:${row.currency}:${row.interval}`)
+        !convertedIntradayPriceKeys.has(
+          `${row.instrumentId}:${row.observedAt}:${row.currency}:${row.interval}`,
+        ) &&
+        !convertedSnapshotPriceKeys.has(
+          `${row.instrumentId}:${row.observedAt}:${row.currency}:${row.interval}`,
+        ),
     ),
   ];
   const performanceSummary = buildPerformanceSummary({
     holdingsSnapshot,
     instrumentRows: convertedInstrumentRows,
-    transactionRows: convertedTransactionRows
+    transactionRows: convertedTransactionRows,
   });
   const timeline = buildPortfolioBenchmarkTimeline({
     instruments: convertedInstrumentRows.map((instrument) => ({
       instrumentId: instrument.id,
       symbol: instrument.symbol,
-      currency: instrument.currency
+      currency: instrument.currency,
     })),
     transactions: convertedTransactionRows.map((row) => ({
       instrumentId: row.instrumentId,
@@ -823,35 +927,35 @@ export async function getDashboardSnapshot({
       price: row.price,
       fee: row.fee,
       createdAt: row.createdAt,
-      id: row.id
+      id: row.id,
     })),
     historicalPrices: timelineHistoricalPriceRows.map((row) => ({
       instrumentId: row.instrumentId,
       priceDate: row.priceDate,
       close: row.close,
-      currency: row.currency
+      currency: row.currency,
     })),
     intradayPrices: timelineIntradayPriceRows
       .filter((row): row is typeof row & { interval: TimelineIntradayPrice["interval"] } =>
-        isTimelineIntradayInterval(row.interval)
+        isTimelineIntradayInterval(row.interval),
       )
       .map((row) => ({
         instrumentId: row.instrumentId,
         observedAt: row.observedAt,
         close: row.close,
         currency: row.currency,
-        interval: row.interval
+        interval: row.interval,
       })),
     benchmarkInstrumentId: benchmarkInstrument?.id ?? null,
     benchmarkCurrency: benchmarkInstrument?.currency ?? null,
-    benchmarkSymbol: marketSettings.benchmarkSymbol
+    benchmarkSymbol: marketSettings.benchmarkSymbol,
   });
   const benchmarkWatchlist = buildBenchmarkWatchlist({
     historicalPriceRows,
     instrumentRows,
     intradayPriceRows,
     priceSnapshotRows,
-    timeline
+    timeline,
   });
 
   return {
@@ -867,7 +971,7 @@ export async function getDashboardSnapshot({
       latestPriceAsOf: holdingsSnapshot.latestPriceAsOf,
       awaitingPriceSymbols: holdingsSnapshot.awaitingPriceSymbols,
       currencyBreakdown: holdingsSnapshot.currencyBreakdown,
-      realizedBreakdown: holdingsSnapshot.realizedBreakdown
+      realizedBreakdown: holdingsSnapshot.realizedBreakdown,
     },
     holdingsSnapshot,
     marketData: {
@@ -877,12 +981,12 @@ export async function getDashboardSnapshot({
       priceAgeMinutes: getPriceAgeMinutes(latestMarketDataAsOf),
       isPriceDataStale: isMarketDataStale(
         latestMarketDataAsOf,
-        marketSettings.marketRefreshMinutes
-      )
+        marketSettings.marketRefreshMinutes,
+      ),
     },
     benchmarkWatchlist,
     performanceSummary,
-    timeline
+    timeline,
   };
 }
 

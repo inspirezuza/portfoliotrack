@@ -90,6 +90,12 @@ export const transactions = pgTable(
       table.createdAt,
       table.id
     ),
+    portfolioExecutionOrderIdx: index("transactions_portfolio_execution_order_idx").on(
+      table.portfolioId,
+      table.tradeDate,
+      table.createdAt,
+      table.id
+    ),
     quantityPositive: check("transactions_quantity_positive", sql`${table.quantity} > 0`),
     pricePositive: check("transactions_price_positive", sql`${table.price} >= 0`),
     feePositive: check("transactions_fee_positive", sql`${table.fee} >= 0`),

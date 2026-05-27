@@ -59,7 +59,6 @@ export function PortfolioSwitcher({
             : getPortfolioDashboardPath(portfolioId);
 
         router.push(nextPath);
-        router.refresh();
       } finally {
         setIsChangingPortfolio(false);
       }

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { AssetHeader } from "@/components/asset-header";
-import { AssetPriceChart } from "@/components/asset-price-chart";
+import { DeferredAssetPriceChart } from "@/components/asset-deferred-widgets";
 import { formatCurrency, formatPercentRatio, formatQuantity } from "@/lib/format";
 import { isAdminAuthenticated } from "@/lib/auth/admin";
 import { getPortfolioSelection, isAllPortfoliosSelection } from "@/lib/portfolio/selection";
@@ -209,7 +209,7 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
       ) : null}
 
       <div className="asset-layout">
-        <AssetPriceChart asset={asset} />
+        <DeferredAssetPriceChart asset={asset} />
 
         <aside className="feature-stack">
           <article className="surface-card asset-sidebar-card">
