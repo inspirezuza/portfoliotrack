@@ -1,5 +1,14 @@
 import { normalizeMoney } from "@/lib/db/precision";
 import {
+  createEmptyPerformanceSeries,
+  toIndexedPerformancePoint,
+  toPercentReturn,
+  toReturnPerformancePoint,
+  type PerformancePointInterval,
+  type PortfolioPerformanceSeries,
+  type ReturnPerformancePoint
+} from "@/lib/portfolio/performance-series";
+import {
   applyTransaction,
   sortTransactionsChronologically,
   type InstrumentPosition
@@ -38,7 +47,7 @@ export type TimelineIntradayPrice = {
   interval: "5m" | "15m" | "1h";
 };
 
-export type TimelinePointInterval = "1d" | TimelineIntradayPrice["interval"];
+export type TimelinePointInterval = PerformancePointInterval;
 
 export type PortfolioTimelinePoint = {
   date: string;
@@ -76,8 +85,9 @@ export type PortfolioBenchmarkTimeline = {
   comparisonBasis: BenchmarkComparisonBasis | null;
   portfolio: PortfolioTimelinePoint[];
   comparison: BenchmarkTimelinePoint[];
-  moneyWeightedComparison: BenchmarkTimelinePoint[];
-  absoluteComparison: BenchmarkTimelinePoint[];
+  moneyWeightedComparison: ReturnPerformancePoint[];
+  absoluteComparison: ReturnPerformancePoint[];
+  performanceSeries: PortfolioPerformanceSeries;
 };
 
 type PriceState = {
@@ -397,7 +407,7 @@ function buildAbsoluteComparisonSeries({
   portfolioSeries: PortfolioValuationPoint[];
   benchmarkRows: TimelineHistoricalPrice[];
   benchmarkIntradayRows?: TimelineIntradayPrice[];
-}) {
+}): ReturnPerformancePoint[] {
   const orderedBenchmarkRows = [
     ...toDailyPricePoints(benchmarkRows),
     ...toIntradayPricePoints(benchmarkIntradayRows)
@@ -413,7 +423,7 @@ function buildAbsoluteComparisonSeries({
   let lastBenchmarkClose: number | null = null;
   let baselineBenchmarkClose: number | null = null;
   let netInvested = 0;
-  const comparison: BenchmarkTimelinePoint[] = [];
+  const comparison: ReturnPerformancePoint[] = [];
 
   for (const point of portfolioSeries) {
     netInvested = normalizeMoney(netInvested + point.netCashFlow);
@@ -438,12 +448,20 @@ function buildAbsoluteComparisonSeries({
       continue;
     }
 
-    comparison.push({
+    const portfolioReturnPercent = toPercentReturn(netInvested, point.value);
+    const benchmarkReturnPercent = toPercentReturn(baselineBenchmarkClose, lastBenchmarkClose);
+
+    if (portfolioReturnPercent == null || benchmarkReturnPercent == null) {
+      continue;
+    }
+
+    comparison.push(toReturnPerformancePoint({
       date: point.date,
       interval: point.interval,
-      portfolio: normalizeMoney((point.value / netInvested) * 100),
-      benchmark: normalizeMoney((lastBenchmarkClose / baselineBenchmarkClose) * 100)
-    });
+      annualized: false,
+      portfolioReturnPercent,
+      benchmarkReturnPercent
+    }));
   }
 
   return comparison;
@@ -516,15 +534,37 @@ function calculateXirr(cashFlows: Array<{ date: string; amount: number }>) {
   return (low + high) / 2;
 }
 
+function calculateAnnualizedReturnPercent({
+  endDate,
+  endValue,
+  startDate,
+  startValue
+}: {
+  endDate: string;
+  endValue: number;
+  startDate: string;
+  startValue: number;
+}) {
+  const days = daysBetween(startDate, endDate);
+
+  if (startValue <= 0 || endValue <= 0 || days <= 0) {
+    return null;
+  }
+
+  return normalizeMoney((Math.pow(endValue / startValue, 365 / days) - 1) * 100);
+}
+
 function buildMoneyWeightedComparisonSeries({
+  transactions,
   portfolioSeries,
   benchmarkRows,
   benchmarkIntradayRows = []
 }: {
+  transactions: TimelineTransaction[];
   portfolioSeries: PortfolioValuationPoint[];
   benchmarkRows: TimelineHistoricalPrice[];
   benchmarkIntradayRows?: TimelineIntradayPrice[];
-}) {
+}): ReturnPerformancePoint[] {
   const orderedBenchmarkRows = [
     ...toDailyPricePoints(benchmarkRows),
     ...toIntradayPricePoints(benchmarkIntradayRows)
@@ -540,15 +580,22 @@ function buildMoneyWeightedComparisonSeries({
   let benchmarkRowIndex = 0;
   let lastBenchmarkClose: number | null = null;
   let baselineBenchmarkClose: number | null = null;
+  let baselineBenchmarkDate: string | null = null;
+  let cashFlowIndex = 0;
+  const orderedCashFlows = sortTransactionsChronologically(transactions).map((transaction) => ({
+    date: toDayStartTimestamp(transaction.tradeDate),
+    amount: -getExternalCashFlow(transaction)
+  }));
   const realizedCashFlows: Array<{ date: string; amount: number }> = [];
-  const comparison: BenchmarkTimelinePoint[] = [];
+  const comparison: ReturnPerformancePoint[] = [];
 
   for (const point of portfolioSeries) {
-    if (point.netCashFlow !== 0) {
-      realizedCashFlows.push({
-        date: point.date,
-        amount: -point.netCashFlow
-      });
+    while (
+      cashFlowIndex < orderedCashFlows.length &&
+      orderedCashFlows[cashFlowIndex].date <= point.date
+    ) {
+      realizedCashFlows.push(orderedCashFlows[cashFlowIndex]);
+      cashFlowIndex += 1;
     }
 
     while (
@@ -565,6 +612,7 @@ function buildMoneyWeightedComparisonSeries({
 
     if (baselineBenchmarkClose == null) {
       baselineBenchmarkClose = lastBenchmarkClose;
+      baselineBenchmarkDate = point.date;
     }
 
     const mwr = calculateXirr([
@@ -575,16 +623,28 @@ function buildMoneyWeightedComparisonSeries({
       }
     ]);
 
-    if (mwr == null || baselineBenchmarkClose <= 0) {
+    if (mwr == null || baselineBenchmarkClose <= 0 || baselineBenchmarkDate == null) {
       continue;
     }
 
-    comparison.push({
+    const benchmarkReturnPercent = calculateAnnualizedReturnPercent({
+      startDate: baselineBenchmarkDate,
+      endDate: point.date,
+      startValue: baselineBenchmarkClose,
+      endValue: lastBenchmarkClose
+    });
+
+    if (benchmarkReturnPercent == null) {
+      continue;
+    }
+
+    comparison.push(toReturnPerformancePoint({
       date: point.date,
       interval: point.interval,
-      portfolio: normalizeMoney(100 * (1 + mwr)),
-      benchmark: normalizeMoney((lastBenchmarkClose / baselineBenchmarkClose) * 100)
-    });
+      annualized: true,
+      portfolioReturnPercent: mwr * 100,
+      benchmarkReturnPercent
+    }));
   }
 
   if (comparison.length === 0 && firstPoint.value > 0) {
@@ -625,7 +685,8 @@ export function buildPortfolioBenchmarkTimeline({
       portfolio: [],
       comparison: [],
       moneyWeightedComparison: [],
-      absoluteComparison: []
+      absoluteComparison: [],
+      performanceSeries: createEmptyPerformanceSeries()
     };
   }
 
@@ -663,7 +724,8 @@ export function buildPortfolioBenchmarkTimeline({
       portfolio: [],
       comparison: [],
       moneyWeightedComparison: [],
-      absoluteComparison: []
+      absoluteComparison: [],
+      performanceSeries: createEmptyPerformanceSeries()
     };
   }
 
@@ -681,7 +743,8 @@ export function buildPortfolioBenchmarkTimeline({
       portfolio: [],
       comparison: [],
       moneyWeightedComparison: [],
-      absoluteComparison: []
+      absoluteComparison: [],
+      performanceSeries: createEmptyPerformanceSeries()
     };
   }
 
@@ -715,7 +778,8 @@ export function buildPortfolioBenchmarkTimeline({
       portfolio: [],
       comparison: [],
       moneyWeightedComparison: [],
-      absoluteComparison: []
+      absoluteComparison: [],
+      performanceSeries: createEmptyPerformanceSeries()
     };
   }
 
@@ -730,7 +794,8 @@ export function buildPortfolioBenchmarkTimeline({
       portfolio: portfolioSeries,
       comparison: [],
       moneyWeightedComparison: [],
-      absoluteComparison: []
+      absoluteComparison: [],
+      performanceSeries: createEmptyPerformanceSeries()
     };
   }
 
@@ -758,6 +823,7 @@ export function buildPortfolioBenchmarkTimeline({
     benchmarkIntradayRows: benchmarkIntradayPrices
   });
   const moneyWeightedComparisonSeries = buildMoneyWeightedComparisonSeries({
+    transactions: nonFutureTransactions,
     portfolioSeries: portfolioValuationSeries,
     benchmarkRows: benchmarkHistoricalPrices,
     benchmarkIntradayRows: benchmarkIntradayPrices
@@ -767,6 +833,11 @@ export function buildPortfolioBenchmarkTimeline({
     benchmarkRows: benchmarkHistoricalPrices,
     benchmarkIntradayRows: benchmarkIntradayPrices
   });
+  const performanceSeries: PortfolioPerformanceSeries = {
+    twr: comparisonSeries.map(toIndexedPerformancePoint),
+    mwr: moneyWeightedComparisonSeries,
+    absolute: absoluteComparisonSeries
+  };
 
   return {
     status: comparisonSeries.length > 0 || absoluteComparisonSeries.length > 0 || moneyWeightedComparisonSeries.length > 0 ? "ready" : "missing-benchmark-history",
@@ -778,6 +849,7 @@ export function buildPortfolioBenchmarkTimeline({
     portfolio: portfolioSeries,
     comparison: comparisonSeries,
     moneyWeightedComparison: moneyWeightedComparisonSeries,
-    absoluteComparison: absoluteComparisonSeries
+    absoluteComparison: absoluteComparisonSeries,
+    performanceSeries
   };
 }

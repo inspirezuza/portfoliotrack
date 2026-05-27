@@ -313,15 +313,13 @@ function buildLocalDemoOverlayPoints(symbol: string): DashboardBenchmarkOverlayP
 }
 
 function buildPortfolioMonthlyReturns(timeline: PortfolioBenchmarkTimeline) {
-  const series = timeline.comparison.length > 0
-    ? timeline.comparison
-    : timeline.moneyWeightedComparison;
+  const series = timeline.performanceSeries.twr;
   const pointsByMonth = new Map<string, Array<{ portfolio: number }>>();
 
   for (const point of series) {
     const month = getMonthKey(point.date);
     const monthPoints = pointsByMonth.get(month) ?? [];
-    monthPoints.push({ portfolio: point.portfolio });
+    monthPoints.push({ portfolio: point.portfolioIndex });
     pointsByMonth.set(month, monthPoints);
   }
 

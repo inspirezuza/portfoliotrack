@@ -173,14 +173,14 @@ const uiCopy = {
             summaryValue: "MWR",
             portfolioName: "Portfolio MWR",
             yAxisLabel: "MWR",
-            hint: "The chart uses money-weighted return from dated cash flows and ending market value."
+            hint: "The chart shows annualized money-weighted return from dated cash flows and ending market value."
           },
           ABSOLUTE: {
             summaryLabel: "Absolute return",
             summaryValue: "Absolute",
             portfolioName: "Portfolio absolute return",
             yAxisLabel: "Absolute",
-            hint: "The chart uses market value divided by cumulative net invested capital, indexed from 100."
+            hint: "The chart shows market value return against cumulative net invested capital."
           }
         },
         modeCopy: {
@@ -637,14 +637,14 @@ const uiCopy = {
             summaryValue: "MWR",
             portfolioName: "Portfolio MWR",
             yAxisLabel: "MWR",
-            hint: "The chart uses money-weighted return from dated cash flows and ending market value."
+            hint: "The chart shows annualized money-weighted return from dated cash flows and ending market value."
           },
           ABSOLUTE: {
             summaryLabel: "Absolute return",
             summaryValue: "Absolute",
             portfolioName: "Portfolio absolute return",
             yAxisLabel: "Absolute",
-            hint: "The chart uses market value divided by cumulative net invested capital, indexed from 100."
+            hint: "The chart shows market value return against cumulative net invested capital."
           }
         },
         modeCopy: {
