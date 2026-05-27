@@ -1,12 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { LoadingIndicator } from "@/components/loading-indicator";
+import {
+  ALL_PORTFOLIOS_SELECTION_KEY,
+  getPortfolioDashboardPath,
+  getPortfolioKeyFromPathname,
+  getPortfolioTransactionsPath,
+  isPortfolioTransactionsPath,
+} from "@/lib/portfolio/paths";
 import type { PortfolioListItem } from "@/server/portfolios";
-
-const ALL_PORTFOLIOS_SELECTION_KEY = "all";
 
 export function PortfolioSwitcher({
   aggregateLabel,
@@ -15,7 +20,7 @@ export function PortfolioSwitcher({
   manageLabel,
   portfolios,
   selectedPortfolioKey,
-  switchingLabel
+  switchingLabel,
 }: {
   aggregateLabel: string;
   canManage: boolean;
@@ -25,22 +30,35 @@ export function PortfolioSwitcher({
   selectedPortfolioKey: string;
   switchingLabel: string;
 }) {
+  const pathname = usePathname();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isChangingPortfolio, setIsChangingPortfolio] = useState(false);
   const isBusy = isPending || isChangingPortfolio;
+  const activePortfolioKey = getPortfolioKeyFromPathname(pathname) ?? selectedPortfolioKey;
 
   function handlePortfolioChange(portfolioId: string) {
     setIsChangingPortfolio(true);
     startTransition(async () => {
       try {
-        await fetch("/api/portfolio-selection", {
+        const response = await fetch("/api/portfolio-selection", {
           method: "POST",
           headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
           },
-          body: JSON.stringify({ portfolioId })
+          body: JSON.stringify({ portfolioId }),
         });
+
+        if (!response.ok) {
+          throw new Error("Portfolio selection failed.");
+        }
+
+        const nextPath =
+          pathname === "/transactions" || isPortfolioTransactionsPath(pathname)
+            ? getPortfolioTransactionsPath(portfolioId)
+            : getPortfolioDashboardPath(portfolioId);
+
+        router.push(nextPath);
         router.refresh();
       } finally {
         setIsChangingPortfolio(false);
@@ -52,7 +70,7 @@ export function PortfolioSwitcher({
     <div className="portfolio-switcher" aria-label={label} aria-busy={isBusy}>
       <select
         className="portfolio-select"
-        value={selectedPortfolioKey}
+        value={activePortfolioKey}
         onChange={(event) => handlePortfolioChange(event.target.value)}
         disabled={isBusy || portfolios.length === 0}
         aria-label={label}
@@ -71,7 +89,9 @@ export function PortfolioSwitcher({
         </Link>
       ) : null}
 
-      {isBusy ? <LoadingIndicator className="portfolio-switcher-status" label={switchingLabel} size="sm" /> : null}
+      {isBusy ? (
+        <LoadingIndicator className="portfolio-switcher-status" label={switchingLabel} size="sm" />
+      ) : null}
     </div>
   );
 }

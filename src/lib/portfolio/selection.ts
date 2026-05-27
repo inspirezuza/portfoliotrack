@@ -1,10 +1,15 @@
 import "server-only";
 
 import { cookies } from "next/headers";
-import { ensureDefaultPortfolio, getPortfolioById, listPortfolios, type PortfolioListItem } from "@/server/portfolios";
+import { ALL_PORTFOLIOS_SELECTION_KEY, parsePortfolioRouteKey } from "@/lib/portfolio/paths";
+import {
+  ensureDefaultPortfolio,
+  getPortfolioById,
+  listPortfolios,
+  type PortfolioListItem,
+} from "@/server/portfolios";
 
 export const PORTFOLIO_COOKIE_KEY = "portfoliotrack.portfolioId";
-export const ALL_PORTFOLIOS_SELECTION_KEY = "all";
 
 export type SinglePortfolioSelection = PortfolioListItem & {
   kind: "single";
@@ -37,21 +42,11 @@ export class AggregatePortfolioSelectionError extends Error {
   }
 }
 
-function parseCookiePortfolioId(value: string | undefined) {
-  if (value === ALL_PORTFOLIOS_SELECTION_KEY) {
-    return ALL_PORTFOLIOS_SELECTION_KEY;
-  }
-
-  const id = Number(value);
-
-  return Number.isInteger(id) && id > 0 ? id : null;
-}
-
 function toSinglePortfolioSelection(portfolio: PortfolioListItem): SinglePortfolioSelection {
   return {
     ...portfolio,
     kind: "single",
-    key: String(portfolio.id)
+    key: String(portfolio.id),
   };
 }
 
@@ -63,12 +58,12 @@ export function getAllPortfoliosSelection(): AllPortfoliosSelection {
     name: "All portfolios",
     isDefault: false,
     createdAt: null,
-    updatedAt: null
+    updatedAt: null,
   };
 }
 
 export function isAllPortfoliosSelection(
-  selectedPortfolio: SelectedPortfolio
+  selectedPortfolio: SelectedPortfolio,
 ): selectedPortfolio is AllPortfoliosSelection {
   return selectedPortfolio.kind === "all";
 }
@@ -83,29 +78,41 @@ export async function getSelectedPortfolioId() {
   return selection.selectedPortfolio.id;
 }
 
-export async function getPortfolioSelection(): Promise<PortfolioSelection> {
+export async function getRememberedPortfolioKey() {
   const cookieStore = await cookies();
-  const cookiePortfolioId = parseCookiePortfolioId(cookieStore.get(PORTFOLIO_COOKIE_KEY)?.value);
-  const defaultPortfolio = await ensureDefaultPortfolio();
+  return parsePortfolioRouteKey(cookieStore.get(PORTFOLIO_COOKIE_KEY)?.value);
+}
 
-  if (cookiePortfolioId === ALL_PORTFOLIOS_SELECTION_KEY) {
+export async function getPortfolioSelection({
+  portfolioKey,
+}: {
+  portfolioKey?: string | null;
+} = {}): Promise<PortfolioSelection> {
+  await ensureDefaultPortfolio();
+
+  const routePortfolioKey = parsePortfolioRouteKey(portfolioKey);
+  const selectedPortfolioKey =
+    portfolioKey == null ? await getRememberedPortfolioKey() : routePortfolioKey;
+  const portfolios = await listPortfolios();
+
+  if (selectedPortfolioKey === ALL_PORTFOLIOS_SELECTION_KEY || selectedPortfolioKey == null) {
     return {
-      portfolios: await listPortfolios(),
-      selectedPortfolio: getAllPortfoliosSelection()
+      portfolios,
+      selectedPortfolio: getAllPortfoliosSelection(),
     };
   }
 
-  const [portfolios, selectedByCookie] = await Promise.all([
-    listPortfolios(),
-    cookiePortfolioId == null ? Promise.resolve(null) : getPortfolioById(cookiePortfolioId)
-  ]);
-  const selectedPortfolio =
-    selectedByCookie ??
-    portfolios.find((portfolio) => portfolio.isDefault) ??
-    defaultPortfolio;
+  const selectedByKey = await getPortfolioById(selectedPortfolioKey);
+
+  if (selectedByKey == null) {
+    return {
+      portfolios,
+      selectedPortfolio: getAllPortfoliosSelection(),
+    };
+  }
 
   return {
     portfolios,
-    selectedPortfolio: toSinglePortfolioSelection(selectedPortfolio)
+    selectedPortfolio: toSinglePortfolioSelection(selectedByKey),
   };
 }

@@ -4,7 +4,7 @@ import {
   AggregatePortfolioSelectionError,
   getPortfolioSelection,
   getSelectedPortfolioId,
-  isAllPortfoliosSelection
+  isAllPortfoliosSelection,
 } from "@/lib/portfolio/selection";
 import {
   createTransaction,
@@ -13,7 +13,7 @@ import {
   getTransactionWorkspace,
   TransactionServiceError,
   updateTransaction,
-  type TransactionListItem
+  type TransactionListItem,
 } from "@/server/transactions";
 
 function getStatusCode(error: TransactionServiceError) {
@@ -34,17 +34,17 @@ function jsonErrorResponse(
   code: string,
   message: string,
   status: number,
-  details?: Record<string, unknown> | null
+  details?: Record<string, unknown> | null,
 ) {
   return NextResponse.json(
     {
       error: {
         code,
         message,
-        details: details ?? null
-      }
+        details: details ?? null,
+      },
     },
-    { status }
+    { status },
   );
 }
 
@@ -52,7 +52,7 @@ function aggregateSelectionErrorResponse() {
   return jsonErrorResponse(
     "AGGREGATE_PORTFOLIO_SELECTION",
     "Choose a specific portfolio before changing transactions.",
-    409
+    409,
   );
 }
 
@@ -79,16 +79,18 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const editTransactionId = Number(searchParams.get("edit"));
     const order = searchParams.get("order") === "asc" ? "asc" : "desc";
-    const selection = await getPortfolioSelection();
+    const selection = await getPortfolioSelection({
+      portfolioKey: searchParams.get("portfolioId"),
+    });
     const parsedEditTransactionId =
       Number.isInteger(editTransactionId) && editTransactionId > 0 ? editTransactionId : null;
     const workspace = isAllPortfoliosSelection(selection.selectedPortfolio)
       ? await getAggregateTransactionWorkspace({
-          editTransactionId: parsedEditTransactionId
+          editTransactionId: parsedEditTransactionId,
         })
       : await getTransactionWorkspace({
           editTransactionId: parsedEditTransactionId,
-          portfolioId: selection.selectedPortfolio.id
+          portfolioId: selection.selectedPortfolio.id,
         });
 
     return NextResponse.json({
@@ -97,7 +99,7 @@ export async function GET(request: Request) {
       formInstruments: workspace.formInstruments,
       instruments: workspace.instruments,
       summary: workspace.summary,
-      transactions: sortTransactionsByOrder(workspace.transactions, order)
+      transactions: sortTransactionsByOrder(workspace.transactions, order),
     });
   } catch (error) {
     if (error instanceof TransactionServiceError) {
@@ -113,7 +115,11 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     if (!(await isAdminAuthenticated())) {
-      return jsonErrorResponse("ADMIN_REQUIRED", "Admin login is required to change transactions.", 401);
+      return jsonErrorResponse(
+        "ADMIN_REQUIRED",
+        "Admin login is required to change transactions.",
+        401,
+      );
     }
 
     const payload = await request.json();
@@ -143,7 +149,11 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     if (!(await isAdminAuthenticated())) {
-      return jsonErrorResponse("ADMIN_REQUIRED", "Admin login is required to change transactions.", 401);
+      return jsonErrorResponse(
+        "ADMIN_REQUIRED",
+        "Admin login is required to change transactions.",
+        401,
+      );
     }
 
     const payload = await request.json();
@@ -151,7 +161,7 @@ export async function PUT(request: Request) {
     if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
       throw new TransactionServiceError(
         "VALIDATION_ERROR",
-        "Transaction update payload must be an object."
+        "Transaction update payload must be an object.",
       );
     }
 
@@ -182,7 +192,11 @@ export async function PUT(request: Request) {
 export async function DELETE(request: Request) {
   try {
     if (!(await isAdminAuthenticated())) {
-      return jsonErrorResponse("ADMIN_REQUIRED", "Admin login is required to change transactions.", 401);
+      return jsonErrorResponse(
+        "ADMIN_REQUIRED",
+        "Admin login is required to change transactions.",
+        401,
+      );
     }
 
     const payload = await request.json();
@@ -190,12 +204,14 @@ export async function DELETE(request: Request) {
     if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
       throw new TransactionServiceError(
         "VALIDATION_ERROR",
-        "Transaction delete payload must be an object."
+        "Transaction delete payload must be an object.",
       );
     }
 
     const portfolioId = await getSelectedPortfolioId();
-    const deletedTransaction = await deleteTransaction((payload as Record<string, unknown>).id, { portfolioId });
+    const deletedTransaction = await deleteTransaction((payload as Record<string, unknown>).id, {
+      portfolioId,
+    });
 
     return NextResponse.json({ transaction: deletedTransaction });
   } catch (error) {

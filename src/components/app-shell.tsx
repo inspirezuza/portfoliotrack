@@ -6,13 +6,18 @@ import { useTransition, type ReactNode } from "react";
 import { PendingBanner } from "@/components/loading-indicator";
 import { PendingSubmitButton } from "@/components/pending-submit-button";
 import { PortfolioSwitcher } from "@/components/portfolio-switcher";
+import {
+  getPortfolioDashboardPath,
+  getPortfolioKeyFromPathname,
+  getPortfolioTransactionsPath,
+  isPortfolioTransactionsPath,
+} from "@/lib/portfolio/paths";
 import { getUiCopy } from "@/lib/ui/copy";
 import { useUiPreferences } from "@/lib/ui/preferences";
 import { languages, type UiTheme } from "@/lib/ui/translations";
 import type { PortfolioListItem } from "@/server/portfolios";
 
 type NavItem = {
-  href: "/" | "/transactions";
   label: "dashboard" | "transactions";
   icon: NavIconName;
 };
@@ -21,16 +26,22 @@ type NavIconName = "dashboard" | "transactions";
 type ThemeIconName = UiTheme;
 
 const navItems: NavItem[] = [
-  { href: "/", label: "dashboard", icon: "dashboard" },
-  { href: "/transactions", label: "transactions", icon: "transactions" }
+  { label: "dashboard", icon: "dashboard" },
+  { label: "transactions", icon: "transactions" },
 ];
 
-function isActivePath(pathname: string, href: NavItem["href"]) {
-  if (href === "/") {
-    return pathname === "/";
+function getNavItemHref(item: NavItem, portfolioKey: string) {
+  return item.label === "dashboard"
+    ? getPortfolioDashboardPath(portfolioKey)
+    : getPortfolioTransactionsPath(portfolioKey);
+}
+
+function isActivePath(pathname: string, item: NavItem, href: string) {
+  if (item.label === "dashboard") {
+    return pathname === "/" || pathname === href;
   }
 
-  return pathname === href || pathname.startsWith(`${href}/`);
+  return pathname === "/transactions" || pathname === href || isPortfolioTransactionsPath(pathname);
 }
 
 function NavIcon({ name }: { name: NavIconName }) {
@@ -52,7 +63,7 @@ function NavIcon({ name }: { name: NavIconName }) {
         <path d="M8.5 13.9h7" />
         <path d="m13.9 15.6 1.7-1.7-1.7-1.7" />
       </>
-    )
+    ),
   };
 
   return (
@@ -79,9 +90,7 @@ function ThemeIcon({ name }: { name: ThemeIconName }) {
         <path d="m18.3 5.7 1.4-1.4" />
       </>
     ),
-    dark: (
-      <path d="M20.2 14.2a7.5 7.5 0 0 1-10.4-10.4 8.2 8.2 0 1 0 10.4 10.4Z" />
-    )
+    dark: <path d="M20.2 14.2a7.5 7.5 0 0 1-10.4-10.4 8.2 8.2 0 1 0 10.4 10.4Z" />,
   };
 
   return (
@@ -97,7 +106,7 @@ export function AppShell({
   children,
   isAdmin,
   portfolios,
-  selectedPortfolioKey
+  selectedPortfolioKey,
 }: {
   children: ReactNode;
   isAdmin: boolean;
@@ -106,6 +115,7 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const currentPortfolioKey = getPortfolioKeyFromPathname(pathname) ?? selectedPortfolioKey;
   const { language, theme, setLanguage, setTheme } = useUiPreferences();
   const [isLanguagePending, startLanguageTransition] = useTransition();
   const copy = getUiCopy(language).shell;
@@ -114,18 +124,23 @@ export function AppShell({
     <div className="app-shell">
       <div className="shell-frame">
         <aside className="shell-sidebar" aria-label={copy.mainNavigation}>
-          <Link href="/" className="brand-mark" aria-label={copy.homeLabel}>
+          <Link
+            href={getPortfolioDashboardPath(currentPortfolioKey)}
+            className="brand-mark"
+            aria-label={copy.homeLabel}
+          >
             P
           </Link>
 
           <nav className="shell-nav" aria-label={copy.primaryNavigation}>
             {navItems.map((item) => {
-              const active = isActivePath(pathname, item.href);
+              const href = getNavItemHref(item, currentPortfolioKey);
+              const active = isActivePath(pathname, item, href);
 
               return (
                 <Link
-                  key={item.href}
-                  href={item.href}
+                  key={item.label}
+                  href={href}
                   className={`nav-link${active ? " nav-link-active" : ""}`}
                   aria-label={copy.nav[item.label]}
                   title={copy.nav[item.label]}

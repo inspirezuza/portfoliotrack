@@ -1,60 +1,43 @@
-import { TransactionWorkspaceClient } from "@/components/transaction-workspace-client";
-import { isAdminAuthenticated } from "@/lib/auth/admin";
-import { getPortfolioSelection, isAllPortfoliosSelection } from "@/lib/portfolio/selection";
-import { getUiCopy } from "@/lib/ui/copy";
-import { getServerUiLanguage } from "@/lib/ui/server";
-import { getAggregateTransactionWorkspace, getTransactionWorkspace } from "@/server/transactions";
+import { redirect } from "next/navigation";
+import { getPortfolioTransactionsPath } from "@/lib/portfolio/paths";
+import { getPortfolioSelection } from "@/lib/portfolio/selection";
 
 export const dynamic = "force-dynamic";
 
-type TransactionsPageProps = {
+type TransactionsRedirectPageProps = {
   searchParams?: Promise<{
     edit?: string | string[];
   }>;
 };
 
-function parseEditTransactionId(edit: string | string[] | undefined) {
-  const value = Array.isArray(edit) ? edit[0] : edit;
-  const id = Number(value);
+function appendSearchParams(
+  path: string,
+  searchParams: Record<string, string | string[] | undefined>,
+) {
+  const params = new URLSearchParams();
 
-  return Number.isInteger(id) && id > 0 ? id : null;
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        params.append(key, item);
+      }
+    } else if (value != null) {
+      params.set(key, value);
+    }
+  }
+
+  const queryString = params.toString();
+
+  return queryString ? `${path}?${queryString}` : path;
 }
 
-export default async function TransactionsPage({ searchParams }: TransactionsPageProps) {
-  const language = await getServerUiLanguage();
-  const copy = getUiCopy(language);
-  const isAdmin = await isAdminAuthenticated();
+export default async function TransactionsRedirectPage({
+  searchParams,
+}: TransactionsRedirectPageProps) {
   const { selectedPortfolio } = await getPortfolioSelection();
-  const isAggregatePortfolio = isAllPortfoliosSelection(selectedPortfolio);
-  const resolvedSearchParams = await searchParams;
-  const editTransactionId = isAdmin && !isAggregatePortfolio ? parseEditTransactionId(resolvedSearchParams?.edit) : null;
-  const {
-    allInstruments,
-    editingTransaction,
-    instruments,
-    summary,
-    transactions
-  } = isAggregatePortfolio
-    ? await getAggregateTransactionWorkspace({
-        editTransactionId: null
-      })
-    : await getTransactionWorkspace({
-        editTransactionId,
-        portfolioId: selectedPortfolio.id
-      });
+  const resolvedSearchParams = (await searchParams) ?? {};
 
-  return (
-    <TransactionWorkspaceClient
-      canEdit={isAdmin && !isAggregatePortfolio}
-      initialAllInstruments={allInstruments}
-      initialEditingTransaction={editingTransaction}
-      initialInstruments={instruments}
-      initialSummary={summary}
-      initialTransactions={transactions}
-      isAggregatePortfolio={isAggregatePortfolio}
-      language={language}
-      selectedPortfolioKey={selectedPortfolio.key}
-      selectedPortfolioName={isAggregatePortfolio ? copy.shell.allPortfolios : selectedPortfolio.name}
-    />
+  redirect(
+    appendSearchParams(getPortfolioTransactionsPath(selectedPortfolio.key), resolvedSearchParams),
   );
 }

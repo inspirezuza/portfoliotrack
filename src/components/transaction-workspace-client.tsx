@@ -31,6 +31,7 @@ type TransactionWorkspaceClientProps = {
   language: UiLanguage;
   selectedPortfolioKey: string;
   selectedPortfolioName: string;
+  transactionsPath: string;
 };
 
 type WorkspaceApiResponse = {
@@ -50,29 +51,34 @@ function getEditTransactionIdFromUrl() {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
-function setEditTransactionUrl(id: number | null) {
-  const nextUrl = id == null ? "/transactions" : `/transactions?edit=${id}`;
+function setEditTransactionUrl(id: number | null, transactionsPath: string) {
+  const nextUrl = id == null ? transactionsPath : `${transactionsPath}?edit=${id}`;
   window.history.pushState(null, "", nextUrl);
 }
 
-function clearEditTransactionUrl() {
-  window.history.replaceState(null, "", "/transactions");
+function clearEditTransactionUrl(transactionsPath: string) {
+  window.history.replaceState(null, "", transactionsPath);
 }
 
 function getEditFormInstruments(
   editingTransaction: TransactionListItem | null,
   instruments: TransactionInstrumentOption[],
-  allInstruments: TransactionInstrumentOption[]
+  allInstruments: TransactionInstrumentOption[],
 ) {
-  if (!editingTransaction || instruments.some((instrument) => instrument.id === editingTransaction.instrumentId)) {
+  if (
+    !editingTransaction ||
+    instruments.some((instrument) => instrument.id === editingTransaction.instrumentId)
+  ) {
     return instruments;
   }
 
   const editingInstrument = allInstruments.find(
-    (instrument) => instrument.id === editingTransaction.instrumentId
+    (instrument) => instrument.id === editingTransaction.instrumentId,
   );
 
-  return editingInstrument ? sortInstrumentOptions([...instruments, editingInstrument]) : instruments;
+  return editingInstrument
+    ? sortInstrumentOptions([...instruments, editingInstrument])
+    : instruments;
 }
 
 export function TransactionWorkspaceClient({
@@ -85,7 +91,8 @@ export function TransactionWorkspaceClient({
   isAggregatePortfolio,
   language,
   selectedPortfolioKey,
-  selectedPortfolioName
+  selectedPortfolioName,
+  transactionsPath,
 }: TransactionWorkspaceClientProps) {
   const copy = getUiCopy(language);
   const [allInstruments, setAllInstruments] = useState(initialAllInstruments);
@@ -110,7 +117,7 @@ export function TransactionWorkspaceClient({
     initialInstruments,
     initialSummary,
     initialTransactions,
-    selectedPortfolioKey
+    selectedPortfolioKey,
   ]);
 
   const refreshWorkspace = useCallback(async () => {
@@ -118,11 +125,15 @@ export function TransactionWorkspaceClient({
     setIsSyncingWorkspace(true);
 
     try {
-      const response = await fetch("/api/transactions?order=desc", {
+      const searchParams = new URLSearchParams({
+        order: "desc",
+        portfolioId: selectedPortfolioKey,
+      });
+      const response = await fetch(`/api/transactions?${searchParams.toString()}`, {
         headers: {
-          Accept: "application/json"
+          Accept: "application/json",
         },
-        cache: "no-store"
+        cache: "no-store",
       });
       const payload = (await response.json()) as WorkspaceApiResponse;
 
@@ -150,10 +161,11 @@ export function TransactionWorkspaceClient({
           }
 
           const refreshedTransaction =
-            payload.transactions?.find((transaction) => transaction.id === currentTransaction.id) ?? null;
+            payload.transactions?.find((transaction) => transaction.id === currentTransaction.id) ??
+            null;
 
           if (!refreshedTransaction) {
-            clearEditTransactionUrl();
+            clearEditTransactionUrl(transactionsPath);
           }
 
           return refreshedTransaction;
@@ -161,22 +173,25 @@ export function TransactionWorkspaceClient({
       }
     } catch (error) {
       setSyncErrorMessage(
-        error instanceof Error ? error.message : "Transactions could not be refreshed."
+        error instanceof Error ? error.message : "Transactions could not be refreshed.",
       );
     } finally {
       setIsSyncingWorkspace(false);
     }
-  }, []);
+  }, [selectedPortfolioKey, transactionsPath]);
 
-  const openEditModal = useCallback((transaction: TransactionListItem) => {
-    setEditingTransaction(transaction);
-    setEditTransactionUrl(transaction.id);
-  }, []);
+  const openEditModal = useCallback(
+    (transaction: TransactionListItem) => {
+      setEditingTransaction(transaction);
+      setEditTransactionUrl(transaction.id, transactionsPath);
+    },
+    [transactionsPath],
+  );
 
   const closeEditModal = useCallback(() => {
     setEditingTransaction(null);
-    clearEditTransactionUrl();
-  }, []);
+    clearEditTransactionUrl(transactionsPath);
+  }, [transactionsPath]);
 
   useEffect(() => {
     function handlePopState() {
@@ -185,7 +200,7 @@ export function TransactionWorkspaceClient({
       setEditingTransaction(
         editTransactionId == null
           ? null
-          : transactions.find((transaction) => transaction.id === editTransactionId) ?? null
+          : (transactions.find((transaction) => transaction.id === editTransactionId) ?? null),
       );
     }
 
@@ -198,7 +213,7 @@ export function TransactionWorkspaceClient({
 
   const editFormInstruments = useMemo(
     () => getEditFormInstruments(editingTransaction, instruments, allInstruments),
-    [allInstruments, editingTransaction, instruments]
+    [allInstruments, editingTransaction, instruments],
   );
   const latestTradeDate = summary.latestTradeDate ?? copy.shared.noTradesYet;
 
@@ -208,7 +223,9 @@ export function TransactionWorkspaceClient({
         <div>
           <p className="eyebrow">{copy.transactions.pageEyebrow}</p>
           <h1>{copy.transactions.pageTitle}</h1>
-          <p>{copy.transactions.pageDescription} {selectedPortfolioName}</p>
+          <p>
+            {copy.transactions.pageDescription} {selectedPortfolioName}
+          </p>
         </div>
       </div>
 
