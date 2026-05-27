@@ -10,7 +10,7 @@ import {
   ResponsiveContainer,
   Tooltip,
   XAxis,
-  YAxis
+  YAxis,
 } from "recharts";
 import {
   attachTimeAxis,
@@ -22,7 +22,7 @@ import {
   isIntradayDate,
   isIntradayPoint,
   parseChartDate,
-  type TimeAxisPoint
+  type TimeAxisPoint,
 } from "@/lib/charts/time-axis";
 import { formatCurrency } from "@/lib/format";
 import { useChartVisibilityKey } from "@/hooks/use-chart-visibility-key";
@@ -34,15 +34,12 @@ type AssetPriceChartProps = {
 
 type TimeframeKey = "1D" | "5D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "START" | "ALL";
 
-type ChartPoint = AssetDetail["marketData"]["priceHistory"][number] & TimeAxisPoint & {
-  changeFromRangeStart: number | null;
-};
+type ChartPoint = AssetDetail["marketData"]["priceHistory"][number] &
+  TimeAxisPoint & {
+    changeFromRangeStart: number | null;
+  };
 
-type ChartMouseState = {
-  activePayload?: Array<{
-    payload?: ChartPoint;
-  }>;
-};
+type ChartMouseState = unknown;
 
 type SelectionRange = {
   startDate: string;
@@ -70,7 +67,7 @@ const TIMEFRAME_OPTIONS: Array<{
   { key: "YTD", label: "YTD" },
   { key: "1Y", label: "1Y" },
   { key: "START", label: "Start" },
-  { key: "ALL", label: "All" }
+  { key: "ALL", label: "All" },
 ];
 
 function formatChartDate(value: string) {
@@ -81,7 +78,7 @@ function formatChartDate(value: string) {
     day: "numeric",
     year: "numeric",
     ...(hasTime ? { hour: "2-digit", minute: "2-digit" } : {}),
-    timeZone: "UTC"
+    timeZone: "UTC",
   }).format(parseChartDate(value));
 }
 
@@ -93,20 +90,20 @@ function formatCompactChartDate(value: string) {
     day: "numeric",
     year: "numeric",
     ...(hasTime ? { hour: "2-digit", minute: "2-digit" } : {}),
-    timeZone: "UTC"
+    timeZone: "UTC",
   }).format(parseChartDate(value));
 }
 
 function formatPrice(value: number, currency: string) {
   return formatCurrency(value, {
     currency,
-    maximumFractionDigits: value >= 100 ? 2 : 4
+    maximumFractionDigits: value >= 100 ? 2 : 4,
   });
 }
 
 function formatAxisPrice(value: number) {
   return new Intl.NumberFormat(undefined, {
-    maximumFractionDigits: value >= 100 ? 2 : 4
+    maximumFractionDigits: value >= 100 ? 2 : 4,
   }).format(value);
 }
 
@@ -115,10 +112,16 @@ function formatSignedPercent(value: number) {
 }
 
 function getUnavailableMessage(asset: AssetDetail) {
-  return asset.marketData.historyUnavailableReason ?? "No price history is available for this chart yet.";
+  return (
+    asset.marketData.historyUnavailableReason ?? "No price history is available for this chart yet."
+  );
 }
 
-function getTimeframeStartDate(key: TimeframeKey, latestDate: string, sinceStartDate: string | null) {
+function getTimeframeStartDate(
+  key: TimeframeKey,
+  latestDate: string,
+  sinceStartDate: string | null,
+) {
   const latest = parseChartDate(latestDate);
 
   if (key === "ALL") {
@@ -141,7 +144,7 @@ function getTimeframeStartDate(key: TimeframeKey, latestDate: string, sinceStart
     "1W": 7,
     "1M": 30,
     "3M": 90,
-    "1Y": 365
+    "1Y": 365,
   };
   latest.setUTCDate(latest.getUTCDate() - daysByKey[key]);
 
@@ -167,7 +170,7 @@ function getPreferredIntradayInterval(timeframe: TimeframeKey) {
 function getVisibleHistory(
   history: AssetDetail["marketData"]["priceHistory"],
   timeframe: TimeframeKey,
-  sinceStartDate: string | null
+  sinceStartDate: string | null,
 ) {
   const latestPoint = history[history.length - 1];
 
@@ -178,12 +181,14 @@ function getVisibleHistory(
   const startDate = getTimeframeStartDate(timeframe, latestPoint.date, sinceStartDate);
   const startTime = startDate == null ? null : getUtcDateTime(startDate);
   const filteredHistory =
-    startTime == null ? history : history.filter((point) => getUtcDateTime(point.date) >= startTime);
+    startTime == null
+      ? history
+      : history.filter((point) => getUtcDateTime(point.date) >= startTime);
 
   if (isShortTimeframe(timeframe)) {
     const preferredInterval = getPreferredIntradayInterval(timeframe);
     const preferredIntradayHistory = filteredHistory.filter(
-      (point) => preferredInterval != null && point.interval === preferredInterval
+      (point) => preferredInterval != null && point.interval === preferredInterval,
     );
 
     if (preferredIntradayHistory.length >= 2) {
@@ -224,7 +229,7 @@ function getSelectionPoints(data: ChartPoint[], selection: SelectionRange | null
 
   return {
     startPoint,
-    endPoint
+    endPoint,
   };
 }
 
@@ -232,8 +237,11 @@ function hasSelectionSpan(points: ReturnType<typeof getSelectionPoints>) {
   return points != null && points.startPoint.date !== points.endPoint.date;
 }
 
-function getChartPoint(state: ChartMouseState | undefined) {
-  return state?.activePayload?.[0]?.payload ?? null;
+function getChartPoint(state: ChartMouseState) {
+  return (
+    (state as { activePayload?: Array<{ payload?: ChartPoint }> } | undefined)?.activePayload?.[0]
+      ?.payload ?? null
+  );
 }
 
 function calculatePercentChange(startValue: number, endValue: number) {
@@ -288,12 +296,8 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
   const hasAverageCostLine = asset.position.hasOpenPosition && asset.position.averageCost != null;
   const visibleHistory = useMemo(
     () =>
-      getVisibleHistory(
-        asset.marketData.priceHistory,
-        timeframe,
-        asset.position.firstTradeDate
-      ),
-    [asset.marketData.priceHistory, asset.position.firstTradeDate, timeframe]
+      getVisibleHistory(asset.marketData.priceHistory, timeframe, asset.position.firstTradeDate),
+    [asset.marketData.priceHistory, asset.position.firstTradeDate, timeframe],
   );
   const chartData = useMemo<ChartPoint[]>(() => {
     const firstClose = visibleHistory[0]?.close ?? null;
@@ -301,7 +305,7 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
     return attachTimeAxis(visibleHistory).map((point) => ({
       ...point,
       changeFromRangeStart:
-        firstClose == null ? null : calculatePercentChange(firstClose, point.close)
+        firstClose == null ? null : calculatePercentChange(firstClose, point.close),
     }));
   }, [visibleHistory]);
   const rangeStats = useMemo(() => {
@@ -312,10 +316,10 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
     const firstPoint = chartData[0];
     const latestPoint = chartData[chartData.length - 1];
     const highPoint = chartData.reduce((highest, point) =>
-      point.close > highest.close ? point : highest
+      point.close > highest.close ? point : highest,
     );
     const lowPoint = chartData.reduce((lowest, point) =>
-      point.close < lowest.close ? point : lowest
+      point.close < lowest.close ? point : lowest,
     );
     const percentChange = calculatePercentChange(firstPoint.close, latestPoint.close);
 
@@ -324,7 +328,7 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
       latestPoint,
       highPoint,
       lowPoint,
-      percentChange
+      percentChange,
     };
   }, [chartData]);
   const selectionPoints = getSelectionPoints(chartData, selection);
@@ -356,7 +360,7 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
     isDraggingRef.current = true;
     setSelection({
       startDate: point.date,
-      endDate: point.date
+      endDate: point.date,
     });
   }
 
@@ -372,8 +376,8 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
         ? currentSelection
         : {
             ...currentSelection,
-            endDate: point.date
-          }
+            endDate: point.date,
+          },
     );
   }
 
@@ -432,11 +436,15 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
               </div>
               <div>
                 <span>Latest</span>
-                <strong>{formatPrice(rangeStats.latestPoint.close, asset.instrument.currency)}</strong>
+                <strong>
+                  {formatPrice(rangeStats.latestPoint.close, asset.instrument.currency)}
+                </strong>
               </div>
               <div>
                 <span>High</span>
-                <strong>{formatPrice(rangeStats.highPoint.close, asset.instrument.currency)}</strong>
+                <strong>
+                  {formatPrice(rangeStats.highPoint.close, asset.instrument.currency)}
+                </strong>
               </div>
               <div>
                 <span>Low</span>
@@ -468,7 +476,9 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
                   scale="time"
                   domain={xDomain}
                   ticks={xAxisTicks}
-                  tickFormatter={(value: number | string) => formatTimeAxisTick(value, "en-GB", xAxisSpan)}
+                  tickFormatter={(value: number | string) =>
+                    formatTimeAxisTick(value, "en-GB", xAxisSpan)
+                  }
                   tickLine={false}
                   axisLine={false}
                   minTickGap={28}
@@ -507,11 +517,11 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
                     label={{
                       value: `Avg ${formatPrice(
                         asset.position.averageCost ?? 0,
-                        asset.instrument.currency
+                        asset.instrument.currency,
                       )}`,
                       fill: "var(--warm)",
                       fontSize: 12,
-                      position: "insideTopLeft"
+                      position: "insideTopLeft",
                     }}
                   />
                 ) : null}
@@ -538,17 +548,17 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
                 <span>Drag across the chart to compare</span>
               ) : (
                 <>
-                <span>
-                  {formatCompactChartDate(selectionPoints.startPoint.date)} to{" "}
-                  {formatCompactChartDate(selectionPoints.endPoint.date)}
-                </span>
-                <strong className={selectionPercent >= 0 ? "value-positive" : "value-negative"}>
-                  {formatSignedPercent(selectionPercent)}
-                </strong>
-                <span>
-                  {formatPrice(selectionPoints.startPoint.close, asset.instrument.currency)} to{" "}
-                  {formatPrice(selectionPoints.endPoint.close, asset.instrument.currency)}
-                </span>
+                  <span>
+                    {formatCompactChartDate(selectionPoints.startPoint.date)} to{" "}
+                    {formatCompactChartDate(selectionPoints.endPoint.date)}
+                  </span>
+                  <strong className={selectionPercent >= 0 ? "value-positive" : "value-negative"}>
+                    {formatSignedPercent(selectionPercent)}
+                  </strong>
+                  <span>
+                    {formatPrice(selectionPoints.startPoint.close, asset.instrument.currency)} to{" "}
+                    {formatPrice(selectionPoints.endPoint.close, asset.instrument.currency)}
+                  </span>
                 </>
               )}
             </div>

@@ -9,12 +9,12 @@ import {
   ResponsiveContainer,
   Tooltip,
   XAxis,
-  YAxis
+  YAxis,
 } from "recharts";
 import { formatCurrency } from "@/lib/format";
 import type {
   PortfolioBenchmarkTimelineStatus,
-  PortfolioTimelinePoint
+  PortfolioTimelinePoint,
 } from "@/lib/portfolio/timeline";
 import {
   attachTimeAxis,
@@ -26,7 +26,7 @@ import {
   isIntradayDate,
   isIntradayPoint,
   parseChartDate,
-  type TimeAxisPoint
+  type TimeAxisPoint,
 } from "@/lib/charts/time-axis";
 import { useChartVisibilityKey } from "@/hooks/use-chart-visibility-key";
 import { getUiCopy } from "@/lib/ui/copy";
@@ -41,15 +41,12 @@ type PortfolioChartProps = {
 
 type TimeframeKey = "1D" | "5D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "ALL";
 
-type ChartPoint = PortfolioTimelinePoint & TimeAxisPoint & {
-  changeFromRangeStart: number | null;
-};
+type ChartPoint = PortfolioTimelinePoint &
+  TimeAxisPoint & {
+    changeFromRangeStart: number | null;
+  };
 
-type ChartMouseState = {
-  activePayload?: Array<{
-    payload?: ChartPoint;
-  }>;
-};
+type ChartMouseState = unknown;
 
 type SelectionRange = {
   startDate: string;
@@ -76,14 +73,14 @@ function formatChartDate(value: string, locale: string) {
     day: "numeric",
     year: "numeric",
     ...(hasTime ? { hour: "2-digit", minute: "2-digit" } : {}),
-    timeZone: "UTC"
+    timeZone: "UTC",
   }).format(parseChartDate(value));
 }
 
 function formatChartValue(value: number, currency: string | null, locale: string) {
   if (currency == null) {
     return new Intl.NumberFormat(locale, {
-      maximumFractionDigits: 0
+      maximumFractionDigits: 0,
     }).format(value);
   }
 
@@ -91,14 +88,14 @@ function formatChartValue(value: number, currency: string | null, locale: string
     currency,
     locale,
     minimumFractionDigits: value >= 100 ? 0 : 2,
-    maximumFractionDigits: value >= 100 ? 0 : 2
+    maximumFractionDigits: value >= 100 ? 0 : 2,
   });
 }
 
 function formatAxisValue(value: number, locale: string) {
   return new Intl.NumberFormat(locale, {
     maximumFractionDigits: value >= 100 ? 0 : 2,
-    notation: value >= 1_000_000 ? "compact" : "standard"
+    notation: value >= 1_000_000 ? "compact" : "standard",
   }).format(value);
 }
 
@@ -108,7 +105,7 @@ function formatSignedPercent(value: number) {
 
 function getUnavailableMessage(
   status: PortfolioBenchmarkTimelineStatus,
-  copy: ReturnType<typeof getUiCopy>["charts"]["portfolio"]
+  copy: ReturnType<typeof getUiCopy>["charts"]["portfolio"],
 ) {
   switch (status) {
     case "no-transactions":
@@ -139,7 +136,7 @@ function getTimeframeStartDate(key: TimeframeKey, latestDate: string) {
     "1W": 7,
     "1M": 30,
     "3M": 90,
-    "1Y": 365
+    "1Y": 365,
   };
   latest.setUTCDate(latest.getUTCDate() - daysByKey[key]);
 
@@ -177,7 +174,7 @@ function getVisibleSeries(series: PortfolioTimelinePoint[], timeframe: Timeframe
   if (isShortTimeframe(timeframe)) {
     const preferredInterval = getPreferredIntradayInterval(timeframe);
     const preferredIntradaySeries = filteredSeries.filter(
-      (point) => preferredInterval != null && point.interval === preferredInterval
+      (point) => preferredInterval != null && point.interval === preferredInterval,
     );
 
     if (preferredIntradaySeries.length >= 2) {
@@ -241,7 +238,7 @@ function getSelectionPoints(data: ChartPoint[], selection: SelectionRange | null
 
   return {
     startPoint,
-    endPoint
+    endPoint,
   };
 }
 
@@ -249,8 +246,11 @@ function hasSelectionSpan(points: ReturnType<typeof getSelectionPoints>) {
   return points != null && points.startPoint.date !== points.endPoint.date;
 }
 
-function getChartPoint(state: ChartMouseState | undefined) {
-  return state?.activePayload?.[0]?.payload ?? null;
+function getChartPoint(state: ChartMouseState) {
+  return (
+    (state as { activePayload?: Array<{ payload?: ChartPoint }> } | undefined)?.activePayload?.[0]
+      ?.payload ?? null
+  );
 }
 
 function PortfolioChartTooltip({
@@ -258,7 +258,7 @@ function PortfolioChartTooltip({
   label,
   language,
   payload,
-  currency
+  currency,
 }: PortfolioChartTooltipProps) {
   const point = payload?.[0]?.payload;
   const copy = getUiCopy(language).charts.common;
@@ -296,7 +296,7 @@ export function PortfolioChart({ currency, language, series, status }: Portfolio
     return attachTimeAxis(visibleSeries).map((point) => ({
       ...point,
       changeFromRangeStart:
-        firstValue == null ? null : calculatePercentChange(firstValue, point.value)
+        firstValue == null ? null : calculatePercentChange(firstValue, point.value),
     }));
   }, [visibleSeries]);
   const rangeStats = useMemo(() => {
@@ -307,10 +307,10 @@ export function PortfolioChart({ currency, language, series, status }: Portfolio
     const firstPoint = chartData[0];
     const latestPoint = chartData[chartData.length - 1];
     const highPoint = chartData.reduce((highest, point) =>
-      point.value > highest.value ? point : highest
+      point.value > highest.value ? point : highest,
     );
     const lowPoint = chartData.reduce((lowest, point) =>
-      point.value < lowest.value ? point : lowest
+      point.value < lowest.value ? point : lowest,
     );
     const percentChange = calculatePercentChange(firstPoint.value, latestPoint.value);
 
@@ -318,7 +318,7 @@ export function PortfolioChart({ currency, language, series, status }: Portfolio
       latestPoint,
       highPoint,
       lowPoint,
-      percentChange
+      percentChange,
     };
   }, [chartData]);
   const selectionPoints = getSelectionPoints(chartData, selection);
@@ -329,7 +329,7 @@ export function PortfolioChart({ currency, language, series, status }: Portfolio
   const hasActiveSelection = hasSelectionSpan(selectionPoints);
   const yDomain = useMemo(
     () => getPaddedDomain(chartData.map((point) => point.value)),
-    [chartData]
+    [chartData],
   );
   const xDomain = useMemo(() => getTimeAxisDomain(chartData), [chartData]);
   const xAxisTicks = useMemo(() => buildTimeAxisTicks(chartData), [chartData]);
@@ -345,7 +345,7 @@ export function PortfolioChart({ currency, language, series, status }: Portfolio
     isDraggingRef.current = true;
     setSelection({
       startDate: point.date,
-      endDate: point.date
+      endDate: point.date,
     });
   }
 
@@ -361,8 +361,8 @@ export function PortfolioChart({ currency, language, series, status }: Portfolio
         ? currentSelection
         : {
             ...currentSelection,
-            endDate: point.date
-          }
+            endDate: point.date,
+          },
     );
   }
 
@@ -453,7 +453,9 @@ export function PortfolioChart({ currency, language, series, status }: Portfolio
                   scale="time"
                   domain={xDomain}
                   ticks={xAxisTicks}
-                  tickFormatter={(value: number | string) => formatTimeAxisTick(value, locale, xAxisSpan)}
+                  tickFormatter={(value: number | string) =>
+                    formatTimeAxisTick(value, locale, xAxisSpan)
+                  }
                   tickLine={false}
                   axisLine={false}
                   minTickGap={28}
@@ -507,18 +509,18 @@ export function PortfolioChart({ currency, language, series, status }: Portfolio
                 <span>{copy.charts.common.dragToCompare}</span>
               ) : (
                 <>
-                <span>
-                  {formatChartDate(selectionPoints.startPoint.date, locale)}{" "}
-                  {copy.charts.common.to} {formatChartDate(selectionPoints.endPoint.date, locale)}
-                </span>
-                <strong className={selectionPercent >= 0 ? "value-positive" : "value-negative"}>
-                  {formatSignedPercent(selectionPercent)}
-                </strong>
-                <span>
-                  {formatChartValue(selectionPoints.startPoint.value, currency, locale)}{" "}
-                  {copy.charts.common.to}{" "}
-                  {formatChartValue(selectionPoints.endPoint.value, currency, locale)}
-                </span>
+                  <span>
+                    {formatChartDate(selectionPoints.startPoint.date, locale)}{" "}
+                    {copy.charts.common.to} {formatChartDate(selectionPoints.endPoint.date, locale)}
+                  </span>
+                  <strong className={selectionPercent >= 0 ? "value-positive" : "value-negative"}>
+                    {formatSignedPercent(selectionPercent)}
+                  </strong>
+                  <span>
+                    {formatChartValue(selectionPoints.startPoint.value, currency, locale)}{" "}
+                    {copy.charts.common.to}{" "}
+                    {formatChartValue(selectionPoints.endPoint.value, currency, locale)}
+                  </span>
                 </>
               )}
             </div>

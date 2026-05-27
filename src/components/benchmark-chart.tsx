@@ -73,11 +73,7 @@ type BenchmarkPerformanceSummary = {
   absoluteReturn: number | null;
 };
 
-type ChartMouseState = {
-  activePayload?: Array<{
-    payload?: ChartPoint;
-  }>;
-};
+type ChartMouseState = unknown;
 
 type SelectionRange = {
   startDate: string;
@@ -387,8 +383,11 @@ function hasSelectionSpan(points: ReturnType<typeof getSelectionPoints>) {
   return points != null && points.startPoint.date !== points.endPoint.date;
 }
 
-function getChartPoint(state: ChartMouseState | undefined) {
-  return state?.activePayload?.[0]?.payload ?? null;
+function getChartPoint(state: ChartMouseState) {
+  return (
+    (state as { activePayload?: Array<{ payload?: ChartPoint }> } | undefined)?.activePayload?.[0]
+      ?.payload ?? null
+  );
 }
 
 function BenchmarkChartTooltip({
