@@ -1,6 +1,6 @@
 # User Preferences
 
-- Commits are allowed in this repository.
+- For this PortfolioTrack project, auto commit is allowed and expected.
 - After completing and verifying any coherent work set, Codex must create a git commit automatically without asking for extra confirmation, unless the user explicitly says not to commit or the next action is risky or destructive.
 - Commit only files changed for the current task. Never include pre-existing unrelated dirty or untracked files.
 - When using Superpowers skills or workflows, do not create commits silently; mention the commit hash in the final summary.
