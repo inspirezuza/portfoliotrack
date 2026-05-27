@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type CSSProperties, useCallback, useMemo, useState, useTransition } from "react";
+import { Fragment, type CSSProperties, useCallback, useMemo, useState, useTransition } from "react";
 import { InstrumentLogo } from "@/components/instrument-logo";
 import { ButtonLoadingContent, PendingBanner } from "@/components/loading-indicator";
-import { MarketRefreshStatus, type MarketRefreshStatusRun } from "@/components/market-refresh-status";
+import {
+  MarketRefreshStatus,
+  type MarketRefreshStatusRun,
+} from "@/components/market-refresh-status";
 import { formatCurrency, formatPercentRatio, formatQuantity } from "@/lib/format";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
@@ -13,7 +16,8 @@ import type {
   HoldingPerformance,
   HoldingPerformanceKey,
   HoldingPerformanceTimeframe,
-  HoldingRow
+  HoldingLot,
+  HoldingRow,
 } from "@/server/holdings";
 
 type HoldingsTableProps = {
@@ -58,13 +62,13 @@ const PERFORMANCE_TIMEFRAMES: HoldingPerformanceTimeframe[] = [
   "1Y",
   "3Y",
   "5Y",
-  "MAX"
+  "MAX",
 ];
 
 const EMPTY_PERFORMANCE: HoldingPerformance = {
   amount: null,
   percent: null,
-  amountInValuationCurrency: null
+  amountInValuationCurrency: null,
 };
 
 function isNativeCurrencyVisible(holding: HoldingRow) {
@@ -89,14 +93,14 @@ function getHoldingPerformance(holding: HoldingRow, performanceKey: HoldingPerfo
 
 function getPricePerformanceTimeframeLabel(
   copy: ReturnType<typeof getUiCopy>,
-  timeframe: HoldingPerformanceTimeframe
+  timeframe: HoldingPerformanceTimeframe,
 ) {
   return copy.holdings.table.timeframes[timeframe];
 }
 
 function getPerformanceKey({
   basis,
-  timeframe
+  timeframe,
 }: {
   basis: PerformanceBasis;
   timeframe: HoldingPerformanceTimeframe;
@@ -107,7 +111,7 @@ function getPerformanceKey({
 function getPerformanceColumnLabel({
   basis,
   copy,
-  timeframe
+  timeframe,
 }: {
   basis: PerformanceBasis;
   copy: ReturnType<typeof getUiCopy>;
@@ -116,14 +120,18 @@ function getPerformanceColumnLabel({
   const timeframeLabel = getPricePerformanceTimeframeLabel(copy, timeframe);
 
   return basis === "cost"
-    ? copy.holdings.table.columns.performance(`${copy.holdings.table.performanceBasis.cost} ${timeframeLabel}`)
+    ? copy.holdings.table.columns.performance(
+        `${copy.holdings.table.performanceBasis.cost} ${timeframeLabel}`,
+      )
     : copy.holdings.table.columns.performance(timeframeLabel);
 }
 
 function getValuationPerformanceAmount(holding: HoldingRow, performanceKey: HoldingPerformanceKey) {
   const performance = getHoldingPerformance(holding, performanceKey);
 
-  return isNativeCurrencyVisible(holding) ? performance.amountInValuationCurrency : performance.amount;
+  return isNativeCurrencyVisible(holding)
+    ? performance.amountInValuationCurrency
+    : performance.amount;
 }
 
 function formatHoldingValuationMoney({
@@ -132,7 +140,7 @@ function formatHoldingValuationMoney({
   locale,
   nativeValue,
   primaryValue,
-  maximumFractionDigits = 2
+  maximumFractionDigits = 2,
 }: {
   emptyLabel: string;
   holding: HoldingRow;
@@ -151,7 +159,7 @@ function formatHoldingValuationMoney({
         {formatCurrency(primaryValue, {
           currency: holding.valuationCurrency,
           locale,
-          maximumFractionDigits
+          maximumFractionDigits,
         })}
       </span>
       {!isNativeCurrencyVisible(holding) || nativeValue == null ? null : (
@@ -159,7 +167,7 @@ function formatHoldingValuationMoney({
           {formatCurrency(nativeValue, {
             currency: holding.currency,
             locale,
-            maximumFractionDigits
+            maximumFractionDigits,
           })}
         </span>
       )}
@@ -178,7 +186,7 @@ function formatHoldingPercent(value: number | null, locale: string, emptyLabel: 
 function formatValuationMoneyText({
   currency,
   locale,
-  value
+  value,
 }: {
   currency: string;
   locale: string;
@@ -191,7 +199,7 @@ function formatValuationMoneyText({
   return formatCurrency(value, {
     currency,
     locale,
-    maximumFractionDigits: 2
+    maximumFractionDigits: 2,
   });
 }
 
@@ -213,6 +221,10 @@ function getPnlToneClass(value: number | null) {
   return value > 0 ? "value-positive" : "value-negative";
 }
 
+function formatBroker(value: string) {
+  return value === "WEBULL" ? "Webull" : "Dime";
+}
+
 function formatHoldingDateTime(value: string, locale: string) {
   const date = new Date(value);
 
@@ -226,7 +238,7 @@ function formatHoldingDateTime(value: string, locale: string) {
     minute: "2-digit",
     month: "short",
     timeZone: "Asia/Bangkok",
-    year: "numeric"
+    year: "numeric",
   }).format(date);
 }
 
@@ -238,7 +250,7 @@ function formatParentMoney(value: number | null, currency: string | null, locale
   return formatCurrency(value, {
     currency,
     locale,
-    maximumFractionDigits: 4
+    maximumFractionDigits: 4,
   });
 }
 
@@ -261,18 +273,22 @@ function compareNullableNumber(left: number | null, right: number | null) {
 function getHoldingSortValue(
   holding: HoldingRow,
   key: HoldingSortKey,
-  performanceKey: HoldingPerformanceKey
+  performanceKey: HoldingPerformanceKey,
 ) {
   if (key === "symbol") {
     return `${holding.symbol} ${holding.displayName} ${holding.market}`;
   }
 
   if (key === "averageCost") {
-    return isNativeCurrencyVisible(holding) ? getValuationAverageCost(holding) : holding.averageCost;
+    return isNativeCurrencyVisible(holding)
+      ? getValuationAverageCost(holding)
+      : holding.averageCost;
   }
 
   if (key === "totalCost") {
-    return isNativeCurrencyVisible(holding) ? holding.totalCostInValuationCurrency : holding.totalCost;
+    return isNativeCurrencyVisible(holding)
+      ? holding.totalCostInValuationCurrency
+      : holding.totalCost;
   }
 
   if (key === "lastPrice") {
@@ -284,21 +300,47 @@ function getHoldingSortValue(
   }
 
   if (key === "marketValue") {
-    return isNativeCurrencyVisible(holding) ? holding.marketValueInValuationCurrency : holding.marketValue;
+    return isNativeCurrencyVisible(holding)
+      ? holding.marketValueInValuationCurrency
+      : holding.marketValue;
   }
 
   if (key === "unrealizedPnl") {
-    return isNativeCurrencyVisible(holding) ? holding.unrealizedPnlInValuationCurrency : holding.unrealizedPnl;
+    return isNativeCurrencyVisible(holding)
+      ? holding.unrealizedPnlInValuationCurrency
+      : holding.unrealizedPnl;
   }
 
   return holding[key];
+}
+
+function formatHoldingLotMoney({
+  emptyLabel,
+  holding,
+  locale,
+  nativeValue,
+  valuationValue,
+}: {
+  emptyLabel: string;
+  holding: HoldingRow;
+  locale: string;
+  nativeValue: number | null;
+  valuationValue: number | null;
+}) {
+  return formatHoldingValuationMoney({
+    emptyLabel,
+    holding,
+    locale,
+    nativeValue,
+    primaryValue: isNativeCurrencyVisible(holding) ? valuationValue : nativeValue,
+  });
 }
 
 function compareHoldings(
   left: HoldingRow,
   right: HoldingRow,
   sort: SortState,
-  performanceKey: HoldingPerformanceKey
+  performanceKey: HoldingPerformanceKey,
 ) {
   const leftValue = getHoldingSortValue(left, sort.key, performanceKey);
   const rightValue = getHoldingSortValue(right, sort.key, performanceKey);
@@ -325,7 +367,9 @@ function compareHoldings(
   })();
 
   if (comparison !== 0) {
-    return typeof leftValue === "string" && typeof rightValue === "string" && sort.direction === "desc"
+    return typeof leftValue === "string" &&
+      typeof rightValue === "string" &&
+      sort.direction === "desc"
       ? -comparison
       : comparison;
   }
@@ -361,7 +405,7 @@ function getHoldingSearchText(holding: HoldingRow) {
     holding.displayName,
     holding.market,
     holding.instrumentType,
-    holding.currency
+    holding.currency,
   ]
     .join(" ")
     .toLowerCase();
@@ -371,7 +415,7 @@ function formatSummaryMoney(
   value: number | null,
   currency: string | null,
   locale: string,
-  mixedLabel: string
+  mixedLabel: string,
 ) {
   if (value == null || currency == null) {
     return <span className="data-pending">{mixedLabel}</span>;
@@ -386,7 +430,7 @@ function SortableHeader({
   language,
   onSort,
   sort,
-  sortKey
+  sortKey,
 }: {
   align?: "left" | "right";
   label: string;
@@ -420,11 +464,7 @@ function SortableHeader({
   );
 }
 
-export function HoldingsTable({
-  holdings,
-  language,
-  canRefresh = false
-}: HoldingsTableProps) {
+export function HoldingsTable({ holdings, language, canRefresh = false }: HoldingsTableProps) {
   const copy = getUiCopy(language);
   const locale = getUiLocale(language);
   const router = useRouter();
@@ -437,17 +477,18 @@ export function HoldingsTable({
   const [performanceBasis, setPerformanceBasis] = useState<PerformanceBasis>("price");
   const [performanceTimeframe, setPerformanceTimeframe] =
     useState<HoldingPerformanceTimeframe>("1D");
+  const [expandedHoldingIds, setExpandedHoldingIds] = useState<Set<number>>(() => new Set());
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
   const [refreshTone, setRefreshTone] = useState<"success" | "warning">("success");
   const filterOptions: Array<{ value: HoldingFilter; label: string }> = [
     { value: "all", label: copy.holdings.table.filter.all },
     { value: "gain", label: copy.holdings.table.filter.gain },
     { value: "loss", label: copy.holdings.table.filter.loss },
-    { value: "missing", label: copy.holdings.table.filter.missing }
+    { value: "missing", label: copy.holdings.table.filter.missing },
   ];
   const selectedPerformanceKey = getPerformanceKey({
     basis: performanceBasis,
-    timeframe: performanceTimeframe
+    timeframe: performanceTimeframe,
   });
 
   const visibleHoldings = useMemo(() => {
@@ -456,7 +497,9 @@ export function HoldingsTable({
     return holdings
       .filter((holding) => matchesHoldingFilter(holding, filter))
       .filter((holding) =>
-        normalizedQuery.length === 0 ? true : getHoldingSearchText(holding).includes(normalizedQuery)
+        normalizedQuery.length === 0
+          ? true
+          : getHoldingSearchText(holding).includes(normalizedQuery),
       )
       .sort((left, right) => compareHoldings(left, right, sort, selectedPerformanceKey));
   }, [filter, holdings, searchQuery, selectedPerformanceKey, sort]);
@@ -483,21 +526,22 @@ export function HoldingsTable({
             getHoldingPerformance(holding, selectedPerformanceKey).amountInValuationCurrency == null
               ? null
               : summary.oneDayGain +
-                (getHoldingPerformance(holding, selectedPerformanceKey).amountInValuationCurrency ?? 0),
+                (getHoldingPerformance(holding, selectedPerformanceKey).amountInValuationCurrency ??
+                  0),
           portfolioWeight:
             summary.portfolioWeight == null || holding.portfolioWeight == null
               ? null
-              : summary.portfolioWeight + holding.portfolioWeight
+              : summary.portfolioWeight + holding.portfolioWeight,
         }),
         {
           totalCost: 0 as number | null,
           marketValue: 0 as number | null,
           unrealizedPnl: 0 as number | null,
           oneDayGain: 0 as number | null,
-          portfolioWeight: 0 as number | null
-        }
+          portfolioWeight: 0 as number | null,
+        },
       ),
-    [selectedPerformanceKey, visibleHoldings]
+    [selectedPerformanceKey, visibleHoldings],
   );
 
   function handleSort(sortKey: HoldingSortKey) {
@@ -505,13 +549,27 @@ export function HoldingsTable({
       currentSort.key === sortKey
         ? {
             key: sortKey,
-            direction: currentSort.direction === "asc" ? "desc" : "asc"
+            direction: currentSort.direction === "asc" ? "desc" : "asc",
           }
         : {
             key: sortKey,
-            direction: sortKey === "symbol" ? "asc" : "desc"
-          }
+            direction: sortKey === "symbol" ? "asc" : "desc",
+          },
     );
+  }
+
+  function toggleHoldingLots(instrumentId: number) {
+    setExpandedHoldingIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+
+      if (nextIds.has(instrumentId)) {
+        nextIds.delete(instrumentId);
+      } else {
+        nextIds.add(instrumentId);
+      }
+
+      return nextIds;
+    });
   }
 
   const handleRefreshSettled = useCallback(
@@ -523,7 +581,7 @@ export function HoldingsTable({
         setRefreshMessage(
           run.issueCount > 0
             ? copy.holdings.table.updatedWithIssues(run.issueCount)
-            : copy.holdings.table.updatedPrices(run.quoteRefreshCount)
+            : copy.holdings.table.updatedPrices(run.quoteRefreshCount),
         );
         startRefreshTransition(() => {
           router.refresh();
@@ -536,7 +594,7 @@ export function HoldingsTable({
         setRefreshMessage(run.errorMessage ?? copy.holdings.table.refreshFailed);
       }
     },
-    [copy.holdings.table, router]
+    [copy.holdings.table, router],
   );
 
   async function handleRefresh() {
@@ -683,7 +741,7 @@ export function HoldingsTable({
             {copy.shared.countOf(
               visibleHoldings.length,
               holdings.length,
-              copy.holdings.table.positionsUnit
+              copy.holdings.table.positionsUnit,
             )}
           </div>
 
@@ -699,200 +757,321 @@ export function HoldingsTable({
                 <col className="holdings-col-pnl" />
                 <col className="holdings-col-pnl" />
                 <col className="holdings-col-weight" />
+                <col className="holdings-col-expand" />
               </colgroup>
               <thead>
                 <tr>
-                  <SortableHeader label={copy.holdings.table.columns.symbol} language={language} sortKey="symbol" sort={sort} onSort={handleSort} />
-                  <SortableHeader label={copy.holdings.table.columns.quantity} language={language} sortKey="quantity" sort={sort} onSort={handleSort} align="right" />
-                  <SortableHeader label={copy.holdings.table.columns.averageCost} language={language} sortKey="averageCost" sort={sort} onSort={handleSort} align="right" />
-                  <SortableHeader label={copy.holdings.table.columns.totalCost} language={language} sortKey="totalCost" sort={sort} onSort={handleSort} align="right" />
-                  <SortableHeader label={copy.holdings.table.columns.lastPrice} language={language} sortKey="lastPrice" sort={sort} onSort={handleSort} align="right" />
-                  <SortableHeader label={copy.holdings.table.columns.marketValue} language={language} sortKey="marketValue" sort={sort} onSort={handleSort} align="right" />
-                  <SortableHeader label={getPerformanceColumnLabel({ basis: performanceBasis, copy, timeframe: performanceTimeframe })} language={language} sortKey="oneDayGain" sort={sort} onSort={handleSort} align="right" />
-                  <SortableHeader label={copy.holdings.table.columns.unrealizedPnl} language={language} sortKey="unrealizedPnl" sort={sort} onSort={handleSort} align="right" />
-                  <SortableHeader label={copy.holdings.table.columns.weight} language={language} sortKey="portfolioWeight" sort={sort} onSort={handleSort} align="right" />
+                  <SortableHeader
+                    label={copy.holdings.table.columns.symbol}
+                    language={language}
+                    sortKey="symbol"
+                    sort={sort}
+                    onSort={handleSort}
+                  />
+                  <SortableHeader
+                    label={copy.holdings.table.columns.quantity}
+                    language={language}
+                    sortKey="quantity"
+                    sort={sort}
+                    onSort={handleSort}
+                    align="right"
+                  />
+                  <SortableHeader
+                    label={copy.holdings.table.columns.averageCost}
+                    language={language}
+                    sortKey="averageCost"
+                    sort={sort}
+                    onSort={handleSort}
+                    align="right"
+                  />
+                  <SortableHeader
+                    label={copy.holdings.table.columns.totalCost}
+                    language={language}
+                    sortKey="totalCost"
+                    sort={sort}
+                    onSort={handleSort}
+                    align="right"
+                  />
+                  <SortableHeader
+                    label={copy.holdings.table.columns.lastPrice}
+                    language={language}
+                    sortKey="lastPrice"
+                    sort={sort}
+                    onSort={handleSort}
+                    align="right"
+                  />
+                  <SortableHeader
+                    label={copy.holdings.table.columns.marketValue}
+                    language={language}
+                    sortKey="marketValue"
+                    sort={sort}
+                    onSort={handleSort}
+                    align="right"
+                  />
+                  <SortableHeader
+                    label={getPerformanceColumnLabel({
+                      basis: performanceBasis,
+                      copy,
+                      timeframe: performanceTimeframe,
+                    })}
+                    language={language}
+                    sortKey="oneDayGain"
+                    sort={sort}
+                    onSort={handleSort}
+                    align="right"
+                  />
+                  <SortableHeader
+                    label={copy.holdings.table.columns.unrealizedPnl}
+                    language={language}
+                    sortKey="unrealizedPnl"
+                    sort={sort}
+                    onSort={handleSort}
+                    align="right"
+                  />
+                  <SortableHeader
+                    label={copy.holdings.table.columns.weight}
+                    language={language}
+                    sortKey="portfolioWeight"
+                    sort={sort}
+                    onSort={handleSort}
+                    align="right"
+                  />
+                  <th scope="col" className="holdings-expand-heading">
+                    <span className="sr-only">{copy.holdings.table.lots.expandColumn}</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {visibleHoldings.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="table-empty-cell">
+                    <td colSpan={10} className="table-empty-cell">
                       {copy.holdings.table.noMatches}
                     </td>
                   </tr>
                 ) : (
                   visibleHoldings.map((holding) => {
-                    const selectedPerformance = getHoldingPerformance(holding, selectedPerformanceKey);
+                    const selectedPerformance = getHoldingPerformance(
+                      holding,
+                      selectedPerformanceKey,
+                    );
+                    const isExpanded = expandedHoldingIds.has(holding.instrumentId);
+                    const lotsId = `holding-lots-${holding.instrumentId}`;
 
                     return (
-                      <tr key={holding.instrumentId}>
-                      <td>
-                        <div className="instrument-cell instrument-cell-with-logo">
-                          <InstrumentLogo
-                            symbol={holding.symbol}
-                            displayName={holding.displayName}
-                            instrumentType={holding.instrumentType}
-                            providerSymbol={holding.providerSymbol}
-                            underlyingProviderSymbol={holding.underlyingProviderSymbol}
-                          />
-                          <div className="instrument-cell-copy">
-                            <strong>
-                              <Link
-                                href={`/assets/${encodeURIComponent(holding.symbol)}`}
-                                className="route-link"
-                              >
-                                {holding.symbol}
-                              </Link>
-                            </strong>
-                            <span>
-                              {holding.displayName} - {holding.market}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="table-number">{formatQuantity(holding.quantity, { locale })}</td>
-                      <td className="table-number">
-                        <div className="holdings-value-stack">
-                          {formatHoldingValuationMoney({
-                            emptyLabel: copy.shared.waiting,
-                            holding,
-                            locale,
-                            maximumFractionDigits: 4,
-                            nativeValue: holding.averageCost,
-                            primaryValue: isNativeCurrencyVisible(holding)
-                              ? getValuationAverageCost(holding)
-                              : holding.averageCost
-                          })}
-                          {formatParentMoney(
-                            holding.parentAverageCost,
-                            holding.underlyingCurrency,
-                            locale
-                          ) == null ? null : (
-                            <span className="table-subtext dr-parent-metric">
-                              {holding.underlyingSymbol ?? "Parent"} avg{" "}
+                      <Fragment key={holding.instrumentId}>
+                        <tr data-expanded={isExpanded}>
+                          <td>
+                            <div className="instrument-cell instrument-cell-with-logo">
+                              <InstrumentLogo
+                                symbol={holding.symbol}
+                                displayName={holding.displayName}
+                                instrumentType={holding.instrumentType}
+                                providerSymbol={holding.providerSymbol}
+                                underlyingProviderSymbol={holding.underlyingProviderSymbol}
+                              />
+                              <div className="instrument-cell-copy">
+                                <strong>
+                                  <Link
+                                    href={`/assets/${encodeURIComponent(holding.symbol)}`}
+                                    className="route-link"
+                                  >
+                                    {holding.symbol}
+                                  </Link>
+                                </strong>
+                                <span>
+                                  {holding.displayName} - {holding.market}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="table-number">
+                            {formatQuantity(holding.quantity, { locale })}
+                          </td>
+                          <td className="table-number">
+                            <div className="holdings-value-stack">
+                              {formatHoldingValuationMoney({
+                                emptyLabel: copy.shared.waiting,
+                                holding,
+                                locale,
+                                maximumFractionDigits: 4,
+                                nativeValue: holding.averageCost,
+                                primaryValue: isNativeCurrencyVisible(holding)
+                                  ? getValuationAverageCost(holding)
+                                  : holding.averageCost,
+                              })}
                               {formatParentMoney(
                                 holding.parentAverageCost,
                                 holding.underlyingCurrency,
-                                locale
+                                locale,
+                              ) == null ? null : (
+                                <span className="table-subtext dr-parent-metric">
+                                  {holding.underlyingSymbol ?? "Parent"} avg{" "}
+                                  {formatParentMoney(
+                                    holding.parentAverageCost,
+                                    holding.underlyingCurrency,
+                                    locale,
+                                  )}
+                                </span>
                               )}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="table-number">
-                        <div className="holdings-value-stack">
-                          {formatHoldingValuationMoney({
-                            emptyLabel: copy.shared.waiting,
-                            holding,
-                            locale,
-                            nativeValue: holding.totalCost,
-                            primaryValue: holding.totalCostInValuationCurrency
-                          })}
-                        </div>
-                      </td>
-                      <td className="table-number">
-                        <div className="holdings-value-stack">
-                          {formatHoldingValuationMoney({
-                            emptyLabel: copy.holdings.table.noPriceYet,
-                            holding,
-                            locale,
-                            maximumFractionDigits: 4,
-                            nativeValue: holding.lastPrice,
-                            primaryValue: isNativeCurrencyVisible(holding)
-                              ? getValuationLastPrice(holding)
-                              : holding.lastPrice
-                          })}
-                          {holding.lastPriceAsOf ? (
-                            <span className="table-subtext">
-                              {copy.holdings.table.asOf(
-                                formatHoldingDateTime(holding.lastPriceAsOf, locale)
-                              )}
-                            </span>
-                          ) : null}
-                          {formatParentMoney(
-                            holding.parentLastPrice,
-                            holding.underlyingCurrency,
-                            locale
-                          ) == null ? null : (
-                            <span className="table-subtext dr-parent-metric">
-                              {holding.underlyingSymbol ?? "Parent"} last{" "}
+                            </div>
+                          </td>
+                          <td className="table-number">
+                            <div className="holdings-value-stack">
+                              {formatHoldingValuationMoney({
+                                emptyLabel: copy.shared.waiting,
+                                holding,
+                                locale,
+                                nativeValue: holding.totalCost,
+                                primaryValue: holding.totalCostInValuationCurrency,
+                              })}
+                            </div>
+                          </td>
+                          <td className="table-number">
+                            <div className="holdings-value-stack">
+                              {formatHoldingValuationMoney({
+                                emptyLabel: copy.holdings.table.noPriceYet,
+                                holding,
+                                locale,
+                                maximumFractionDigits: 4,
+                                nativeValue: holding.lastPrice,
+                                primaryValue: isNativeCurrencyVisible(holding)
+                                  ? getValuationLastPrice(holding)
+                                  : holding.lastPrice,
+                              })}
+                              {holding.lastPriceAsOf ? (
+                                <span className="table-subtext">
+                                  {copy.holdings.table.asOf(
+                                    formatHoldingDateTime(holding.lastPriceAsOf, locale),
+                                  )}
+                                </span>
+                              ) : null}
                               {formatParentMoney(
                                 holding.parentLastPrice,
                                 holding.underlyingCurrency,
-                                locale
+                                locale,
+                              ) == null ? null : (
+                                <span className="table-subtext dr-parent-metric">
+                                  {holding.underlyingSymbol ?? "Parent"} last{" "}
+                                  {formatParentMoney(
+                                    holding.parentLastPrice,
+                                    holding.underlyingCurrency,
+                                    locale,
+                                  )}
+                                </span>
                               )}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="table-number">
-                        <div className="holdings-value-stack">
-                          {formatHoldingValuationMoney({
-                            emptyLabel: copy.shared.waiting,
-                            holding,
-                            locale,
-                            nativeValue: holding.marketValue,
-                            primaryValue: holding.marketValueInValuationCurrency
-                          })}
-                        </div>
-                      </td>
-                      <td className="table-number">
-                        <div className="holdings-value-stack">
-                          <span className={`holdings-pnl-percent ${getPnlToneClass(selectedPerformance.percent) ?? ""}`.trim()}>
-                            {formatSignedHoldingPercent(
-                              selectedPerformance.percent,
-                              locale,
-                              copy.shared.waiting
-                            )}
-                          </span>
-                          <span className={`table-subtext ${getPnlToneClass(selectedPerformance.amountInValuationCurrency) ?? ""}`.trim()}>
-                            {formatValuationMoneyText({
-                              currency: holding.valuationCurrency,
-                              locale,
-                              value: selectedPerformance.amountInValuationCurrency
-                            }) ?? copy.shared.waiting}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="table-number">
-                        <div className="holdings-value-stack">
-                          <div className={getPnlToneClass(holding.unrealizedPnlInValuationCurrency)}>
-                            {formatHoldingValuationMoney({
-                              emptyLabel: copy.shared.waiting,
-                              holding,
-                              locale,
-                              nativeValue: holding.unrealizedPnl,
-                              primaryValue: holding.unrealizedPnlInValuationCurrency
-                            })}
-                          </div>
-                          <span className={`holdings-pnl-percent ${getPnlToneClass(holding.unrealizedPnlPercent) ?? ""}`.trim()}>
-                            {formatSignedHoldingPercent(
-                              holding.unrealizedPnlPercent,
-                              locale,
-                              copy.shared.waiting
-                            )}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="table-number">
-                        <div className="holdings-weight-cell">
-                          <span>
-                            {formatHoldingPercent(
-                              holding.portfolioWeight,
-                              locale,
-                              copy.holdings.table.noData
-                            )}
-                          </span>
-                          {holding.portfolioWeight == null ? null : (
-                            <span
-                              className="holdings-weight-bar"
-                              style={{ "--weight": `${Math.min(100, holding.portfolioWeight * 100)}%` } as CSSProperties}
-                              aria-hidden="true"
-                            />
-                          )}
-                        </div>
-                      </td>
-                      </tr>
+                            </div>
+                          </td>
+                          <td className="table-number">
+                            <div className="holdings-value-stack">
+                              {formatHoldingValuationMoney({
+                                emptyLabel: copy.shared.waiting,
+                                holding,
+                                locale,
+                                nativeValue: holding.marketValue,
+                                primaryValue: holding.marketValueInValuationCurrency,
+                              })}
+                            </div>
+                          </td>
+                          <td className="table-number">
+                            <div className="holdings-value-stack">
+                              <span
+                                className={`holdings-pnl-percent ${getPnlToneClass(selectedPerformance.percent) ?? ""}`.trim()}
+                              >
+                                {formatSignedHoldingPercent(
+                                  selectedPerformance.percent,
+                                  locale,
+                                  copy.shared.waiting,
+                                )}
+                              </span>
+                              <span
+                                className={`table-subtext ${getPnlToneClass(selectedPerformance.amountInValuationCurrency) ?? ""}`.trim()}
+                              >
+                                {formatValuationMoneyText({
+                                  currency: holding.valuationCurrency,
+                                  locale,
+                                  value: selectedPerformance.amountInValuationCurrency,
+                                }) ?? copy.shared.waiting}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="table-number">
+                            <div className="holdings-value-stack">
+                              <div
+                                className={getPnlToneClass(
+                                  holding.unrealizedPnlInValuationCurrency,
+                                )}
+                              >
+                                {formatHoldingValuationMoney({
+                                  emptyLabel: copy.shared.waiting,
+                                  holding,
+                                  locale,
+                                  nativeValue: holding.unrealizedPnl,
+                                  primaryValue: holding.unrealizedPnlInValuationCurrency,
+                                })}
+                              </div>
+                              <span
+                                className={`holdings-pnl-percent ${getPnlToneClass(holding.unrealizedPnlPercent) ?? ""}`.trim()}
+                              >
+                                {formatSignedHoldingPercent(
+                                  holding.unrealizedPnlPercent,
+                                  locale,
+                                  copy.shared.waiting,
+                                )}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="table-number">
+                            <div className="holdings-weight-cell">
+                              <span>
+                                {formatHoldingPercent(
+                                  holding.portfolioWeight,
+                                  locale,
+                                  copy.holdings.table.noData,
+                                )}
+                              </span>
+                              {holding.portfolioWeight == null ? null : (
+                                <span
+                                  className="holdings-weight-bar"
+                                  style={
+                                    {
+                                      "--weight": `${Math.min(100, holding.portfolioWeight * 100)}%`,
+                                    } as CSSProperties
+                                  }
+                                  aria-hidden="true"
+                                />
+                              )}
+                            </div>
+                          </td>
+                          <td className="holdings-expand-cell">
+                            <button
+                              type="button"
+                              className="holdings-expand-button"
+                              aria-controls={lotsId}
+                              aria-expanded={isExpanded}
+                              aria-label={
+                                isExpanded
+                                  ? copy.holdings.table.lots.collapse(holding.symbol)
+                                  : copy.holdings.table.lots.expand(holding.symbol)
+                              }
+                              onClick={() => toggleHoldingLots(holding.instrumentId)}
+                            >
+                              <span aria-hidden="true" />
+                            </button>
+                          </td>
+                        </tr>
+                        {isExpanded ? (
+                          <tr className="holdings-lot-row">
+                            <td colSpan={10}>
+                              <HoldingLotsPanel
+                                holding={holding}
+                                id={lotsId}
+                                language={language}
+                                lots={holding.lots}
+                              />
+                            </td>
+                          </tr>
+                        ) : null}
+                      </Fragment>
                     );
                   })
                 )}
@@ -910,7 +1089,7 @@ export function HoldingsTable({
                         visibleSummary.totalCost,
                         visibleSummaryCurrency,
                         locale,
-                        copy.shared.mixed
+                        copy.shared.mixed,
                       )}
                     </td>
                     <td />
@@ -919,30 +1098,26 @@ export function HoldingsTable({
                         visibleSummary.marketValue,
                         visibleSummaryCurrency,
                         locale,
-                        copy.shared.mixed
+                        copy.shared.mixed,
                       )}
                     </td>
                     <td className="table-number">
-                      <span
-                        className={getPnlToneClass(visibleSummary.oneDayGain)}
-                      >
+                      <span className={getPnlToneClass(visibleSummary.oneDayGain)}>
                         {formatSummaryMoney(
                           visibleSummary.oneDayGain,
                           visibleSummaryCurrency,
                           locale,
-                          copy.shared.mixed
+                          copy.shared.mixed,
                         )}
                       </span>
                     </td>
                     <td className="table-number">
-                      <span
-                        className={getPnlToneClass(visibleSummary.unrealizedPnl)}
-                      >
+                      <span className={getPnlToneClass(visibleSummary.unrealizedPnl)}>
                         {formatSummaryMoney(
                           visibleSummary.unrealizedPnl,
                           visibleSummaryCurrency,
                           locale,
-                          copy.shared.mixed
+                          copy.shared.mixed,
                         )}
                       </span>
                     </td>
@@ -950,9 +1125,10 @@ export function HoldingsTable({
                       {formatHoldingPercent(
                         visibleSummary.portfolioWeight,
                         locale,
-                        copy.holdings.table.noData
+                        copy.holdings.table.noData,
                       )}
                     </td>
+                    <td />
                   </tr>
                 </tfoot>
               ) : null}
@@ -961,5 +1137,137 @@ export function HoldingsTable({
         </>
       )}
     </article>
+  );
+}
+
+function HoldingLotsPanel({
+  holding,
+  id,
+  language,
+  lots,
+}: {
+  holding: HoldingRow;
+  id: string;
+  language: UiLanguage;
+  lots: HoldingLot[];
+}) {
+  const copy = getUiCopy(language);
+  const locale = getUiLocale(language);
+
+  return (
+    <div id={id} className="holdings-lot-panel">
+      {lots.length === 0 ? (
+        <p className="table-empty-cell">{copy.holdings.table.lots.noOpenLots}</p>
+      ) : (
+        <table className="holdings-lot-table">
+          <thead>
+            <tr>
+              <th scope="col">{copy.holdings.table.lots.columns.date}</th>
+              <th scope="col" className="table-heading-number">
+                {copy.holdings.table.lots.columns.price}
+              </th>
+              <th scope="col" className="table-heading-number">
+                {copy.holdings.table.lots.columns.quantity}
+              </th>
+              <th scope="col" className="table-heading-number">
+                {copy.holdings.table.lots.columns.gain}
+              </th>
+              <th scope="col" className="table-heading-number">
+                {copy.holdings.table.lots.columns.value}
+              </th>
+              <th scope="col">{copy.holdings.table.lots.columns.note}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lots.map((lot) => {
+              const gainTone = getPnlToneClass(lot.totalGainInValuationCurrency ?? lot.totalGain);
+
+              return (
+                <tr key={lot.transactionId}>
+                  <td>
+                    <div className="holdings-lot-cell-stack">
+                      <strong>{lot.tradeDate}</strong>
+                      <span>
+                        {lot.portfolioName == null
+                          ? formatBroker(lot.broker)
+                          : `${lot.portfolioName} / ${formatBroker(lot.broker)}`}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="table-number">
+                    <div className="holdings-value-stack">
+                      {formatCurrency(lot.price, {
+                        currency: holding.currency,
+                        locale,
+                        maximumFractionDigits: 4,
+                      })}
+                      <span className="table-subtext">
+                        {copy.holdings.table.lots.fee(
+                          formatCurrency(lot.fee, { currency: holding.currency, locale }),
+                        )}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="table-number">
+                    <div className="holdings-value-stack">
+                      <span>{formatQuantity(lot.remainingQuantity, { locale })}</span>
+                      {lot.remainingQuantity === lot.originalQuantity ? null : (
+                        <span className="table-subtext">
+                          {copy.holdings.table.lots.originalQuantity(
+                            formatQuantity(lot.originalQuantity, { locale }),
+                          )}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="table-number">
+                    <div className="holdings-value-stack">
+                      <span className={gainTone}>
+                        {formatHoldingLotMoney({
+                          emptyLabel: copy.shared.waiting,
+                          holding,
+                          locale,
+                          nativeValue: lot.totalGain,
+                          valuationValue: lot.totalGainInValuationCurrency,
+                        })}
+                      </span>
+                      <span className={`holdings-pnl-percent ${gainTone ?? ""}`.trim()}>
+                        {formatSignedHoldingPercent(
+                          lot.totalGainPercent,
+                          locale,
+                          copy.shared.waiting,
+                        )}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="table-number">
+                    <div className="holdings-value-stack">
+                      {formatHoldingLotMoney({
+                        emptyLabel: copy.shared.waiting,
+                        holding,
+                        locale,
+                        nativeValue: lot.marketValue,
+                        valuationValue: lot.marketValueInValuationCurrency,
+                      })}
+                      <span className="table-subtext">
+                        {copy.holdings.table.lots.costLabel}{" "}
+                        {formatHoldingLotMoney({
+                          emptyLabel: copy.shared.waiting,
+                          holding,
+                          locale,
+                          nativeValue: lot.costBasis,
+                          valuationValue: lot.costBasisInValuationCurrency,
+                        })}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="table-notes">{lot.notes ?? copy.holdings.table.lots.openLot}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }

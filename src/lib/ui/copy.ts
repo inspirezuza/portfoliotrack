@@ -18,10 +18,11 @@ const uiCopy = {
       sortAscending: "น้อยไปมาก",
       sortDescending: "มากไปน้อย",
       sortLabel: (label: string, direction: string) => `เรียง ${label} ${direction}`,
-      countOf: (visible: number, total: number, unit: string) => `แสดง ${visible} จาก ${total} ${unit}`,
+      countOf: (visible: number, total: number, unit: string) =>
+        `แสดง ${visible} จาก ${total} ${unit}`,
       positionCount: (count: number) => `${count} สถานะ`,
       transactionCount: (count: number) => `${count} รายการ`,
-      separator: " / "
+      separator: " / ",
     },
     shell: {
       appTagline: "",
@@ -34,22 +35,22 @@ const uiCopy = {
       nav: {
         dashboard: "ภาพรวม",
         holdings: "หุ้นที่ถือ",
-        transactions: "รายการซื้อขาย"
+        transactions: "รายการซื้อขาย",
       },
       navShort: {
         dashboard: "ภาพ",
         holdings: "หุ้น",
-        transactions: "ซื้อขาย"
+        transactions: "ซื้อขาย",
       },
       language: "ภาษา",
       themeLabel: "ธีม",
       theme: {
         light: "สว่าง",
-        dark: "มืด"
+        dark: "มืด",
       },
       changingLanguage: "กำลังเปลี่ยนภาษา...",
       switchingPortfolio: "กำลังเปลี่ยนพอร์ต...",
-      signingOut: "กำลังออกจากระบบ..."
+      signingOut: "กำลังออกจากระบบ...",
     },
     dashboard: {
       workspace: "พื้นที่ทำงาน",
@@ -82,7 +83,7 @@ const uiCopy = {
         noCachedData: "ไม่มีข้อมูลแคช",
         justUpdated: "เพิ่งอัปเดต",
         minutesAgo: (minutes: number) => `${minutes} นาทีที่แล้ว`,
-        hoursAgo: (hours: number) => `${hours} ชม.ที่แล้ว`
+        hoursAgo: (hours: number) => `${hours} ชม.ที่แล้ว`,
       },
       refresh: {
         quotesUpdated: (count: string) => `อัปเดต ${count} ราคา`,
@@ -98,8 +99,8 @@ const uiCopy = {
             ? `กำลังรีเฟรช ${processed}/${total}${symbol == null ? "" : ` | ${symbol}`}`
             : "กำลังเตรียมรีเฟรช...",
         errorTitle: "รีเฟรชข้อมูลตลาดไม่สำเร็จ",
-        fallbackErrorBody: "แดชบอร์ดยังใช้ราคาจากแคชล่าสุด"
-      }
+        fallbackErrorBody: "แดชบอร์ดยังใช้ราคาจากแคชล่าสุด",
+      },
     },
     charts: {
       common: {
@@ -112,7 +113,7 @@ const uiCopy = {
           YTD: "YTD",
           "1Y": "1Y",
           START: "เริ่มต้น",
-          ALL: "ทั้งหมด"
+          ALL: "ทั้งหมด",
         },
         dragToCompare: "ลากบนกราฟเพื่อเปรียบเทียบ",
         to: "ถึง",
@@ -121,7 +122,7 @@ const uiCopy = {
         latest: "ล่าสุด",
         high: "สูงสุด",
         low: "ต่ำสุด",
-        range: "ช่วง"
+        range: "ช่วง",
       },
       benchmark: {
         eyebrow: "ผลตอบแทน",
@@ -147,65 +148,65 @@ const uiCopy = {
           search: "ค้นหา",
           searchError: "ไม่สามารถเพิ่ม comparison ได้ตอนนี้",
           searchPlaceholder: "พิมพ์ SPY, QQQ, TDEX หรือชื่อบริษัท",
-          searching: "กำลังค้นหา..."
+          searching: "กำลังค้นหา...",
         },
         modes: {
           INDEXED: "Return",
           GAP: "Gap",
-          DRAWDOWN: "Drawdown"
+          DRAWDOWN: "Drawdown",
         },
         returnBasis: {
           label: "Chart return basis",
           options: {
             TWR: "TWR",
             MWR: "MWR",
-            ABSOLUTE: "Absolute"
+            ABSOLUTE: "Absolute",
           },
           TWR: {
             summaryLabel: "TWR return",
             summaryValue: "TWR",
             portfolioName: "Portfolio TWR",
             yAxisLabel: "TWR",
-            hint: "The chart uses cash-flow-adjusted time-weighted return, indexed from 100."
+            hint: "The chart uses cash-flow-adjusted time-weighted return, indexed from 100.",
           },
           MWR: {
             summaryLabel: "MWR return",
             summaryValue: "MWR",
             portfolioName: "Portfolio MWR",
             yAxisLabel: "MWR",
-            hint: "The chart shows annualized money-weighted return from dated cash flows and ending market value."
+            hint: "The chart shows annualized money-weighted return from dated cash flows and ending market value.",
           },
           ABSOLUTE: {
             summaryLabel: "Absolute return",
             summaryValue: "Absolute",
             portfolioName: "Portfolio absolute return",
             yAxisLabel: "Absolute",
-            hint: "The chart shows market value return against cumulative net invested capital."
-          }
+            hint: "The chart shows market value return against cumulative net invested capital.",
+          },
         },
         modeCopy: {
           INDEXED: {
             portfolioName: "Portfolio TWR",
             benchmarkName: "Benchmark return",
-            yAxisLabel: "TWR"
+            yAxisLabel: "TWR",
           },
           GAP: {
             portfolioName: "Portfolio gap",
             benchmarkName: "Benchmark baseline",
-            yAxisLabel: "Gap"
+            yAxisLabel: "Gap",
           },
           DRAWDOWN: {
             portfolioName: "Portfolio drawdown",
             benchmarkName: "Benchmark drawdown",
-            yAxisLabel: "Drawdown"
-          }
+            yAxisLabel: "Drawdown",
+          },
         },
         basis: {
           sameCurrencyFallback: "ผลตอบแทนสกุลเงินเดียวกัน",
           sameCurrency: (currency: string) => `ผลตอบแทน ${currency}`,
           nativeCurrencyFallback: "ผลตอบแทน benchmark ตามสกุลเงินต้นทาง",
           nativeCurrency: (currency: string) => `ผลตอบแทน benchmark ${currency}, เทียบเป็น %`,
-          performanceReturn: "ผลตอบแทน"
+          performanceReturn: "ผลตอบแทน",
         },
         absoluteSummary: {
           label: "สรุปผลตอบแทนแบบ absolute",
@@ -216,30 +217,34 @@ const uiCopy = {
           timeWeightedValue: "TWR",
           note: "หมายเหตุ",
           hints: {
-            absoluteReturn: "ผลตอบแทนจากมุมเงินจริง คำนวณจาก Total P&L หารด้วย net invested ที่เป็นบวก",
+            absoluteReturn:
+              "ผลตอบแทนจากมุมเงินจริง คำนวณจาก Total P&L หารด้วย net invested ที่เป็นบวก",
             totalPnl: "Realized P&L รวมกับ unrealized P&L โดยใช้ fee จาก logic สถานะเดิม",
             netInvested: "เงินซื้อสุทธิ หัก proceeds จากการขาย",
             timeWeighted: "กราฟใช้ time-weighted return ที่ปรับ cash flow แล้ว และตั้งต้นที่ 100",
-            note: "เหตุผลที่ absolute return อาจยังแสดงไม่ได้"
+            note: "เหตุผลที่ absolute return อาจยังแสดงไม่ได้",
           },
           unavailable: {
             noTransactions: "เพิ่มรายการซื้อขายเพื่อคำนวณ absolute return",
             mixedCurrency: "หยุดคำนวณ absolute return เมื่อรายการซื้อขายมีหลายสกุลเงิน",
-            missingMarketValue: "absolute return ต้องใช้มูลค่าตลาดล่าสุดของ holdings ที่ยังเปิดอยู่",
-            noPositiveNetInvested: "absolute return ต้องมี net invested เป็นบวก"
-          }
+            missingMarketValue:
+              "absolute return ต้องใช้มูลค่าตลาดล่าสุดของ holdings ที่ยังเปิดอยู่",
+            noPositiveNetInvested: "absolute return ต้องมี net invested เป็นบวก",
+          },
         },
         unavailable: {
           noTransactions: "เพิ่มรายการซื้อขายเพื่อเริ่มกราฟ benchmark",
           mixedCurrency: "ปิดการเปรียบเทียบ benchmark เมื่อประวัติรายการซื้อขายมีหลายสกุลเงิน",
           missingPortfolioHistory: "ประวัติราคาไม่ครบสำหรับ performance ของทั้งพอร์ต",
           currencyMismatchFallback: "สกุลเงินของ benchmark ไม่ตรงกับสกุลเงินของพอร์ต",
-          currencyMismatch: (symbol: string, currency: string) => `${symbol} ไม่ได้ quote เป็น ${currency}`,
+          currencyMismatch: (symbol: string, currency: string) =>
+            `${symbol} ไม่ได้ quote เป็น ${currency}`,
           missingBenchmarkFallback: "ตั้งค่า benchmark เพื่อเปิดการเปรียบเทียบ",
           missingBenchmarkHistory: (symbol: string) => `ไม่มีประวัติราคาแคชสำหรับ ${symbol}`,
-          missingAbsoluteReturn: "กราฟ absolute return ต้องมี net invested เป็นบวกและประวัติ benchmark ที่เปรียบเทียบได้",
-          default: "กราฟ benchmark ยังไม่พร้อมใช้งาน"
-        }
+          missingAbsoluteReturn:
+            "กราฟ absolute return ต้องมี net invested เป็นบวกและประวัติ benchmark ที่เปรียบเทียบได้",
+          default: "กราฟ benchmark ยังไม่พร้อมใช้งาน",
+        },
       },
       portfolio: {
         eyebrow: "มูลค่าพอร์ต",
@@ -250,9 +255,9 @@ const uiCopy = {
           noTransactions: "เพิ่มรายการซื้อขายเพื่อเริ่มกราฟพอร์ต",
           mixedCurrency: "หยุดกราฟพอร์ตไว้เมื่อประวัติรายการซื้อขายมีหลายสกุลเงิน",
           missingPortfolioHistory: "ประวัติราคาไม่ครบสำหรับ performance ของทั้งพอร์ต",
-          default: "ยังไม่มีข้อมูลกราฟพอร์ต"
-        }
-      }
+          default: "ยังไม่มีข้อมูลกราฟพอร์ต",
+        },
+      },
     },
     holdings: {
       pageEyebrow: "หุ้นที่ถือ",
@@ -270,7 +275,7 @@ const uiCopy = {
         performanceBasisLabel: "ฐานเทียบ Performance",
         performanceBasis: {
           price: "ราคาย้อนหลัง",
-          cost: "ต้นทุนจริง"
+          cost: "ต้นทุนจริง",
         },
         performanceTimeframesLabel: "ช่วงเวลา Performance",
         refreshPrices: "รีเฟรชราคา",
@@ -284,14 +289,15 @@ const uiCopy = {
         noPriceYet: "ยังไม่มีราคา",
         noData: "ไม่มีข้อมูล",
         asOf: (date: string) => `ณ ${date}`,
-        updatedWithIssues: (count: number) => `อัปเดตราคาแล้ว แต่ยังมี ${count} symbols ที่ต้องตรวจสอบ`,
+        updatedWithIssues: (count: number) =>
+          `อัปเดตราคาแล้ว แต่ยังมี ${count} symbols ที่ต้องตรวจสอบ`,
         updatedPrices: (count: number) => `อัปเดต ${count} ราคาแล้ว`,
         refreshFailed: "รีเฟรชข้อมูลตลาดไม่สำเร็จ",
         filter: {
           all: "ทั้งหมด",
           gain: "กำไร",
           loss: "ขาดทุน",
-          missing: "ขาดราคา"
+          missing: "ขาดราคา",
         },
         timeframes: {
           "1D": "1D",
@@ -301,7 +307,7 @@ const uiCopy = {
           "1Y": "1Y",
           "3Y": "3Y",
           "5Y": "5Y",
-          MAX: "MAX"
+          MAX: "MAX",
         },
         columns: {
           symbol: "Symbol",
@@ -313,8 +319,26 @@ const uiCopy = {
           performance: (timeframe: string) => `Performance ${timeframe}`,
           marketValue: "มูลค่าตลาด",
           unrealizedPnl: "Unrealized P&L",
-          weight: "น้ำหนัก"
-        }
+          weight: "น้ำหนัก",
+        },
+        lots: {
+          expandColumn: "รายละเอียดรายการซื้อ",
+          expand: (symbol: string) => `แสดงรายการซื้อของ ${symbol}`,
+          collapse: (symbol: string) => `ซ่อนรายการซื้อของ ${symbol}`,
+          noOpenLots: "ไม่มีรายการซื้อที่ยังเปิดอยู่",
+          openLot: "Lot ที่ยังถืออยู่",
+          fee: (value: string) => `ค่าธรรมเนียม ${value}`,
+          originalQuantity: (quantity: string) => `ซื้อเดิม ${quantity}`,
+          costLabel: "ต้นทุน",
+          columns: {
+            date: "วันที่ซื้อ",
+            price: "ราคาซื้อ",
+            quantity: "จำนวนที่เหลือ",
+            gain: "กำไรรวม",
+            value: "มูลค่า",
+            note: "โน้ต",
+          },
+        },
       },
       summary: {
         openPositions: "สถานะที่เปิดอยู่",
@@ -335,23 +359,25 @@ const uiCopy = {
         currencyBreakdown: (currency: string, value: string) => `${currency}: ${value}`,
         priceCoverageNoOpen: "ยังไม่มีสถานะที่เปิดอยู่",
         priceCoverageFull: (count: number) => `ราคาแคชครอบคลุมครบทั้ง ${count} สถานะ`,
-        priceCoverageFullAsOf: (count: number, date: string) => `ราคาแคชครอบคลุมครบทั้ง ${count} สถานะ ณ ${date}`,
+        priceCoverageFullAsOf: (count: number, date: string) =>
+          `ราคาแคชครอบคลุมครบทั้ง ${count} สถานะ ณ ${date}`,
         priceCoveragePartial: (priced: number, open: number, waiting: string) =>
           `${priced} จาก ${open} สถานะมีราคา; รอ ${waiting}`,
-        moreSymbols: (count: number) => ` +${count} เพิ่มเติม`
+        moreSymbols: (count: number) => ` +${count} เพิ่มเติม`,
       },
       allocation: {
         ariaLabel: "กราฟสัดส่วนหุ้นที่ถือ",
         other: "อื่น ๆ",
         positions: (count: number) => `${count} สถานะ`,
-        ofHoldings: "ของหุ้นที่ถือ"
-      }
+        ofHoldings: "ของหุ้นที่ถือ",
+      },
     },
     transactions: {
       pageEyebrow: "Ledger",
       pageTitle: "รายการซื้อขาย",
       pageDescription: "บันทึกซื้อ ขาย และค่าธรรมเนียมโดยไม่ต้องเลือก instrument ไว้ก่อน",
-      aggregateReadOnly: "พอร์ตรวมเป็นโหมดอ่านอย่างเดียว เลือกพอร์ตจริงก่อนเพิ่ม แก้ไข ลบ นำเข้า ส่งออก หรือรีเฟรชข้อมูลตลาด",
+      aggregateReadOnly:
+        "พอร์ตรวมเป็นโหมดอ่านอย่างเดียว เลือกพอร์ตจริงก่อนเพิ่ม แก้ไข ลบ นำเข้า ส่งออก หรือรีเฟรชข้อมูลตลาด",
       summaryLabel: "สรุปรายการซื้อขาย",
       recorded: "บันทึกแล้ว",
       traded: "ซื้อขาย",
@@ -383,7 +409,7 @@ const uiCopy = {
         row: (rowNumber: number) => `แถว ${rowNumber}`,
         chooseFileFirst: "เลือกไฟล์ .xlsx ก่อน",
         importFailed: "นำเข้าไฟล์ Excel ไม่สำเร็จ",
-        imported: (count: number) => `นำเข้า ${count} รายการแล้ว`
+        imported: (count: number) => `นำเข้า ${count} รายการแล้ว`,
       },
       form: {
         editEyebrow: "แก้ไขรายการซื้อขาย",
@@ -430,9 +456,10 @@ const uiCopy = {
           `${symbol} ถูกเพิ่มไว้แล้ว เลือกจากช่อง Instrument ด้านล่างแทน`,
         addedAndSelected: (symbol: string) => `เพิ่มและเลือก ${symbol} แล้ว`,
         selected: (symbol: string) => `เลือก ${symbol} แล้ว`,
-        insufficientQuantity: (quantity: string) => `จำนวนขายมากกว่าที่ถืออยู่ จำนวนสูงสุดที่ขายได้คือ ${quantity}`,
+        insufficientQuantity: (quantity: string) =>
+          `จำนวนขายมากกว่าที่ถืออยู่ จำนวนสูงสุดที่ขายได้คือ ${quantity}`,
         saved: "บันทึกแล้ว",
-        add: "เพิ่ม"
+        add: "เพิ่ม",
       },
       table: {
         eyebrow: "Ledger",
@@ -460,10 +487,10 @@ const uiCopy = {
           fee: "ค่าธรรมเนียม",
           net: "สุทธิ",
           notes: "โน้ต",
-          actions: "จัดการ"
-        }
-      }
-    }
+          actions: "จัดการ",
+        },
+      },
+    },
   },
   EN: {
     shared: {
@@ -482,10 +509,11 @@ const uiCopy = {
       sortAscending: "ascending",
       sortDescending: "descending",
       sortLabel: (label: string, direction: string) => `Sort ${label} ${direction}`,
-      countOf: (visible: number, total: number, unit: string) => `Showing ${visible} of ${total} ${unit}`,
+      countOf: (visible: number, total: number, unit: string) =>
+        `Showing ${visible} of ${total} ${unit}`,
       positionCount: (count: number) => `${count} positions`,
       transactionCount: (count: number) => `${count} transactions`,
-      separator: " / "
+      separator: " / ",
     },
     shell: {
       appTagline: "",
@@ -498,22 +526,22 @@ const uiCopy = {
       nav: {
         dashboard: "Dashboard",
         holdings: "Holdings",
-        transactions: "Transactions"
+        transactions: "Transactions",
       },
       navShort: {
         dashboard: "Dash",
         holdings: "Hold",
-        transactions: "Trade"
+        transactions: "Trade",
       },
       language: "Language",
       themeLabel: "Theme",
       theme: {
         light: "Light",
-        dark: "Dark"
+        dark: "Dark",
       },
       changingLanguage: "Changing language...",
       switchingPortfolio: "Switching portfolio...",
-      signingOut: "Signing out..."
+      signingOut: "Signing out...",
     },
     dashboard: {
       workspace: "Workspace",
@@ -546,7 +574,7 @@ const uiCopy = {
         noCachedData: "No cached data",
         justUpdated: "Just updated",
         minutesAgo: (minutes: number) => `${minutes} min ago`,
-        hoursAgo: (hours: number) => `${hours}h ago`
+        hoursAgo: (hours: number) => `${hours}h ago`,
       },
       refresh: {
         quotesUpdated: (count: string) => `${count} quotes updated`,
@@ -562,8 +590,8 @@ const uiCopy = {
             ? `Refreshing ${processed}/${total}${symbol == null ? "" : ` | ${symbol}`}`
             : "Preparing refresh...",
         errorTitle: "Market data refresh failed",
-        fallbackErrorBody: "The dashboard is still using the latest cached prices."
-      }
+        fallbackErrorBody: "The dashboard is still using the latest cached prices.",
+      },
     },
     charts: {
       common: {
@@ -576,7 +604,7 @@ const uiCopy = {
           YTD: "YTD",
           "1Y": "1Y",
           START: "Start",
-          ALL: "All"
+          ALL: "All",
         },
         dragToCompare: "Drag across the chart to compare",
         to: "to",
@@ -585,7 +613,7 @@ const uiCopy = {
         latest: "Latest",
         high: "High",
         low: "Low",
-        range: "Range"
+        range: "Range",
       },
       benchmark: {
         eyebrow: "Performance",
@@ -611,65 +639,65 @@ const uiCopy = {
           search: "Search",
           searchError: "Comparison could not be added right now.",
           searchPlaceholder: "Type SPY, QQQ, TDEX, or a company name",
-          searching: "Searching..."
+          searching: "Searching...",
         },
         modes: {
           INDEXED: "Return",
           GAP: "Gap",
-          DRAWDOWN: "Drawdown"
+          DRAWDOWN: "Drawdown",
         },
         returnBasis: {
           label: "Chart return basis",
           options: {
             TWR: "TWR",
             MWR: "MWR",
-            ABSOLUTE: "Absolute"
+            ABSOLUTE: "Absolute",
           },
           TWR: {
             summaryLabel: "TWR return",
             summaryValue: "TWR",
             portfolioName: "Portfolio TWR",
             yAxisLabel: "TWR",
-            hint: "The chart uses cash-flow-adjusted time-weighted return, indexed from 100."
+            hint: "The chart uses cash-flow-adjusted time-weighted return, indexed from 100.",
           },
           MWR: {
             summaryLabel: "MWR return",
             summaryValue: "MWR",
             portfolioName: "Portfolio MWR",
             yAxisLabel: "MWR",
-            hint: "The chart shows annualized money-weighted return from dated cash flows and ending market value."
+            hint: "The chart shows annualized money-weighted return from dated cash flows and ending market value.",
           },
           ABSOLUTE: {
             summaryLabel: "Absolute return",
             summaryValue: "Absolute",
             portfolioName: "Portfolio absolute return",
             yAxisLabel: "Absolute",
-            hint: "The chart shows market value return against cumulative net invested capital."
-          }
+            hint: "The chart shows market value return against cumulative net invested capital.",
+          },
         },
         modeCopy: {
           INDEXED: {
             portfolioName: "Portfolio TWR",
             benchmarkName: "Benchmark return",
-            yAxisLabel: "TWR"
+            yAxisLabel: "TWR",
           },
           GAP: {
             portfolioName: "Portfolio gap",
             benchmarkName: "Benchmark baseline",
-            yAxisLabel: "Gap"
+            yAxisLabel: "Gap",
           },
           DRAWDOWN: {
             portfolioName: "Portfolio drawdown",
             benchmarkName: "Benchmark drawdown",
-            yAxisLabel: "Drawdown"
-          }
+            yAxisLabel: "Drawdown",
+          },
         },
         basis: {
           sameCurrencyFallback: "Same-currency return",
           sameCurrency: (currency: string) => `${currency} return`,
           nativeCurrencyFallback: "Native-currency benchmark return",
           nativeCurrency: (currency: string) => `${currency} benchmark return, compared by %`,
-          performanceReturn: "Performance return"
+          performanceReturn: "Performance return",
         },
         absoluteSummary: {
           label: "Absolute performance summary",
@@ -680,30 +708,35 @@ const uiCopy = {
           timeWeightedValue: "TWR",
           note: "Note",
           hints: {
-            absoluteReturn: "Money-result return from total P&L divided by positive net invested capital.",
-            totalPnl: "Realized P&L plus unrealized P&L, with fees included in the existing position math.",
+            absoluteReturn:
+              "Money-result return from total P&L divided by positive net invested capital.",
+            totalPnl:
+              "Realized P&L plus unrealized P&L, with fees included in the existing position math.",
             netInvested: "Buy cash outflow minus sell proceeds.",
-            timeWeighted: "The chart uses cash-flow-adjusted time-weighted return, indexed from 100.",
-            note: "Why absolute return may be unavailable."
+            timeWeighted:
+              "The chart uses cash-flow-adjusted time-weighted return, indexed from 100.",
+            note: "Why absolute return may be unavailable.",
           },
           unavailable: {
             noTransactions: "Add transactions to calculate absolute return.",
             mixedCurrency: "Absolute return is paused for mixed transaction currencies.",
             missingMarketValue: "Absolute return needs current market value for open holdings.",
-            noPositiveNetInvested: "Absolute return needs positive net invested capital."
-          }
+            noPositiveNetInvested: "Absolute return needs positive net invested capital.",
+          },
         },
         unavailable: {
           noTransactions: "Add a transaction to start the benchmark chart.",
           mixedCurrency: "Benchmark comparison is disabled for mixed transaction currencies.",
           missingPortfolioHistory: "Price history is incomplete for full-portfolio performance.",
           currencyMismatchFallback: "The benchmark currency does not match the portfolio currency.",
-          currencyMismatch: (symbol: string, currency: string) => `${symbol} is not quoted in ${currency}.`,
+          currencyMismatch: (symbol: string, currency: string) =>
+            `${symbol} is not quoted in ${currency}.`,
           missingBenchmarkFallback: "Set a benchmark to enable comparison.",
           missingBenchmarkHistory: (symbol: string) => `No cached history for ${symbol}.`,
-          missingAbsoluteReturn: "Absolute return chart needs positive net invested capital and comparable benchmark history.",
-          default: "Benchmark chart is not available yet."
-        }
+          missingAbsoluteReturn:
+            "Absolute return chart needs positive net invested capital and comparable benchmark history.",
+          default: "Benchmark chart is not available yet.",
+        },
       },
       portfolio: {
         eyebrow: "Portfolio value",
@@ -714,9 +747,9 @@ const uiCopy = {
           noTransactions: "Add a transaction to start the portfolio chart.",
           mixedCurrency: "Portfolio chart is paused for mixed transaction currencies.",
           missingPortfolioHistory: "Price history is incomplete for full-portfolio performance.",
-          default: "No portfolio chart data yet."
-        }
-      }
+          default: "No portfolio chart data yet.",
+        },
+      },
     },
     holdings: {
       pageEyebrow: "Holdings",
@@ -734,13 +767,14 @@ const uiCopy = {
         performanceBasisLabel: "Performance comparison basis",
         performanceBasis: {
           price: "Price history",
-          cost: "Cost basis"
+          cost: "Cost basis",
         },
         performanceTimeframesLabel: "Performance timeframe",
         refreshPrices: "Refresh prices",
         refreshing: "Refreshing...",
         refreshStarted: "Market data refresh started.",
-        noOpenPositions: "No open positions yet. Add a buy transaction and holdings will appear here.",
+        noOpenPositions:
+          "No open positions yet. Add a buy transaction and holdings will appear here.",
         searchPlaceholder: "Symbol, name, market",
         positionsUnit: "positions",
         noMatches: "No positions match the current filters.",
@@ -748,14 +782,15 @@ const uiCopy = {
         noPriceYet: "No price yet",
         noData: "No data",
         asOf: (date: string) => `as of ${date}`,
-        updatedWithIssues: (count: number) => `Updated prices with ${count} symbols still needing review.`,
+        updatedWithIssues: (count: number) =>
+          `Updated prices with ${count} symbols still needing review.`,
         updatedPrices: (count: number) => `Updated ${count} prices.`,
         refreshFailed: "Market data refresh failed.",
         filter: {
           all: "All",
           gain: "Gain",
           loss: "Loss",
-          missing: "Missing price"
+          missing: "Missing price",
         },
         timeframes: {
           "1D": "1D",
@@ -765,7 +800,7 @@ const uiCopy = {
           "1Y": "1Y",
           "3Y": "3Y",
           "5Y": "5Y",
-          MAX: "MAX"
+          MAX: "MAX",
         },
         columns: {
           symbol: "Symbol",
@@ -777,8 +812,26 @@ const uiCopy = {
           performance: (timeframe: string) => `Performance ${timeframe}`,
           marketValue: "Market value",
           unrealizedPnl: "Unrealized P&L",
-          weight: "Weight"
-        }
+          weight: "Weight",
+        },
+        lots: {
+          expandColumn: "Purchase lots",
+          expand: (symbol: string) => `Show ${symbol} purchase lots`,
+          collapse: (symbol: string) => `Hide ${symbol} purchase lots`,
+          noOpenLots: "No open purchase lots.",
+          openLot: "Open lot",
+          fee: (value: string) => `Fee ${value}`,
+          originalQuantity: (quantity: string) => `Original ${quantity}`,
+          costLabel: "Cost",
+          columns: {
+            date: "Buy date",
+            price: "Buy price",
+            quantity: "Remaining quantity",
+            gain: "Total gain",
+            value: "Value",
+            note: "Note",
+          },
+        },
       },
       summary: {
         openPositions: "Open positions",
@@ -799,23 +852,25 @@ const uiCopy = {
         currencyBreakdown: (currency: string, value: string) => `${currency}: ${value}`,
         priceCoverageNoOpen: "No open positions yet",
         priceCoverageFull: (count: number) => `Cached prices cover all ${count} positions`,
-        priceCoverageFullAsOf: (count: number, date: string) => `Cached prices cover all ${count} positions as of ${date}`,
+        priceCoverageFullAsOf: (count: number, date: string) =>
+          `Cached prices cover all ${count} positions as of ${date}`,
         priceCoveragePartial: (priced: number, open: number, waiting: string) =>
           `${priced} of ${open} positions priced; waiting for ${waiting}`,
-        moreSymbols: (count: number) => ` +${count} more`
+        moreSymbols: (count: number) => ` +${count} more`,
       },
       allocation: {
         ariaLabel: "Holdings allocation chart",
         other: "Other",
         positions: (count: number) => `${count} positions`,
-        ofHoldings: "of holdings"
-      }
+        ofHoldings: "of holdings",
+      },
     },
     transactions: {
       pageEyebrow: "Ledger",
       pageTitle: "Transactions",
       pageDescription: "Record buys, sells, and fees without preselecting an instrument.",
-      aggregateReadOnly: "All portfolios is read-only. Choose a specific portfolio before adding, editing, deleting, importing, exporting, or refreshing market data.",
+      aggregateReadOnly:
+        "All portfolios is read-only. Choose a specific portfolio before adding, editing, deleting, importing, exporting, or refreshing market data.",
       summaryLabel: "Transaction summary",
       recorded: "Recorded",
       traded: "Traded",
@@ -847,7 +902,7 @@ const uiCopy = {
         row: (rowNumber: number) => `Row ${rowNumber}`,
         chooseFileFirst: "Choose an .xlsx file first.",
         importFailed: "Excel import failed.",
-        imported: (count: number) => `${count} transactions imported.`
+        imported: (count: number) => `${count} transactions imported.`,
       },
       form: {
         editEyebrow: "Edit transaction",
@@ -897,13 +952,14 @@ const uiCopy = {
         insufficientQuantity: (quantity: string) =>
           `Sell quantity is greater than current holdings. Maximum sellable quantity is ${quantity}.`,
         saved: "Saved",
-        add: "Add"
+        add: "Add",
       },
       table: {
         eyebrow: "Ledger",
         title: "Latest transactions",
         toolsLabel: "Transaction table tools",
-        noTransactions: "No transactions yet. The first recorded trade will appear here immediately.",
+        noTransactions:
+          "No transactions yet. The first recorded trade will appear here immediately.",
         searchPlaceholder: "Symbol, date, note",
         transactionsUnit: "transactions",
         noMatches: "No transactions match the current search.",
@@ -925,11 +981,11 @@ const uiCopy = {
           fee: "Fee",
           net: "Net",
           notes: "Notes",
-          actions: "Actions"
-        }
-      }
-    }
-  }
+          actions: "Actions",
+        },
+      },
+    },
+  },
 } as const;
 
 export type UiCopy = (typeof uiCopy)[UiLanguage];

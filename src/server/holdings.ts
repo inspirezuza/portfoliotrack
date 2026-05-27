@@ -3,30 +3,56 @@ import "server-only";
 import { and, asc, eq, inArray, lte } from "drizzle-orm";
 import { normalizeMoney, normalizePrice, normalizeQuantity } from "@/lib/db/precision";
 import { applyKnownDrMetadata } from "@/lib/instruments/dr-metadata";
-import { ensureFreshMarketDataCache, getMarketSettings, getPriceAgeMinutes, isMarketDataStale } from "@/lib/market/provider";
+import {
+  ensureFreshMarketDataCache,
+  getMarketSettings,
+  getPriceAgeMinutes,
+  isMarketDataStale,
+} from "@/lib/market/provider";
 import {
   calculatePositions,
   sortTransactionsChronologically,
   type InstrumentPosition,
-  type PositionTransaction
+  type PositionTransaction,
 } from "@/lib/portfolio/positions";
 import { db } from "@/lib/db/runtime";
 import {
   historicalPrices,
   instruments,
+  portfolios,
   priceSnapshots,
   transactions,
   type HistoricalPrice,
   type Instrument,
-  type PriceSnapshot
+  type PriceSnapshot,
 } from "@/lib/db/schema";
 import { toChronologicalPositionTransaction } from "@/server/transactions";
 import { parsePortfolioId } from "@/server/portfolios";
 
 type HoldingJoinedRow = {
   instrument: Instrument;
+  portfolio: Pick<typeof portfolios.$inferSelect, "name">;
   transaction: typeof transactions.$inferSelect;
   priceSnapshot: PriceSnapshot | null;
+};
+
+export type HoldingLot = {
+  transactionId: number;
+  portfolioName: string | null;
+  tradeDate: string;
+  broker: string;
+  originalQuantity: number;
+  remainingQuantity: number;
+  price: number;
+  fee: number;
+  notes: string | null;
+  costBasis: number;
+  costBasisInValuationCurrency: number | null;
+  marketValue: number | null;
+  marketValueInValuationCurrency: number | null;
+  totalGain: number | null;
+  totalGainInValuationCurrency: number | null;
+  totalGainPercent: number | null;
 };
 
 export type HoldingRow = {
@@ -66,17 +92,10 @@ export type HoldingRow = {
   parentLastPrice: number | null;
   parentLastPriceAsOf: string | null;
   portfolioWeight: number | null;
+  lots: HoldingLot[];
 };
 
-export type HoldingPerformanceTimeframe =
-  | "1D"
-  | "1W"
-  | "1M"
-  | "YTD"
-  | "1Y"
-  | "3Y"
-  | "5Y"
-  | "MAX";
+export type HoldingPerformanceTimeframe = "1D" | "1W" | "1M" | "YTD" | "1Y" | "3Y" | "5Y" | "MAX";
 
 export type HoldingCostBasisPerformanceKey = `COST_${HoldingPerformanceTimeframe}`;
 
@@ -166,7 +185,7 @@ function getFxProviderSymbol(fromCurrency: string, toCurrency: string) {
 function getFxRateToValuationCurrency({
   currency,
   fxSnapshotsByProviderSymbol,
-  valuationCurrency
+  valuationCurrency,
 }: {
   currency: string;
   fxSnapshotsByProviderSymbol: Map<string, PriceSnapshot>;
@@ -176,14 +195,16 @@ function getFxRateToValuationCurrency({
     return 1;
   }
 
-  const snapshot = fxSnapshotsByProviderSymbol.get(getFxProviderSymbol(currency, valuationCurrency));
+  const snapshot = fxSnapshotsByProviderSymbol.get(
+    getFxProviderSymbol(currency, valuationCurrency),
+  );
 
   return snapshot != null && snapshot.currency === valuationCurrency ? snapshot.price : null;
 }
 
 function getUnderlyingFxRateToInstrumentCurrency({
   fxSnapshotsByProviderSymbol,
-  instrument
+  instrument,
 }: {
   fxSnapshotsByProviderSymbol: Map<string, PriceSnapshot>;
   instrument: Instrument;
@@ -209,7 +230,7 @@ function getUnderlyingFxRateToInstrumentCurrency({
 
 function getPreviousClose({
   historicalRows,
-  priceSnapshot
+  priceSnapshot,
 }: {
   historicalRows: HistoricalPrice[];
   priceSnapshot: PriceSnapshot | null;
@@ -220,15 +241,17 @@ function getPreviousClose({
 
   const asOfDate = priceSnapshot.asOf.slice(0, 10);
 
-  return historicalRows
-    .filter((row) => row.currency === priceSnapshot.currency && row.priceDate < asOfDate)
-    .sort((left, right) => right.priceDate.localeCompare(left.priceDate))[0]?.close ?? null;
+  return (
+    historicalRows
+      .filter((row) => row.currency === priceSnapshot.currency && row.priceDate < asOfDate)
+      .sort((left, right) => right.priceDate.localeCompare(left.priceDate))[0]?.close ?? null
+  );
 }
 
 function calculateOneDayGain({
   lastPrice,
   previousClose,
-  quantity
+  quantity,
 }: {
   lastPrice: number | null;
   previousClose: number | null;
@@ -237,13 +260,13 @@ function calculateOneDayGain({
   if (lastPrice == null || previousClose == null || previousClose <= 0) {
     return {
       oneDayGain: null,
-      oneDayGainPercent: null
+      oneDayGainPercent: null,
     };
   }
 
   return {
     oneDayGain: normalizeMoney((lastPrice - previousClose) * quantity),
-    oneDayGainPercent: (lastPrice - previousClose) / previousClose
+    oneDayGainPercent: (lastPrice - previousClose) / previousClose,
   };
 }
 
@@ -251,7 +274,7 @@ function getEmptyHoldingPerformance(): HoldingPerformance {
   return {
     amount: null,
     percent: null,
-    amountInValuationCurrency: null
+    amountInValuationCurrency: null,
   };
 }
 
@@ -269,7 +292,7 @@ function formatUtcIsoDate(date: Date) {
   return [
     date.getUTCFullYear(),
     String(date.getUTCMonth() + 1).padStart(2, "0"),
-    String(date.getUTCDate()).padStart(2, "0")
+    String(date.getUTCDate()).padStart(2, "0"),
   ].join("-");
 }
 
@@ -277,22 +300,25 @@ function getDaysInMonth(year: number, month: number) {
   return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }
 
-function shiftIsoMonth({ day, month, year }: { day: number; month: number; year: number }, monthDelta: number) {
+function shiftIsoMonth(
+  { day, month, year }: { day: number; month: number; year: number },
+  monthDelta: number,
+) {
   const shiftedMonthIndex = month - 1 + monthDelta;
   const shiftedYear = year + Math.floor(shiftedMonthIndex / 12);
-  const shiftedMonth = ((shiftedMonthIndex % 12) + 12) % 12 + 1;
+  const shiftedMonth = (((shiftedMonthIndex % 12) + 12) % 12) + 1;
   const shiftedDay = Math.min(day, getDaysInMonth(shiftedYear, shiftedMonth));
 
   return [
     shiftedYear,
     String(shiftedMonth).padStart(2, "0"),
-    String(shiftedDay).padStart(2, "0")
+    String(shiftedDay).padStart(2, "0"),
   ].join("-");
 }
 
 function getTimeframeStartDate(
   timeframe: Exclude<HoldingPerformanceTimeframe, "1D" | "MAX">,
-  latestDate: string
+  latestDate: string,
 ) {
   const parts = getIsoDateParts(latestDate);
 
@@ -333,27 +359,31 @@ function getTimeframeStartDate(
 function getHistoricalCloseAtOrBefore({
   currency,
   historicalRows,
-  startDate
+  startDate,
 }: {
   currency: string;
   historicalRows: HistoricalPrice[];
   startDate: string;
 }) {
-  return historicalRows
-    .filter((row) => row.currency === currency && row.priceDate <= startDate)
-    .sort((left, right) => right.priceDate.localeCompare(left.priceDate))[0]?.close ?? null;
+  return (
+    historicalRows
+      .filter((row) => row.currency === currency && row.priceDate <= startDate)
+      .sort((left, right) => right.priceDate.localeCompare(left.priceDate))[0]?.close ?? null
+  );
 }
 
 function getEarliestHistoricalClose({
   currency,
-  historicalRows
+  historicalRows,
 }: {
   currency: string;
   historicalRows: HistoricalPrice[];
 }) {
-  return historicalRows
-    .filter((row) => row.currency === currency)
-    .sort((left, right) => left.priceDate.localeCompare(right.priceDate))[0]?.close ?? null;
+  return (
+    historicalRows
+      .filter((row) => row.currency === currency)
+      .sort((left, right) => left.priceDate.localeCompare(right.priceDate))[0]?.close ?? null
+  );
 }
 
 function calculatePeriodPerformance({
@@ -363,7 +393,7 @@ function calculatePeriodPerformance({
   latestDate,
   priceCurrency,
   quantity,
-  timeframe
+  timeframe,
 }: {
   fxRateToValuationCurrency: number | null;
   historicalRows: HistoricalPrice[];
@@ -381,7 +411,7 @@ function calculatePeriodPerformance({
     timeframe === "MAX"
       ? getEarliestHistoricalClose({
           currency: priceCurrency,
-          historicalRows
+          historicalRows,
         })
       : (() => {
           const startDate = getTimeframeStartDate(timeframe, latestDate);
@@ -391,7 +421,7 @@ function calculatePeriodPerformance({
             : getHistoricalCloseAtOrBefore({
                 currency: priceCurrency,
                 historicalRows,
-                startDate
+                startDate,
               });
         })();
 
@@ -405,7 +435,7 @@ function calculatePeriodPerformance({
     amount,
     percent: (lastPrice - startPrice) / startPrice,
     amountInValuationCurrency:
-      fxRateToValuationCurrency == null ? null : normalizeMoney(amount * fxRateToValuationCurrency)
+      fxRateToValuationCurrency == null ? null : normalizeMoney(amount * fxRateToValuationCurrency),
   };
 }
 
@@ -426,7 +456,7 @@ function calculateCostBasisPerformance({
   lastPrice,
   latestDate,
   timeframe,
-  transactions
+  transactions,
 }: {
   fxRateToValuationCurrency: number | null;
   lastPrice: number | null;
@@ -476,7 +506,9 @@ function calculateCostBasisPerformance({
 
     if (scopedQuantity > 0) {
       const scopedShare = Math.min(1, scopedQuantity / totalQuantity);
-      const scopedSoldQuantity = normalizeQuantity(Math.min(scopedQuantity, soldQuantity * scopedShare));
+      const scopedSoldQuantity = normalizeQuantity(
+        Math.min(scopedQuantity, soldQuantity * scopedShare),
+      );
       const scopedAverageCost = normalizePrice(scopedCost / scopedQuantity);
       const scopedRemovedCost = normalizeMoney(scopedAverageCost * scopedSoldQuantity);
 
@@ -511,8 +543,123 @@ function calculateCostBasisPerformance({
     amount,
     percent: amount / scopedCost,
     amountInValuationCurrency:
-      fxRateToValuationCurrency == null ? null : normalizeMoney(amount * fxRateToValuationCurrency)
+      fxRateToValuationCurrency == null ? null : normalizeMoney(amount * fxRateToValuationCurrency),
   };
+}
+
+type HoldingLotTransaction = PositionTransaction & {
+  broker: string;
+  notes: string | null;
+  portfolioId: number;
+  portfolioName: string | null;
+};
+
+type WorkingHoldingLot = HoldingLotTransaction & {
+  originalFee: number;
+  originalQuantity: number;
+  remainingQuantity: number;
+};
+
+function calculateLotCostBasis(lot: WorkingHoldingLot) {
+  if (lot.originalQuantity <= 0 || lot.remainingQuantity <= 0) {
+    return 0;
+  }
+
+  const feeShare = normalizeMoney(lot.originalFee * (lot.remainingQuantity / lot.originalQuantity));
+
+  return normalizeMoney(lot.remainingQuantity * lot.price + feeShare);
+}
+
+function toHoldingLot({
+  fxRateToValuationCurrency,
+  lastPrice,
+  lot,
+}: {
+  fxRateToValuationCurrency: number | null;
+  lastPrice: number | null;
+  lot: WorkingHoldingLot;
+}): HoldingLot {
+  const costBasis = calculateLotCostBasis(lot);
+  const marketValue = lastPrice == null ? null : normalizeMoney(lot.remainingQuantity * lastPrice);
+  const totalGain = marketValue == null ? null : normalizeMoney(marketValue - costBasis);
+
+  return {
+    transactionId: lot.id ?? 0,
+    portfolioName: lot.portfolioName,
+    tradeDate: lot.tradeDate,
+    broker: lot.broker,
+    originalQuantity: lot.originalQuantity,
+    remainingQuantity: lot.remainingQuantity,
+    price: lot.price,
+    fee: lot.originalFee,
+    notes: lot.notes,
+    costBasis,
+    costBasisInValuationCurrency:
+      fxRateToValuationCurrency == null
+        ? null
+        : normalizeMoney(costBasis * fxRateToValuationCurrency),
+    marketValue,
+    marketValueInValuationCurrency:
+      marketValue == null || fxRateToValuationCurrency == null
+        ? null
+        : normalizeMoney(marketValue * fxRateToValuationCurrency),
+    totalGain,
+    totalGainInValuationCurrency:
+      totalGain == null || fxRateToValuationCurrency == null
+        ? null
+        : normalizeMoney(totalGain * fxRateToValuationCurrency),
+    totalGainPercent: costBasis > 0 && totalGain != null ? totalGain / costBasis : null,
+  };
+}
+
+function buildOpenHoldingLots({
+  fxRateToValuationCurrency,
+  lastPrice,
+  transactions,
+}: {
+  fxRateToValuationCurrency: number | null;
+  lastPrice: number | null;
+  transactions: HoldingLotTransaction[];
+}) {
+  const lots: WorkingHoldingLot[] = [];
+
+  for (const transaction of sortTransactionsChronologically(transactions)) {
+    const quantity = normalizeQuantity(transaction.quantity);
+
+    if (transaction.side === "BUY") {
+      lots.push({
+        ...transaction,
+        fee: normalizeMoney(transaction.fee),
+        originalFee: normalizeMoney(transaction.fee),
+        originalQuantity: quantity,
+        price: normalizePrice(transaction.price),
+        quantity,
+        remainingQuantity: quantity,
+      });
+      continue;
+    }
+
+    let remainingSellQuantity = quantity;
+
+    for (const lot of lots) {
+      if (remainingSellQuantity <= 0) {
+        break;
+      }
+
+      if (lot.portfolioId !== transaction.portfolioId) {
+        continue;
+      }
+
+      const consumedQuantity = Math.min(lot.remainingQuantity, remainingSellQuantity);
+
+      lot.remainingQuantity = normalizeQuantity(lot.remainingQuantity - consumedQuantity);
+      remainingSellQuantity = normalizeQuantity(remainingSellQuantity - consumedQuantity);
+    }
+  }
+
+  return lots
+    .filter((lot) => lot.remainingQuantity > 0)
+    .map((lot) => toHoldingLot({ fxRateToValuationCurrency, lastPrice, lot }));
 }
 
 function buildHoldingPerformance({
@@ -523,7 +670,7 @@ function buildHoldingPerformance({
   oneDayGainPercent,
   priceSnapshot,
   quantity,
-  transactions
+  transactions,
 }: {
   fxRateToValuationCurrency: number | null;
   historicalRows: HistoricalPrice[];
@@ -545,7 +692,7 @@ function buildHoldingPerformance({
     "1D": {
       amount: oneDayGain,
       percent: oneDayGainPercent,
-      amountInValuationCurrency: oneDayAmountInValuationCurrency
+      amountInValuationCurrency: oneDayAmountInValuationCurrency,
     },
     "1W": calculatePeriodPerformance({
       fxRateToValuationCurrency,
@@ -554,7 +701,7 @@ function buildHoldingPerformance({
       latestDate,
       priceCurrency,
       quantity,
-      timeframe: "1W"
+      timeframe: "1W",
     }),
     "1M": calculatePeriodPerformance({
       fxRateToValuationCurrency,
@@ -563,7 +710,7 @@ function buildHoldingPerformance({
       latestDate,
       priceCurrency,
       quantity,
-      timeframe: "1M"
+      timeframe: "1M",
     }),
     YTD: calculatePeriodPerformance({
       fxRateToValuationCurrency,
@@ -572,7 +719,7 @@ function buildHoldingPerformance({
       latestDate,
       priceCurrency,
       quantity,
-      timeframe: "YTD"
+      timeframe: "YTD",
     }),
     "1Y": calculatePeriodPerformance({
       fxRateToValuationCurrency,
@@ -581,7 +728,7 @@ function buildHoldingPerformance({
       latestDate,
       priceCurrency,
       quantity,
-      timeframe: "1Y"
+      timeframe: "1Y",
     }),
     "3Y": calculatePeriodPerformance({
       fxRateToValuationCurrency,
@@ -590,7 +737,7 @@ function buildHoldingPerformance({
       latestDate,
       priceCurrency,
       quantity,
-      timeframe: "3Y"
+      timeframe: "3Y",
     }),
     "5Y": calculatePeriodPerformance({
       fxRateToValuationCurrency,
@@ -599,7 +746,7 @@ function buildHoldingPerformance({
       latestDate,
       priceCurrency,
       quantity,
-      timeframe: "5Y"
+      timeframe: "5Y",
     }),
     MAX: calculatePeriodPerformance({
       fxRateToValuationCurrency,
@@ -608,64 +755,64 @@ function buildHoldingPerformance({
       latestDate,
       priceCurrency,
       quantity,
-      timeframe: "MAX"
+      timeframe: "MAX",
     }),
     COST_1D: calculateCostBasisPerformance({
       fxRateToValuationCurrency,
       lastPrice,
       latestDate,
       timeframe: "1D",
-      transactions
+      transactions,
     }),
     COST_1W: calculateCostBasisPerformance({
       fxRateToValuationCurrency,
       lastPrice,
       latestDate,
       timeframe: "1W",
-      transactions
+      transactions,
     }),
     COST_1M: calculateCostBasisPerformance({
       fxRateToValuationCurrency,
       lastPrice,
       latestDate,
       timeframe: "1M",
-      transactions
+      transactions,
     }),
     COST_YTD: calculateCostBasisPerformance({
       fxRateToValuationCurrency,
       lastPrice,
       latestDate,
       timeframe: "YTD",
-      transactions
+      transactions,
     }),
     COST_1Y: calculateCostBasisPerformance({
       fxRateToValuationCurrency,
       lastPrice,
       latestDate,
       timeframe: "1Y",
-      transactions
+      transactions,
     }),
     COST_3Y: calculateCostBasisPerformance({
       fxRateToValuationCurrency,
       lastPrice,
       latestDate,
       timeframe: "3Y",
-      transactions
+      transactions,
     }),
     COST_5Y: calculateCostBasisPerformance({
       fxRateToValuationCurrency,
       lastPrice,
       latestDate,
       timeframe: "5Y",
-      transactions
+      transactions,
     }),
     COST_MAX: calculateCostBasisPerformance({
       fxRateToValuationCurrency,
       lastPrice,
       latestDate,
       timeframe: "MAX",
-      transactions
-    })
+      transactions,
+    }),
   };
 }
 
@@ -678,7 +825,7 @@ function buildHoldingRow({
   position,
   priceSnapshot,
   positionTransactions,
-  valuationCurrency
+  valuationCurrency,
 }: {
   fxRateToValuationCurrency: number | null;
   historicalPriceRows: HistoricalPrice[];
@@ -687,7 +834,7 @@ function buildHoldingRow({
   parentPriceSnapshot: PriceSnapshot | null;
   position: InstrumentPosition;
   priceSnapshot: PriceSnapshot | null;
-  positionTransactions: PositionTransaction[];
+  positionTransactions: HoldingLotTransaction[];
   valuationCurrency: string;
 }): HoldingRow {
   const matchingPriceSnapshot =
@@ -695,27 +842,26 @@ function buildHoldingRow({
   const lastPrice = matchingPriceSnapshot?.price ?? null;
   const previousClose = getPreviousClose({
     historicalRows: historicalPriceRows,
-    priceSnapshot: matchingPriceSnapshot
+    priceSnapshot: matchingPriceSnapshot,
   });
   const { oneDayGain, oneDayGainPercent } = calculateOneDayGain({
     lastPrice,
     previousClose,
-    quantity: position.quantity
+    quantity: position.quantity,
   });
   const oneDayGainInValuationCurrency =
     oneDayGain == null || fxRateToValuationCurrency == null
       ? null
       : normalizeMoney(oneDayGain * fxRateToValuationCurrency);
-  const marketValue =
-    lastPrice == null ? null : normalizeMoney(position.quantity * lastPrice);
+  const marketValue = lastPrice == null ? null : normalizeMoney(position.quantity * lastPrice);
   const unrealizedPnl =
     marketValue == null ? null : normalizeMoney(marketValue - position.totalCost);
   const unrealizedPnlPercent =
-    unrealizedPnl == null || position.totalCost <= 0
-      ? null
-      : unrealizedPnl / position.totalCost;
+    unrealizedPnl == null || position.totalCost <= 0 ? null : unrealizedPnl / position.totalCost;
   const totalCostInValuationCurrency =
-    fxRateToValuationCurrency == null ? null : normalizeMoney(position.totalCost * fxRateToValuationCurrency);
+    fxRateToValuationCurrency == null
+      ? null
+      : normalizeMoney(position.totalCost * fxRateToValuationCurrency);
   const marketValueInValuationCurrency =
     marketValue == null || fxRateToValuationCurrency == null
       ? null
@@ -734,7 +880,9 @@ function buildHoldingRow({
     instrument.drRatio > 0 &&
     instrument.underlyingCurrency != null &&
     underlyingFxRateToInstrumentCurrency != null
-      ? normalizePrice((position.averageCost * instrument.drRatio) / underlyingFxRateToInstrumentCurrency)
+      ? normalizePrice(
+          (position.averageCost * instrument.drRatio) / underlyingFxRateToInstrumentCurrency,
+        )
       : null;
 
   return {
@@ -769,7 +917,7 @@ function buildHoldingRow({
       oneDayGainPercent,
       priceSnapshot: matchingPriceSnapshot,
       quantity: position.quantity,
-      transactions: positionTransactions
+      transactions: positionTransactions,
     }),
     marketValue,
     unrealizedPnl,
@@ -782,13 +930,18 @@ function buildHoldingRow({
     parentAverageCost,
     parentLastPrice: matchingParentSnapshot?.price ?? null,
     parentLastPriceAsOf: matchingParentSnapshot?.asOf ?? null,
-    portfolioWeight: null
+    portfolioWeight: null,
+    lots: buildOpenHoldingLots({
+      fxRateToValuationCurrency,
+      lastPrice,
+      transactions: positionTransactions,
+    }),
   };
 }
 
 function parsePortfolioScope({
   portfolioId,
-  portfolioIds
+  portfolioIds,
 }: {
   portfolioId?: number;
   portfolioIds?: number[];
@@ -800,7 +953,10 @@ function parsePortfolioScope({
   return [parsePortfolioId(portfolioId)];
 }
 
-async function listHoldingRows(asOfDate: string, portfolioIds: number[]): Promise<HoldingJoinedRow[]> {
+async function listHoldingRows(
+  asOfDate: string,
+  portfolioIds: number[],
+): Promise<HoldingJoinedRow[]> {
   const portfolioFilter =
     portfolioIds.length === 1
       ? eq(transactions.portfolioId, portfolioIds[0])
@@ -809,11 +965,15 @@ async function listHoldingRows(asOfDate: string, portfolioIds: number[]): Promis
   return db
     .select({
       instrument: instruments,
+      portfolio: {
+        name: portfolios.name,
+      },
       transaction: transactions,
-      priceSnapshot: priceSnapshots
+      priceSnapshot: priceSnapshots,
     })
     .from(transactions)
     .innerJoin(instruments, eq(transactions.instrumentId, instruments.id))
+    .innerJoin(portfolios, eq(transactions.portfolioId, portfolios.id))
     .leftJoin(priceSnapshots, eq(priceSnapshots.instrumentId, instruments.id))
     .where(and(portfolioFilter, lte(transactions.tradeDate, asOfDate)))
     .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id));
@@ -822,7 +982,7 @@ async function listHoldingRows(asOfDate: string, portfolioIds: number[]): Promis
 export async function getHoldingsSnapshot({
   portfolioId: portfolioIdInput,
   portfolioIds: portfolioIdsInput,
-  ensureFresh = false
+  ensureFresh = false,
 }: {
   portfolioId?: number;
   portfolioIds?: number[];
@@ -830,12 +990,14 @@ export async function getHoldingsSnapshot({
 }): Promise<HoldingsSnapshot> {
   const portfolioIds = parsePortfolioScope({
     portfolioId: portfolioIdInput,
-    portfolioIds: portfolioIdsInput
+    portfolioIds: portfolioIdsInput,
   });
 
   if (ensureFresh) {
     await Promise.all(
-      portfolioIds.map((portfolioId) => ensureFreshMarketDataCache({ portfolioId, includeBenchmark: true }))
+      portfolioIds.map((portfolioId) =>
+        ensureFreshMarketDataCache({ portfolioId, includeBenchmark: true }),
+      ),
     );
   }
 
@@ -844,7 +1006,7 @@ export async function getHoldingsSnapshot({
     listHoldingRows(asOfDate, portfolioIds),
     getMarketSettings(),
     db.select().from(instruments),
-    db.select().from(priceSnapshots)
+    db.select().from(priceSnapshots),
   ]);
   const valuationCurrency = marketSettings.baseCurrency;
   const instrumentById = new Map(instrumentRows.map((instrument) => [instrument.id, instrument]));
@@ -878,27 +1040,39 @@ export async function getHoldingsSnapshot({
       isPriceDataStale: false,
       awaitingPriceSymbols: [],
       currencyBreakdown: [],
-      realizedBreakdown: []
+      realizedBreakdown: [],
     };
   }
 
-  const groupedInstruments = new Map<number, { instrument: Instrument; priceSnapshot: PriceSnapshot | null }>();
+  const groupedInstruments = new Map<
+    number,
+    { instrument: Instrument; priceSnapshot: PriceSnapshot | null }
+  >();
 
   for (const row of rows) {
     if (!groupedInstruments.has(row.instrument.id)) {
       groupedInstruments.set(row.instrument.id, {
         instrument: applyKnownDrMetadata(row.instrument),
-        priceSnapshot: row.priceSnapshot
+        priceSnapshot: row.priceSnapshot,
       });
     }
   }
 
-  const positions = calculatePositions(rows.map((row) => toChronologicalPositionTransaction(row.transaction)));
-  const transactionsByInstrumentId = new Map<number, PositionTransaction[]>();
+  const positions = calculatePositions(
+    rows.map((row) => toChronologicalPositionTransaction(row.transaction)),
+  );
+  const transactionsByInstrumentId = new Map<number, HoldingLotTransaction[]>();
 
   for (const row of rows) {
-    const instrumentTransactions = transactionsByInstrumentId.get(row.transaction.instrumentId) ?? [];
-    instrumentTransactions.push(toChronologicalPositionTransaction(row.transaction));
+    const instrumentTransactions =
+      transactionsByInstrumentId.get(row.transaction.instrumentId) ?? [];
+    instrumentTransactions.push({
+      ...toChronologicalPositionTransaction(row.transaction),
+      broker: row.transaction.broker,
+      notes: row.transaction.notes,
+      portfolioId: row.transaction.portfolioId,
+      portfolioName: portfolioIds.length > 1 ? row.portfolio.name : null,
+    });
     transactionsByInstrumentId.set(row.transaction.instrumentId, instrumentTransactions);
   }
 
@@ -930,41 +1104,43 @@ export async function getHoldingsSnapshot({
         fxRateToValuationCurrency: getFxRateToValuationCurrency({
           currency: instrumentState.instrument.currency,
           fxSnapshotsByProviderSymbol,
-          valuationCurrency
+          valuationCurrency,
         }),
         historicalPriceRows: historicalPricesByInstrumentId.get(position.instrumentId) ?? [],
         instrument: instrumentState.instrument,
         underlyingFxRateToInstrumentCurrency: getUnderlyingFxRateToInstrumentCurrency({
           fxSnapshotsByProviderSymbol,
-          instrument: instrumentState.instrument
+          instrument: instrumentState.instrument,
         }),
         parentPriceSnapshot:
           instrumentState.instrument.underlyingProviderSymbol == null
             ? null
-            : fxSnapshotsByProviderSymbol.get(instrumentState.instrument.underlyingProviderSymbol) ?? null,
+            : (fxSnapshotsByProviderSymbol.get(
+                instrumentState.instrument.underlyingProviderSymbol,
+              ) ?? null),
         position,
         positionTransactions: transactionsByInstrumentId.get(position.instrumentId) ?? [],
         priceSnapshot: instrumentState.priceSnapshot,
-        valuationCurrency
+        valuationCurrency,
       });
     })
     .sort(compareHoldingRows);
 
   const pricedHoldings = openHoldings.filter((holding) => holding.marketValue != null);
-  const latestPriceAsOf = openHoldings
-    .map((holding) => holding.lastPriceAsOf)
-    .filter((value): value is string => value != null)
-    .sort((left, right) => right.localeCompare(left))[0] ?? null;
-  const missingPricePositionCount = openHoldings.filter((holding) => holding.marketValue == null).length;
+  const latestPriceAsOf =
+    openHoldings
+      .map((holding) => holding.lastPriceAsOf)
+      .filter((value): value is string => value != null)
+      .sort((left, right) => right.localeCompare(left))[0] ?? null;
+  const missingPricePositionCount = openHoldings.filter(
+    (holding) => holding.marketValue == null,
+  ).length;
   const priceAgeMinutes = getPriceAgeMinutes(latestPriceAsOf);
-  const isPriceDataStale = isMarketDataStale(
-    latestPriceAsOf,
-    marketSettings.marketRefreshMinutes
-  );
+  const isPriceDataStale = isMarketDataStale(latestPriceAsOf, marketSettings.marketRefreshMinutes);
 
   const holdings = openHoldings.map((holding) => ({
     ...holding,
-    portfolioWeight: null
+    portfolioWeight: null,
   }));
 
   const currencyBreakdownMap = new Map<string, CurrencyBreakdown>();
@@ -980,7 +1156,7 @@ export async function getHoldingsSnapshot({
       totalFees: 0,
       totalMarketValue: 0,
       totalUnrealizedPnl: 0,
-      awaitingPriceSymbols: []
+      awaitingPriceSymbols: [],
     };
 
     entry.openPositionCount += 1;
@@ -1019,7 +1195,7 @@ export async function getHoldingsSnapshot({
     const entry = realizedBreakdownMap.get(currency) ?? {
       currency,
       totalRealizedPnl: 0,
-      totalFees: 0
+      totalFees: 0,
     };
 
     entry.totalRealizedPnl = normalizeMoney(entry.totalRealizedPnl + position.realizedPnl);
@@ -1028,39 +1204,52 @@ export async function getHoldingsSnapshot({
   }
 
   const currencyBreakdown = Array.from(currencyBreakdownMap.values()).sort((left, right) =>
-    left.currency.localeCompare(right.currency)
+    left.currency.localeCompare(right.currency),
   );
   const realizedBreakdown = Array.from(realizedBreakdownMap.values()).sort((left, right) =>
-    left.currency.localeCompare(right.currency)
+    left.currency.localeCompare(right.currency),
   );
-  const openPositionCurrency = currencyBreakdown.length === 1 ? currencyBreakdown[0].currency : null;
+  const openPositionCurrency =
+    currencyBreakdown.length === 1 ? currencyBreakdown[0].currency : null;
   const singleCurrencyBreakdown = openPositionCurrency == null ? null : currencyBreakdown[0];
-  const canUseValuationTotals = holdings.every((holding) =>
-    holding.totalCostInValuationCurrency != null &&
-    (holding.marketValue == null || holding.marketValueInValuationCurrency != null)
+  const canUseValuationTotals = holdings.every(
+    (holding) =>
+      holding.totalCostInValuationCurrency != null &&
+      (holding.marketValue == null || holding.marketValueInValuationCurrency != null),
   );
   const totalCostBasisInValuationCurrency =
     holdings.length === 0
       ? 0
       : canUseValuationTotals
         ? normalizeMoney(
-            holdings.reduce((total, holding) => total + (holding.totalCostInValuationCurrency ?? 0), 0)
+            holdings.reduce(
+              (total, holding) => total + (holding.totalCostInValuationCurrency ?? 0),
+              0,
+            ),
           )
         : null;
   const totalMarketValueInValuationCurrency =
     holdings.length === 0
       ? 0
-      : canUseValuationTotals && holdings.every((holding) => holding.marketValueInValuationCurrency != null)
+      : canUseValuationTotals &&
+          holdings.every((holding) => holding.marketValueInValuationCurrency != null)
         ? normalizeMoney(
-            holdings.reduce((total, holding) => total + (holding.marketValueInValuationCurrency ?? 0), 0)
+            holdings.reduce(
+              (total, holding) => total + (holding.marketValueInValuationCurrency ?? 0),
+              0,
+            ),
           )
         : null;
   const totalUnrealizedPnlInValuationCurrency =
     holdings.length === 0
       ? 0
-      : canUseValuationTotals && holdings.every((holding) => holding.unrealizedPnlInValuationCurrency != null)
+      : canUseValuationTotals &&
+          holdings.every((holding) => holding.unrealizedPnlInValuationCurrency != null)
         ? normalizeMoney(
-            holdings.reduce((total, holding) => total + (holding.unrealizedPnlInValuationCurrency ?? 0), 0)
+            holdings.reduce(
+              (total, holding) => total + (holding.unrealizedPnlInValuationCurrency ?? 0),
+              0,
+            ),
           )
         : null;
   const totalMarketValue =
@@ -1068,41 +1257,43 @@ export async function getHoldingsSnapshot({
       ? holdings.length === 0
         ? 0
         : null
-      : singleCurrencyBreakdown?.totalMarketValue ?? totalMarketValueInValuationCurrency;
+      : (singleCurrencyBreakdown?.totalMarketValue ?? totalMarketValueInValuationCurrency);
   const totalUnrealizedPnl =
     singleCurrencyBreakdown == null && totalUnrealizedPnlInValuationCurrency == null
       ? holdings.length === 0
         ? 0
         : null
-      : singleCurrencyBreakdown?.totalUnrealizedPnl ?? totalUnrealizedPnlInValuationCurrency;
+      : (singleCurrencyBreakdown?.totalUnrealizedPnl ?? totalUnrealizedPnlInValuationCurrency);
   const totalCostBasis =
     singleCurrencyBreakdown == null && totalCostBasisInValuationCurrency == null
       ? holdings.length === 0
         ? 0
         : null
-      : singleCurrencyBreakdown?.totalCostBasis ?? totalCostBasisInValuationCurrency;
+      : (singleCurrencyBreakdown?.totalCostBasis ?? totalCostBasisInValuationCurrency);
   const totalRealizedPnl =
     realizedBreakdown.length === 1
       ? realizedBreakdown[0].totalRealizedPnl
       : positions.size === 0
         ? 0
-        : realizedBreakdown.every((entry) =>
-            getFxRateToValuationCurrency({
-              currency: entry.currency,
-              fxSnapshotsByProviderSymbol,
-              valuationCurrency
-            }) != null
-          )
-          ? normalizeMoney(
-              realizedBreakdown.reduce((total, entry) => {
-                const rate = getFxRateToValuationCurrency({
+        : realizedBreakdown.every(
+              (entry) =>
+                getFxRateToValuationCurrency({
                   currency: entry.currency,
                   fxSnapshotsByProviderSymbol,
-                  valuationCurrency
-                }) ?? 0;
+                  valuationCurrency,
+                }) != null,
+            )
+          ? normalizeMoney(
+              realizedBreakdown.reduce((total, entry) => {
+                const rate =
+                  getFxRateToValuationCurrency({
+                    currency: entry.currency,
+                    fxSnapshotsByProviderSymbol,
+                    valuationCurrency,
+                  }) ?? 0;
 
                 return total + entry.totalRealizedPnl * rate;
-              }, 0)
+              }, 0),
             )
           : null;
   const totalFees =
@@ -1110,23 +1301,25 @@ export async function getHoldingsSnapshot({
       ? realizedBreakdown[0].totalFees
       : positions.size === 0
         ? 0
-        : realizedBreakdown.every((entry) =>
-            getFxRateToValuationCurrency({
-              currency: entry.currency,
-              fxSnapshotsByProviderSymbol,
-              valuationCurrency
-            }) != null
-          )
-          ? normalizeMoney(
-              realizedBreakdown.reduce((total, entry) => {
-                const rate = getFxRateToValuationCurrency({
+        : realizedBreakdown.every(
+              (entry) =>
+                getFxRateToValuationCurrency({
                   currency: entry.currency,
                   fxSnapshotsByProviderSymbol,
-                  valuationCurrency
-                }) ?? 0;
+                  valuationCurrency,
+                }) != null,
+            )
+          ? normalizeMoney(
+              realizedBreakdown.reduce((total, entry) => {
+                const rate =
+                  getFxRateToValuationCurrency({
+                    currency: entry.currency,
+                    fxSnapshotsByProviderSymbol,
+                    valuationCurrency,
+                  }) ?? 0;
 
                 return total + entry.totalFees * rate;
-              }, 0)
+              }, 0),
             )
           : null;
   const holdingsWithWeights = holdings.map((holding) => ({
@@ -1134,16 +1327,23 @@ export async function getHoldingsSnapshot({
     portfolioWeight:
       totalMarketValue != null &&
       totalMarketValue > 0 &&
-      (singleCurrencyBreakdown != null ? holding.marketValue != null : holding.marketValueInValuationCurrency != null)
-        ? (singleCurrencyBreakdown != null ? holding.marketValue ?? 0 : holding.marketValueInValuationCurrency ?? 0) / totalMarketValue
-        : null
+      (singleCurrencyBreakdown != null
+        ? holding.marketValue != null
+        : holding.marketValueInValuationCurrency != null)
+        ? (singleCurrencyBreakdown != null
+            ? (holding.marketValue ?? 0)
+            : (holding.marketValueInValuationCurrency ?? 0)) / totalMarketValue
+        : null,
   }));
 
   return {
     holdings: holdingsWithWeights,
     openPositionCount: holdingsWithWeights.length,
-    closedPositionCount: Array.from(positions.values()).filter((position) => position.quantity === 0).length,
-    openPositionCurrency: openPositionCurrency ?? (totalCostBasis == null ? null : valuationCurrency),
+    closedPositionCount: Array.from(positions.values()).filter(
+      (position) => position.quantity === 0,
+    ).length,
+    openPositionCurrency:
+      openPositionCurrency ?? (totalCostBasis == null ? null : valuationCurrency),
     valuationCurrency,
     totalCostBasis,
     totalRealizedPnl,
@@ -1160,7 +1360,7 @@ export async function getHoldingsSnapshot({
       .filter((holding) => holding.marketValue == null)
       .map((holding) => holding.symbol),
     currencyBreakdown,
-    realizedBreakdown
+    realizedBreakdown,
   };
 }
 
