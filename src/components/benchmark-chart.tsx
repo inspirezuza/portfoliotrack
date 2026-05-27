@@ -17,9 +17,7 @@ import {
   formatTimeAxisTick,
   getTimeAxisDomain,
   getUtcDateTime,
-  isDailyPoint,
   isIntradayDate,
-  isIntradayPoint,
   parseChartDate,
 } from "@/lib/charts/time-axis";
 import { useChartVisibilityKey } from "@/hooks/use-chart-visibility-key";
@@ -31,6 +29,7 @@ import {
   buildBenchmarkChartData,
   calculatePercentChange,
   calculateSelectionChange,
+  selectVisibleTimeframePoints,
 } from "@/components/benchmark-chart/chart-data";
 import type {
   ActivePerformancePoint,
@@ -275,82 +274,8 @@ function getUnavailableMessage({
   }
 }
 
-function getTimeframeStartDate(key: TimeframeKey, latestDate: string) {
-  const latest = parseChartDate(latestDate);
-
-  if (key === "ALL") {
-    return null;
-  }
-
-  if (key === "YTD") {
-    return `${latest.getUTCFullYear()}-01-01T00:00:00.000Z`;
-  }
-
-  const daysByKey: Record<Exclude<TimeframeKey, "ALL" | "YTD">, number> = {
-    "1D": 1,
-    "5D": 5,
-    "1W": 7,
-    "1M": 30,
-    "3M": 90,
-    "1Y": 365,
-  };
-  latest.setUTCDate(latest.getUTCDate() - daysByKey[key]);
-
-  return latest.toISOString();
-}
-
-function isShortTimeframe(timeframe: TimeframeKey) {
-  return timeframe === "1D" || timeframe === "5D" || timeframe === "1W" || timeframe === "1M";
-}
-
-function getPreferredIntradayInterval(timeframe: TimeframeKey) {
-  if (timeframe === "1D") {
-    return "5m";
-  }
-
-  if (timeframe === "5D" || timeframe === "1W" || timeframe === "1M") {
-    return "1h";
-  }
-
-  return null;
-}
-
 function getVisibleSeries(series: ActivePerformancePoint[], timeframe: TimeframeKey) {
-  const latestPoint = series[series.length - 1];
-
-  if (latestPoint == null) {
-    return [];
-  }
-
-  const startDate = getTimeframeStartDate(timeframe, latestPoint.date);
-  const startTime = startDate == null ? null : getUtcDateTime(startDate);
-  const filteredSeries =
-    startTime == null ? series : series.filter((point) => getUtcDateTime(point.date) >= startTime);
-
-  if (isShortTimeframe(timeframe)) {
-    const preferredInterval = getPreferredIntradayInterval(timeframe);
-    const preferredIntradaySeries = filteredSeries.filter(
-      (point) => preferredInterval != null && point.interval === preferredInterval,
-    );
-
-    if (preferredIntradaySeries.length >= 2) {
-      return preferredIntradaySeries;
-    }
-
-    const intradaySeries = filteredSeries.filter(isIntradayPoint);
-
-    if (intradaySeries.length >= 2) {
-      return intradaySeries;
-    }
-  } else {
-    const dailySeries = filteredSeries.filter(isDailyPoint);
-
-    if (dailySeries.length >= 2) {
-      return dailySeries;
-    }
-  }
-
-  return filteredSeries.length > 0 ? filteredSeries : series;
+  return selectVisibleTimeframePoints({ points: series, timeframe });
 }
 
 function getRoundedPercentAxis(values: number[]) {
@@ -453,27 +378,12 @@ function getVisibleOverlayPoints(
   timeframe: TimeframeKey,
   latestDate: string,
 ) {
-  const startDate = getTimeframeStartDate(timeframe, latestDate);
-  const startTime = startDate == null ? null : getUtcDateTime(startDate);
-  const filteredPoints =
-    startTime == null ? points : points.filter((point) => getUtcDateTime(point.date) >= startTime);
-
-  if (isShortTimeframe(timeframe)) {
-    const preferredInterval = getPreferredIntradayInterval(timeframe);
-    const preferredIntradayPoints = filteredPoints.filter(
-      (point) => preferredInterval != null && point.interval === preferredInterval,
-    );
-
-    if (preferredIntradayPoints.length >= 2) {
-      return preferredIntradayPoints;
-    }
-
-    return filteredPoints.filter(isIntradayPoint);
-  }
-
-  const dailyPoints = filteredPoints.filter(isDailyPoint);
-
-  return dailyPoints.length >= 2 ? dailyPoints : filteredPoints;
+  return selectVisibleTimeframePoints({
+    anchorDate: latestDate,
+    includeBaselinePoint: true,
+    points,
+    timeframe
+  });
 }
 
 function getOverlayReturnAtDate(

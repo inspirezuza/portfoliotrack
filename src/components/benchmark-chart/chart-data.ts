@@ -1,14 +1,135 @@
-import { attachTimeAxis } from "@/lib/charts/time-axis";
+import {
+  attachTimeAxis,
+  getUtcDateTime,
+  isDailyPoint,
+  isIntradayPoint
+} from "@/lib/charts/time-axis";
 import type { IndexedPerformancePoint } from "@/lib/portfolio/performance-series";
 import type {
   ActivePerformancePoint,
   ChartPoint,
   PerformanceMode,
-  ReturnBasis
+  ReturnBasis,
+  TimeframeKey
 } from "@/components/benchmark-chart/types";
+
+type TimeframePoint = {
+  date: string;
+  interval?: string | null;
+};
 
 function isIndexedPerformancePoint(point: ActivePerformancePoint): point is IndexedPerformancePoint {
   return "portfolioIndex" in point;
+}
+
+function getTimeframeStartDate(key: TimeframeKey, latestDate: string) {
+  const latest = new Date(latestDate);
+
+  if (key === "ALL") {
+    return null;
+  }
+
+  if (key === "YTD") {
+    return `${latest.getUTCFullYear()}-01-01T00:00:00.000Z`;
+  }
+
+  const daysByKey: Record<Exclude<TimeframeKey, "ALL" | "YTD">, number> = {
+    "1D": 1,
+    "5D": 5,
+    "1W": 7,
+    "1M": 30,
+    "3M": 90,
+    "1Y": 365
+  };
+  latest.setUTCDate(latest.getUTCDate() - daysByKey[key]);
+
+  return latest.toISOString();
+}
+
+function isShortTimeframe(timeframe: TimeframeKey) {
+  return timeframe === "1D" || timeframe === "5D" || timeframe === "1W" || timeframe === "1M";
+}
+
+function getPreferredIntradayInterval(timeframe: TimeframeKey) {
+  if (timeframe === "1D") {
+    return "5m";
+  }
+
+  if (timeframe === "5D" || timeframe === "1W" || timeframe === "1M") {
+    return "1h";
+  }
+
+  return null;
+}
+
+function getLastPointBefore<TPoint extends TimeframePoint>(points: TPoint[], timestamp: number) {
+  let previousPoint: TPoint | null = null;
+
+  for (const point of points) {
+    if (getUtcDateTime(point.date) >= timestamp) {
+      break;
+    }
+
+    previousPoint = point;
+  }
+
+  return previousPoint;
+}
+
+export function selectVisibleTimeframePoints<TPoint extends TimeframePoint>({
+  anchorDate,
+  includeBaselinePoint = false,
+  points,
+  timeframe
+}: {
+  anchorDate?: string | null;
+  includeBaselinePoint?: boolean;
+  points: TPoint[];
+  timeframe: TimeframeKey;
+}) {
+  const latestDate = anchorDate ?? points[points.length - 1]?.date ?? null;
+
+  if (latestDate == null) {
+    return [];
+  }
+
+  const startDate = getTimeframeStartDate(timeframe, latestDate);
+  const startTime = startDate == null ? null : getUtcDateTime(startDate);
+  const filteredPoints =
+    startTime == null ? points : points.filter((point) => getUtcDateTime(point.date) >= startTime);
+  const baselinePoint =
+    includeBaselinePoint && startTime != null
+      ? getLastPointBefore(points, startTime)
+      : null;
+  const addBaselinePoint = (visiblePoints: TPoint[]) =>
+    baselinePoint == null || visiblePoints.includes(baselinePoint)
+      ? visiblePoints
+      : [baselinePoint, ...visiblePoints];
+
+  if (isShortTimeframe(timeframe)) {
+    const preferredInterval = getPreferredIntradayInterval(timeframe);
+    const preferredIntradayPoints = filteredPoints.filter(
+      (point) => preferredInterval != null && point.interval === preferredInterval
+    );
+
+    if (preferredIntradayPoints.length >= 2) {
+      return addBaselinePoint(preferredIntradayPoints);
+    }
+
+    const intradayPoints = filteredPoints.filter(isIntradayPoint);
+
+    if (intradayPoints.length >= 2) {
+      return addBaselinePoint(intradayPoints);
+    }
+  } else {
+    const dailyPoints = filteredPoints.filter(isDailyPoint);
+
+    if (dailyPoints.length >= 2) {
+      return addBaselinePoint(dailyPoints);
+    }
+  }
+
+  return addBaselinePoint(filteredPoints.length >= 2 ? filteredPoints : points);
 }
 
 export function calculatePercentChange(startValue: number, endValue: number) {
