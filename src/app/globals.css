@@ -3057,7 +3057,7 @@ html[data-theme="dark"] .holdings-lot-row > td {
 
 .holdings-lot-panel {
   margin: 0;
-  padding: 8px 10px 10px;
+  padding: 0;
   background:
     linear-gradient(90deg, rgba(8, 116, 93, 0.09), transparent 34%), rgba(8, 116, 93, 0.026);
 }
@@ -3068,7 +3068,7 @@ html[data-theme="dark"] .holdings-lot-row > td {
   border: 1px solid rgba(18, 31, 25, 0.08);
   border-collapse: separate;
   border-spacing: 0;
-  border-radius: 12px;
+  border-radius: 0;
   background: color-mix(in srgb, var(--surface-strong) 92%, white);
   table-layout: fixed;
 }
