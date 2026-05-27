@@ -36,13 +36,13 @@ For the latest layout and visual-design review, read [docs/UX_REVIEW.md](docs/UX
 Install dependencies:
 
 ```powershell
-npm install
+pnpm install
 ```
 
 If Playwright browsers are not already installed on the machine, install Chromium for browser smoke tests:
 
 ```powershell
-npx playwright install chromium
+pnpm exec playwright install chromium
 ```
 
 Create `.env.local` or set shell variables with:
@@ -65,7 +65,7 @@ Get-Service postgresql-x64-17
 Generate an admin password hash:
 
 ```powershell
-npm run auth:hash -- "your-admin-password"
+pnpm run auth:hash -- "your-admin-password"
 ```
 
 When pasting the generated hash into `.env` files, escape each `$` as `\$` so Next.js does not treat hash segments as environment variable references.
@@ -73,19 +73,19 @@ When pasting the generated hash into `.env` files, escape each `$` as `\$` so Ne
 Push the database schema to the configured local or hosted Postgres database:
 
 ```powershell
-npm run db:migrate:local
+pnpm run db:migrate:local
 ```
 
 Optionally seed sample data:
 
 ```powershell
-npm run db:seed
+pnpm run db:seed
 ```
 
 Start the development server:
 
 ```powershell
-npm run dev
+pnpm run dev
 ```
 
 Open `http://localhost:3000`.
@@ -94,27 +94,27 @@ Public visitors can view the app read-only and switch between portfolios. Sign i
 
 ## Scripts
 
-- `npm run dev` starts the development server.
-- `npm run test` runs the Node test suite through `tsx`.
-- `npm run test:e2e` runs the Playwright Chromium smoke suite. It starts the Next dev server on `127.0.0.1:3001` unless `PLAYWRIGHT_BASE_URL` or `PLAYWRIGHT_PORT` is set.
-- `npm run test:e2e:headed` runs the same Playwright smoke suite with a visible browser.
-- `npm run typecheck` runs `tsc --noEmit --pretty false`.
-- `npm run verify` runs lint, typecheck, unit tests, and production build in sequence.
-- `npm run verify:full` runs lint, typecheck, unit tests, Playwright smoke tests, and production build in sequence.
-- `npm run build` builds the production app and runs type/lint checks through Next.
-- `npm run start` serves the production build.
-- `npm run lint` runs ESLint.
-- `npm run format:check` checks Prettier formatting without writing files. Keep it local/optional until a deliberate repo-wide format pass lands.
-- `npm run config:check` verifies local admin env and reports the local database fallback.
-- `npm run config:check:prod` verifies production deployment env before migration or deploy handoff.
-- `npm run db:local:up` reminds you to use the machine-level PostgreSQL service on `localhost:5432`.
-- `npm run db:local:down` reminds you to stop the machine-level PostgreSQL service from Windows Services if needed.
-- `npm run db:generate` generates SQL migrations from the Drizzle schema.
-- `npm run db:migrate` pushes the Drizzle schema to the configured Postgres database for local iteration.
-- `npm run db:migrate:local` is the explicit local schema-push alias.
-- `npm run db:migrate:prod` checks required production env and applies committed migrations with `drizzle-kit migrate`.
-- `npm run db:seed` inserts demo portfolios, instruments, transactions, prices, FX snapshots, DR metadata, and settings for local testing.
-- `npm run auth:hash` prints a scrypt password hash for `ADMIN_PASSWORD_HASH`.
+- `pnpm run dev` starts the development server.
+- `pnpm run test` runs the Node test suite through `tsx`.
+- `pnpm run test:e2e` runs the Playwright Chromium smoke suite. It starts the Next dev server on `127.0.0.1:3001` unless `PLAYWRIGHT_BASE_URL` or `PLAYWRIGHT_PORT` is set.
+- `pnpm run test:e2e:headed` runs the same Playwright smoke suite with a visible browser.
+- `pnpm run typecheck` runs `tsc --noEmit --pretty false`.
+- `pnpm run verify` runs lint, typecheck, unit tests, and production build in sequence.
+- `pnpm run verify:full` runs lint, typecheck, unit tests, Playwright smoke tests, and production build in sequence.
+- `pnpm run build` builds the production app and runs type/lint checks through Next.
+- `pnpm run start` serves the production build.
+- `pnpm run lint` runs ESLint.
+- `pnpm run format:check` checks Prettier formatting without writing files. Keep it local/optional until a deliberate repo-wide format pass lands.
+- `pnpm run config:check` verifies local admin env and reports the local database fallback.
+- `pnpm run config:check:prod` verifies production deployment env before migration or deploy handoff.
+- `pnpm run db:local:up` reminds you to use the machine-level PostgreSQL service on `localhost:5432`.
+- `pnpm run db:local:down` reminds you to stop the machine-level PostgreSQL service from Windows Services if needed.
+- `pnpm run db:generate` generates SQL migrations from the Drizzle schema.
+- `pnpm run db:migrate` pushes the Drizzle schema to the configured Postgres database for local iteration.
+- `pnpm run db:migrate:local` is the explicit local schema-push alias.
+- `pnpm run db:migrate:prod` checks required production env and applies committed migrations with `drizzle-kit migrate`.
+- `pnpm run db:seed` inserts demo portfolios, instruments, transactions, prices, FX snapshots, DR metadata, and settings for local testing.
+- `pnpm run auth:hash` prints a scrypt password hash for `ADMIN_PASSWORD_HASH`.
 
 ## Project Map
 
@@ -138,16 +138,16 @@ Public visitors can view the app read-only and switch between portfolios. Sign i
 
 The production database lives in Neon Postgres. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full free-tier Vercel + Neon setup.
 
-The database schema is declared in `src/lib/db/schema.ts`, with SQL migrations in `drizzle/`. Use `npm run db:generate` after schema changes, review the generated SQL, use `npm run db:migrate:local` for local schema pushes, and use `npm run db:migrate:prod` for production migration handoff.
+The database schema is declared in `src/lib/db/schema.ts`, with SQL migrations in `drizzle/`. Use `pnpm run db:generate` after schema changes, review the generated SQL, use `pnpm run db:migrate:local` for local schema pushes, and use `pnpm run db:migrate:prod` for production migration handoff.
 
 Market refresh runs are tracked in `market_refresh_runs`. Vercel Cron calls slot-specific routes in `Asia/Bangkok`: `/api/cron/market-data/1800`, `/1900`, `/2000`, `/2030` for US market open, `/2100`, `/2200`, `/2300`, `/0000`, and `/0300` for US market close. Each route requires `Authorization: Bearer $CRON_SECRET`, starts every portfolio through the guarded `daily-auto` path, and records one run per Bangkok day per portfolio per slot. Admin manual refresh remains available from the app and bypasses the scheduled slot limit. Manual and cron refreshes return quickly, then a protected worker processes market data in batches and updates run progress so older portfolios do not hold a browser request open until Vercel times out. Vercel Hobby cron timing is hourly best-effort, so these slots are target windows rather than exact minute guarantees.
 
 ## Notes For Future Work
 
-- The unit test suite covers the transaction selection helper, position math, validation, and timeout utility. Run `npm run test` before changing those flows.
-- The Playwright smoke suite covers the dashboard, transactions route, instrument-to-asset drilldown, and login route. Run `npm run test:e2e` after changing shell navigation, route rendering, transaction table links, login visibility, app loading states, or anything likely to compile cleanly but fail in the browser.
-- Use `npm run verify` for normal code verification and `npm run verify:full` before larger releases, route changes, deploy handoff, or broad vibe-code passes.
-- GitHub Actions runs `npm run verify` on `main` and pull requests, with a separate Playwright smoke job for pull requests. Dependabot opens conservative weekly dependency PRs while major upgrades remain manual.
+- The unit test suite covers the transaction selection helper, position math, validation, and timeout utility. Run `pnpm run test` before changing those flows.
+- The Playwright smoke suite covers the dashboard, transactions route, instrument-to-asset drilldown, and login route. Run `pnpm run test:e2e` after changing shell navigation, route rendering, transaction table links, login visibility, app loading states, or anything likely to compile cleanly but fail in the browser.
+- Use `pnpm run verify` for normal code verification and `pnpm run verify:full` before larger releases, route changes, deploy handoff, or broad vibe-code passes.
+- GitHub Actions runs `pnpm run verify` on `main` and pull requests, with a separate Playwright smoke job for pull requests. Dependabot opens conservative weekly dependency PRs while major upgrades remain manual.
 - Excel transaction import is template-only for now: unknown instruments can be created with `Instrument Action = CREATE`, duplicate rows are skipped, broker defaults to Dime when omitted, and valid rows are inserted as one batch.
 - Transactions are scoped by selected portfolio; instruments and market price caches are shared across portfolios.
 - Local seed data includes a Thai/DR demo, a US stock demo with THB reporting through USDTHB snapshots, and a closed-trades demo so new tickets can be tested without hand-building data first.

@@ -15,17 +15,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Verify application
-        run: npm run verify
+        run: pnpm run verify
 
   playwright-smoke:
     runs-on: ubuntu-latest
@@ -50,27 +55,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Prepare smoke database
         run: |
-          npm run db:migrate:local
-          npm run db:seed
+          pnpm run db:migrate:local
+          pnpm run db:seed
         env:
           LOCAL_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/portfoliotrack
 
       - name: Run browser smoke tests
-        run: npm run test:e2e
+        run: pnpm run test:e2e
         env:
           ADMIN_PASSWORD_HASH: ci-smoke-hash
           ADMIN_USERNAME: ci

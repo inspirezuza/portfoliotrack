@@ -89,15 +89,15 @@ Tables:
 Schema deployment:
 
 ```powershell
-npm run db:migrate:local
+pnpm run db:migrate:local
 ```
 
-This runs `drizzle-kit push` against `LOCAL_DATABASE_URL` when set, then `DATABASE_URL`, with a machine-level local Postgres fallback in development. For production handoff, run `npm run db:generate`, review the generated SQL in `drizzle/`, then use `npm run db:migrate:prod` with `DATABASE_URL` set. The baseline SQL is `drizzle/0000_initial_postgres.sql`; `drizzle/0001_multi_portfolios.sql` adds portfolio support and migrates existing transactions into `Main Portfolio`; `drizzle/0002_transaction_broker.sql` adds the broker field; `drizzle/0003_market_refresh_runs.sql` adds refresh run tracking; `drizzle/0004_market_refresh_progress.sql` adds worker progress fields for async refresh batches.
+This runs `drizzle-kit push` against `LOCAL_DATABASE_URL` when set, then `DATABASE_URL`, with a machine-level local Postgres fallback in development. For production handoff, run `pnpm run db:generate`, review the generated SQL in `drizzle/`, then use `pnpm run db:migrate:prod` with `DATABASE_URL` set. The baseline SQL is `drizzle/0000_initial_postgres.sql`; `drizzle/0001_multi_portfolios.sql` adds portfolio support and migrates existing transactions into `Main Portfolio`; `drizzle/0002_transaction_broker.sql` adds the broker field; `drizzle/0003_market_refresh_runs.sql` adds refresh run tracking; `drizzle/0004_market_refresh_progress.sql` adds worker progress fields for async refresh batches.
 
 Seed:
 
 ```powershell
-npm run db:seed
+pnpm run db:seed
 ```
 
 The seed includes benchmark/settings data, local demo portfolios, mock transactions, cached prices, USDTHB snapshots, and DR metadata for `AAPL80`. It is intended to make new tickets easy to test locally without manually creating transactions or market data first.
@@ -119,7 +119,7 @@ Admin configuration comes from environment variables:
 Generate the password hash with:
 
 ```powershell
-npm run auth:hash -- "your-admin-password"
+pnpm run auth:hash -- "your-admin-password"
 ```
 
 Public users can read current app pages and switch portfolios. Admin-only controls include portfolio create/update/delete, transaction create/update/delete, Excel ledger export/import, add/search instrument, and market-data refresh. Protected API writes and protected exports return `401` when the admin session cookie is missing or invalid.
@@ -185,29 +185,29 @@ Performance behavior:
 ## Commands
 
 ```powershell
-npm run dev
-npm run test
-npm run typecheck
-npm run verify
-npm run lint
-npm run format:check
-npm run build
-npm run db:migrate
-npm run db:migrate:local
-npm run db:migrate:prod
-npm run config:check
-npm run config:check:prod
-npm run db:seed
-npm run auth:hash
+pnpm run dev
+pnpm run test
+pnpm run typecheck
+pnpm run verify
+pnpm run lint
+pnpm run format:check
+pnpm run build
+pnpm run db:migrate
+pnpm run db:migrate:local
+pnpm run db:migrate:prod
+pnpm run config:check
+pnpm run config:check:prod
+pnpm run db:seed
+pnpm run auth:hash
 ```
 
 Notes:
 
-- `npm run build` also performs Next.js type/lint checks.
-- `npm run verify` runs lint, typecheck, unit tests, and production build.
-- GitHub Actions runs `npm run verify` on `main` and pull requests. Pull requests also run Playwright smoke tests.
-- Dependabot opens conservative weekly npm PRs. Major framework/library upgrades remain manual review work, not automatic PR churn.
-- `npm run test` uses Node's built-in test runner with `tsx`.
+- `pnpm run build` also performs Next.js type/lint checks.
+- `pnpm run verify` runs lint, typecheck, unit tests, and production build.
+- GitHub Actions runs `pnpm run verify` on `main` and pull requests. Pull requests also run Playwright smoke tests.
+- Dependabot opens conservative weekly package-manager PRs. Major framework/library upgrades remain manual review work, not automatic PR churn.
+- `pnpm run test` uses Node's built-in test runner with `tsx`.
 - Add or update tests only when they materially improve confidence for the current change.
 - The development server may print a Windows SWC DLL warning and still work.
 

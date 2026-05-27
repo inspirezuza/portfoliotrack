@@ -2,6 +2,14 @@
   "name": "portfoliotrack",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp",
+      "unrs-resolver"
+    ]
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -10,19 +18,19 @@
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "typecheck": "tsc --noEmit --pretty false",
-    "verify": "npm run lint && npm run typecheck && npm run test && npm run build",
-    "verify:full": "npm run lint && npm run typecheck && npm run test && npm run test:e2e && npm run build",
+    "verify": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build",
+    "verify:full": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:e2e && pnpm run build",
     "lint": "eslint .",
     "format": "prettier --write . --ignore-unknown",
     "format:check": "prettier --check . --ignore-unknown",
     "config:check": "node scripts/check-env.mjs",
     "config:check:prod": "node scripts/check-env.mjs --mode production",
-    "db:local:up": "echo Use the machine-level PostgreSQL service from pgAdmin on localhost:5432, then run npm run db:migrate.",
+    "db:local:up": "echo Use the machine-level PostgreSQL service from pgAdmin on localhost:5432, then run pnpm run db:migrate.",
     "db:local:down": "echo Stop the machine-level PostgreSQL service from Windows Services if you need to stop local Postgres.",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit push",
     "db:migrate:local": "drizzle-kit push",
-    "db:migrate:prod": "npm run config:check:prod && drizzle-kit migrate",
+    "db:migrate:prod": "pnpm run config:check:prod && drizzle-kit migrate",
     "db:seed": "tsx src/lib/db/seed.ts",
     "auth:hash": "node scripts/generate-admin-password-hash.mjs"
   },
