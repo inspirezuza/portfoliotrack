@@ -15,6 +15,7 @@ import {
 import {
   buildPortfolioBenchmarkTimeline,
   type TimelineIntradayPrice,
+  type TimelinePointInterval,
   type PortfolioBenchmarkTimeline
 } from "@/lib/portfolio/timeline";
 import {
@@ -75,6 +76,21 @@ export type DashboardBenchmarkMonthlyReturn = {
   excessReturnPercent: number | null;
 };
 
+export type DashboardBenchmarkOverlayPoint = {
+  date: string;
+  value: number;
+  interval: TimelinePointInterval | null;
+};
+
+export type DashboardBenchmarkOverlay = {
+  symbol: string;
+  displayName: string;
+  providerSymbol: string;
+  market: string;
+  currency: string;
+  points: DashboardBenchmarkOverlayPoint[];
+};
+
 export type DashboardSnapshot = {
   summary: DashboardSummary;
   holdingsSnapshot: HoldingsSnapshot;
@@ -88,6 +104,7 @@ export type DashboardSnapshot = {
   benchmarkWatchlist: {
     quotes: DashboardBenchmarkQuote[];
     monthlyReturns: DashboardBenchmarkMonthlyReturn[];
+    overlays: DashboardBenchmarkOverlay[];
   };
   performanceSummary: DashboardPerformanceSummary;
   timeline: PortfolioBenchmarkTimeline;
@@ -279,6 +296,21 @@ function shouldUseLocalDemoMarketData(monthCount: number) {
   );
 }
 
+function buildLocalDemoOverlayPoints(symbol: string): DashboardBenchmarkOverlayPoint[] {
+  const benchmarkReturns = LOCAL_DEMO_BENCHMARK_RETURNS[symbol] ?? LOCAL_DEMO_BENCHMARK_RETURNS.SPYM;
+  let value = 100;
+
+  return LOCAL_DEMO_MONTHS.map((month, index) => {
+    value = normalizeMoney(value * (1 + (benchmarkReturns[index] ?? 0) / 100));
+
+    return {
+      date: `${month}-01`,
+      interval: "1d" as const,
+      value
+    };
+  });
+}
+
 function buildPortfolioMonthlyReturns(timeline: PortfolioBenchmarkTimeline) {
   const series = timeline.comparison.length > 0
     ? timeline.comparison
@@ -332,11 +364,13 @@ function buildLocalDemoMonthlyReturns({
 function buildBenchmarkWatchlist({
   historicalPriceRows,
   instrumentRows,
+  intradayPriceRows,
   priceSnapshotRows,
   timeline
 }: {
   historicalPriceRows: Array<typeof historicalPrices.$inferSelect>;
   instrumentRows: Array<typeof instruments.$inferSelect>;
+  intradayPriceRows: Array<typeof intradayPrices.$inferSelect>;
   priceSnapshotRows: Array<typeof priceSnapshots.$inferSelect>;
   timeline: PortfolioBenchmarkTimeline;
 }) {
@@ -426,9 +460,51 @@ function buildBenchmarkWatchlist({
   }).sort((left, right) =>
     left.month === right.month ? left.symbol.localeCompare(right.symbol) : left.month.localeCompare(right.month)
   );
+  const overlays = BENCHMARK_WATCHLIST.map((benchmark) => {
+    const instrument = instrumentsBySymbol.get(benchmark.symbol) ?? null;
+    const dailyPoints: DashboardBenchmarkOverlayPoint[] =
+      instrument == null
+        ? []
+        : historicalPriceRows
+            .filter((row) => row.instrumentId === instrument.id && row.currency === benchmark.currency)
+            .map((row) => ({
+              date: row.priceDate,
+              interval: "1d" as const,
+              value: row.close
+            }));
+    const intradayPoints: DashboardBenchmarkOverlayPoint[] =
+      instrument == null
+        ? []
+        : intradayPriceRows
+            .filter(
+              (row) =>
+                row.instrumentId === instrument.id &&
+                row.currency === benchmark.currency &&
+                isTimelineIntradayInterval(row.interval)
+            )
+            .map((row) => ({
+              date: row.observedAt,
+              interval: row.interval as TimelinePointInterval,
+              value: row.close
+            }));
+
+    const realPoints = [...dailyPoints, ...intradayPoints].sort((left, right) => left.date.localeCompare(right.date));
+
+    return {
+      symbol: benchmark.symbol,
+      displayName: benchmark.displayName,
+      providerSymbol: benchmark.providerSymbol,
+      market: benchmark.market,
+      currency: benchmark.currency,
+      points: shouldUseLocalDemoMarketData(dailyPoints.length)
+        ? buildLocalDemoOverlayPoints(benchmark.symbol)
+        : realPoints
+    };
+  });
 
   return {
     monthlyReturns,
+    overlays,
     quotes
   };
 }
@@ -734,6 +810,7 @@ export async function getDashboardSnapshot({
   const benchmarkWatchlist = buildBenchmarkWatchlist({
     historicalPriceRows,
     instrumentRows,
+    intradayPriceRows,
     priceSnapshotRows,
     timeline
   });

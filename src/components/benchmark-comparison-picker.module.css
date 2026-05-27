@@ -1,0 +1,203 @@
+.section {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  border-top: 1px solid var(--line);
+  padding: 12px 12px 10px;
+  background: color-mix(in srgb, var(--surface-strong) 90%, transparent);
+  cursor: default;
+  user-select: auto;
+}
+
+.selectedList {
+  display: grid;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.selectedRow {
+  display: grid;
+  grid-template-columns: 5px minmax(110px, 1fr) minmax(86px, auto) minmax(74px, auto) 32px;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  border-top: 1px solid var(--line);
+  padding: 10px 12px;
+}
+
+.selectedRow:first-child {
+  border-top: 0;
+}
+
+.marker {
+  display: block;
+  width: 5px;
+  height: 22px;
+  border-radius: 999px;
+}
+
+.selectedRow strong,
+.selectedRow span,
+.selectedRow em {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selectedRow strong {
+  color: var(--ink);
+  font-size: 0.94rem;
+  font-weight: 800;
+}
+
+.selectedRow span,
+.selectedRow em {
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-style: normal;
+  font-weight: 760;
+  text-align: right;
+}
+
+.selectedRow button {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.selectedRow button:hover,
+.selectedRow button:focus-visible {
+  color: var(--ink);
+  background: var(--surface-muted);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.addButton,
+.clearButton {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.addButton {
+  opacity: 1;
+}
+
+.addButton:disabled {
+  cursor: default;
+}
+
+.clearButton {
+  cursor: pointer;
+}
+
+.clearButton:disabled {
+  color: var(--muted);
+  cursor: default;
+  opacity: 0.64;
+}
+
+.cardStrip {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.card {
+  display: grid;
+  flex: 0 0 160px;
+  gap: 5px;
+  min-height: 72px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: var(--ink);
+  text-align: left;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.card:hover,
+.card:focus-visible {
+  border-color: var(--line-strong);
+}
+
+.card[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface));
+}
+
+.cardTitle {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 0.75rem;
+  font-weight: 740;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card strong {
+  font-size: 0.94rem;
+  font-weight: 820;
+  line-height: 1.15;
+}
+
+.cardMeta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 760;
+}
+
+.cardMeta em {
+  flex-shrink: 0;
+  font-style: normal;
+}
+
+@media (max-width: 640px) {
+  .section {
+    padding: 10px 0 8px;
+  }
+
+  .toolbar {
+    padding-inline: 4px;
+  }
+
+  .selectedRow {
+    grid-template-columns: 5px minmax(0, 1fr) minmax(72px, auto) 30px;
+  }
+
+  .selectedRow > span:nth-of-type(2) {
+    display: none;
+  }
+
+  .card {
+    flex-basis: 148px;
+  }
+}

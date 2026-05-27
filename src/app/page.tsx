@@ -2,7 +2,6 @@ import Link from "next/link";
 import { BenchmarkChart } from "@/components/benchmark-chart";
 import { HoldingsTable } from "@/components/holdings-table";
 import { HoldingsAllocationChart } from "@/components/holdings-allocation-chart";
-import { MarketBenchmarks } from "@/components/market-benchmarks";
 import { MarketRefreshStatus } from "@/components/market-refresh-status";
 import { PendingSubmitButton } from "@/components/pending-submit-button";
 import { PortfolioChart } from "@/components/portfolio-chart";
@@ -422,6 +421,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <div className="workstation-main-stack">
           <BenchmarkChart
             absoluteSeries={timeline.absoluteComparison}
+            benchmarkOverlays={benchmarkWatchlist.overlays}
+            benchmarkQuotes={benchmarkWatchlist.quotes}
             benchmarkSymbol={timeline.benchmarkSymbol}
             benchmarkCurrency={timeline.benchmarkCurrency}
             comparisonBasis={timeline.comparisonBasis}
@@ -547,12 +548,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </article>
         </aside>
       </section>
-
-      <MarketBenchmarks
-        language={language}
-        monthlyReturns={benchmarkWatchlist.monthlyReturns}
-        quotes={benchmarkWatchlist.quotes}
-      />
 
       <section className="dashboard-holdings-section" aria-labelledby="dashboard-holdings-title">
         <div className="dashboard-holdings-header">

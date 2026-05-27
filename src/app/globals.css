@@ -74,6 +74,7 @@ html[data-theme="dark"] {
 html,
 body {
   min-height: 100%;
+  overflow-x: clip;
 }
 
 body {
@@ -215,6 +216,7 @@ html[data-theme="dark"] .nav-link-active {
   min-width: 0;
   min-height: 100dvh;
   flex-direction: column;
+  overflow-x: clip;
   background:
     linear-gradient(90deg, rgba(8, 116, 93, 0.04), transparent 28%),
     var(--surface-strong);
@@ -446,6 +448,7 @@ html[data-theme="dark"] .preference-button[aria-pressed="true"] {
 .shell-content {
   flex: 1;
   min-width: 0;
+  overflow-x: clip;
   padding: 16px 18px;
 }
 
@@ -702,6 +705,10 @@ html[data-theme="dark"] .route-card {
   background: linear-gradient(180deg, rgba(8, 116, 93, 0.052), rgba(184, 120, 36, 0.025));
   cursor: crosshair;
   user-select: none;
+}
+
+.benchmark-chart-card .chart-shell {
+  padding-bottom: 0;
 }
 
 .chart-shell .recharts-wrapper,

@@ -9,7 +9,7 @@ import {
   ResponsiveContainer,
   Tooltip,
   XAxis,
-  YAxis
+  YAxis,
 } from "recharts";
 import { formatCurrency, formatPercentRatio } from "@/lib/format";
 import {
@@ -22,19 +22,26 @@ import {
   isIntradayDate,
   isIntradayPoint,
   parseChartDate,
-  type TimeAxisPoint
+  type TimeAxisPoint,
 } from "@/lib/charts/time-axis";
 import { useChartVisibilityKey } from "@/hooks/use-chart-visibility-key";
+import {
+  BenchmarkComparisonPicker,
+  type BenchmarkComparisonPickerItem,
+} from "@/components/benchmark-comparison-picker";
 import type {
   BenchmarkComparisonBasis,
   BenchmarkTimelinePoint,
-  PortfolioBenchmarkTimelineStatus
+  PortfolioBenchmarkTimelineStatus,
 } from "@/lib/portfolio/timeline";
+import type { DashboardBenchmarkOverlay, DashboardBenchmarkQuote } from "@/server/dashboard";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
 
 type BenchmarkChartProps = {
   absoluteSeries: BenchmarkTimelinePoint[];
+  benchmarkOverlays: DashboardBenchmarkOverlay[];
+  benchmarkQuotes: DashboardBenchmarkQuote[];
   benchmarkSymbol: string | null;
   benchmarkCurrency: string | null;
   comparisonBasis: BenchmarkComparisonBasis | null;
@@ -63,17 +70,18 @@ type TimeframeKey = "1D" | "5D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "ALL";
 type PerformanceMode = "INDEXED" | "GAP" | "DRAWDOWN";
 type ReturnBasis = "TWR" | "MWR" | "ABSOLUTE";
 
-type ChartPoint = BenchmarkTimelinePoint & TimeAxisPoint & {
-  benchmarkChangeFromRangeStart: number | null;
-  benchmarkDisplay: number;
-  benchmarkDrawdown: number;
-  benchmarkReturn: number;
-  gap: number;
-  portfolioDisplay: number;
-  portfolioChangeFromRangeStart: number | null;
-  portfolioDrawdown: number;
-  portfolioReturn: number;
-};
+type ChartPoint = BenchmarkTimelinePoint &
+  TimeAxisPoint & {
+    benchmarkChangeFromRangeStart: number | null;
+    benchmarkDisplay: number;
+    benchmarkDrawdown: number;
+    benchmarkReturn: number;
+    gap: number;
+    portfolioDisplay: number;
+    portfolioChangeFromRangeStart: number | null;
+    portfolioDrawdown: number;
+    portfolioReturn: number;
+  } & Record<string, number | null | string | undefined>;
 
 type ChartMouseState = {
   activePayload?: Array<{
@@ -101,6 +109,7 @@ const TIMEFRAME_OPTIONS: TimeframeKey[] = ["1D", "5D", "1W", "1M", "3M", "YTD", 
 
 const PERFORMANCE_MODE_OPTIONS: PerformanceMode[] = ["INDEXED", "GAP", "DRAWDOWN"];
 const RETURN_BASIS_OPTIONS: ReturnBasis[] = ["TWR", "MWR", "ABSOLUTE"];
+const OVERLAY_COLORS = ["#3f82ff", "#8f5cf7", "#009b8e", "#d66b24", "#5965d8", "#c14f8b"];
 
 function formatChartDate(value: string, locale: string) {
   const hasTime = isIntradayDate(value);
@@ -110,15 +119,15 @@ function formatChartDate(value: string, locale: string) {
     day: "numeric",
     year: "numeric",
     ...(hasTime ? { hour: "2-digit", minute: "2-digit" } : {}),
-    timeZone: "UTC"
+    timeZone: "UTC",
   }).format(parseChartDate(value));
 }
 
 function formatIndexedReturn(value: number, locale: string) {
-  return formatPercentRatio(value / 100 - 1, {
+  return formatPercentRatio(value / 100, {
     locale,
     maximumFractionDigits: 1,
-    minimumFractionDigits: 1
+    minimumFractionDigits: 1,
   });
 }
 
@@ -128,13 +137,6 @@ function formatSignedPercent(value: number) {
 
 function formatPercentagePoint(value: number) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)} pp`;
-}
-
-function formatIndexValue(value: number, locale: string) {
-  return new Intl.NumberFormat(locale, {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 2
-  }).format(value);
 }
 
 function formatPerformanceMoney(value: number | null, currency: string | null, locale: string) {
@@ -153,7 +155,7 @@ function formatAbsoluteReturn(value: number | null, locale: string) {
   return formatPercentRatio(value, {
     locale,
     maximumFractionDigits: 1,
-    minimumFractionDigits: 1
+    minimumFractionDigits: 1,
   });
 }
 
@@ -169,7 +171,7 @@ function getBasisLabel({
   benchmarkCurrency,
   comparisonBasis,
   portfolioCurrency,
-  copy
+  copy,
 }: {
   benchmarkCurrency: string | null;
   comparisonBasis: BenchmarkComparisonBasis | null;
@@ -193,7 +195,7 @@ function getBasisLabel({
 
 function getAbsoluteSummaryMessage({
   copy,
-  status
+  status,
 }: {
   copy: ReturnType<typeof getUiCopy>["charts"]["benchmark"];
   status: BenchmarkPerformanceSummary["status"];
@@ -220,7 +222,11 @@ function getValueClassName(value: number | null) {
   return value > 0 ? "value-positive" : "value-negative";
 }
 
-function getSeriesChangeValue(point: ChartPoint, key: "portfolio" | "benchmark", mode: PerformanceMode) {
+function getSeriesChangeValue(
+  point: ChartPoint,
+  key: "portfolio" | "benchmark",
+  mode: PerformanceMode,
+) {
   if (mode === "GAP") {
     return key === "portfolio" ? point.gap : 0;
   }
@@ -237,7 +243,7 @@ function formatSeriesChange(value: number, mode: PerformanceMode) {
 }
 
 function formatSeriesPointValue(value: number, mode: PerformanceMode, locale: string) {
-  return mode === "INDEXED" ? formatIndexValue(value, locale) : formatModeValue(value, mode, locale);
+  return formatModeValue(value, mode, locale);
 }
 
 function getUnavailableMessage({
@@ -245,7 +251,7 @@ function getUnavailableMessage({
   copy,
   portfolioCurrency,
   returnBasis,
-  status
+  status,
 }: {
   benchmarkSymbol: string | null;
   copy: ReturnType<typeof getUiCopy>["charts"]["benchmark"];
@@ -294,7 +300,7 @@ function getTimeframeStartDate(key: TimeframeKey, latestDate: string) {
     "1W": 7,
     "1M": 30,
     "3M": 90,
-    "1Y": 365
+    "1Y": 365,
   };
   latest.setUTCDate(latest.getUTCDate() - daysByKey[key]);
 
@@ -332,7 +338,7 @@ function getVisibleSeries(series: BenchmarkTimelinePoint[], timeframe: Timeframe
   if (isShortTimeframe(timeframe)) {
     const preferredInterval = getPreferredIntradayInterval(timeframe);
     const preferredIntradaySeries = filteredSeries.filter(
-      (point) => preferredInterval != null && point.interval === preferredInterval
+      (point) => preferredInterval != null && point.interval === preferredInterval,
     );
 
     if (preferredIntradaySeries.length >= 2) {
@@ -363,19 +369,107 @@ function calculatePercentChange(startValue: number, endValue: number) {
   return ((endValue - startValue) / startValue) * 100;
 }
 
-function getPaddedDomain(values: number[]) {
+function getRoundedPercentAxis(values: number[]) {
   const finiteValues = values.filter((value) => Number.isFinite(value));
 
   if (finiteValues.length === 0) {
     return undefined;
   }
 
-  const min = Math.min(...finiteValues);
-  const max = Math.max(...finiteValues);
+  const min = Math.min(0, ...finiteValues);
+  const max = Math.max(0, ...finiteValues);
   const spread = max - min;
-  const padding = spread === 0 ? Math.max(Math.abs(max) * 0.04, 1) : spread * 0.14;
+  const step = Math.max(10, Math.ceil(Math.max(spread, 10) / 80) * 10);
+  let lower = Math.floor(min / step) * step;
+  let upper = Math.ceil(max / step) * step;
 
-  return [min - padding, max + padding] satisfies [number, number];
+  if (lower === upper) {
+    lower -= step;
+    upper += step;
+  }
+
+  const ticks: number[] = [];
+
+  for (let tick = lower; tick <= upper; tick += step) {
+    ticks.push(tick);
+  }
+
+  if (!ticks.includes(0)) {
+    ticks.push(0);
+    ticks.sort((left, right) => left - right);
+  }
+
+  return {
+    domain: [lower, upper] satisfies [number, number],
+    ticks,
+  };
+}
+
+function getOverlayDataKey(symbol: string) {
+  return `overlay_${symbol.replace(/[^a-zA-Z0-9]/g, "_")}`;
+}
+
+function getPointTimestamp(point: { date: string }) {
+  return getUtcDateTime(point.date);
+}
+
+function getPointValueAtOrBefore(
+  points: Array<{ date: string; value: number }>,
+  targetDate: string,
+) {
+  const targetTime = getUtcDateTime(targetDate);
+  let value: number | null = null;
+
+  for (const point of points) {
+    if (getPointTimestamp(point) > targetTime) {
+      break;
+    }
+
+    value = point.value;
+  }
+
+  return value;
+}
+
+function getVisibleOverlayPoints(
+  points: DashboardBenchmarkOverlay["points"],
+  timeframe: TimeframeKey,
+  latestDate: string,
+) {
+  const startDate = getTimeframeStartDate(timeframe, latestDate);
+  const startTime = startDate == null ? null : getUtcDateTime(startDate);
+  const filteredPoints =
+    startTime == null ? points : points.filter((point) => getUtcDateTime(point.date) >= startTime);
+
+  if (isShortTimeframe(timeframe)) {
+    const preferredInterval = getPreferredIntradayInterval(timeframe);
+    const preferredIntradayPoints = filteredPoints.filter(
+      (point) => preferredInterval != null && point.interval === preferredInterval,
+    );
+
+    if (preferredIntradayPoints.length >= 2) {
+      return preferredIntradayPoints;
+    }
+
+    return filteredPoints.filter(isIntradayPoint);
+  }
+
+  const dailyPoints = filteredPoints.filter(isDailyPoint);
+
+  return dailyPoints.length >= 2 ? dailyPoints : filteredPoints;
+}
+
+function getOverlayReturnAtDate(
+  points: DashboardBenchmarkOverlay["points"],
+  startDate: string,
+  targetDate: string,
+) {
+  const startValue = getPointValueAtOrBefore(points, startDate);
+  const currentValue = getPointValueAtOrBefore(points, targetDate);
+
+  return startValue == null || currentValue == null
+    ? null
+    : calculatePercentChange(startValue, currentValue);
 }
 
 function getSelectionPoints(data: ChartPoint[], selection: SelectionRange | null) {
@@ -396,7 +490,7 @@ function getSelectionPoints(data: ChartPoint[], selection: SelectionRange | null
 
   return {
     startPoint,
-    endPoint
+    endPoint,
   };
 }
 
@@ -413,8 +507,11 @@ function BenchmarkChartTooltip({
   label,
   language,
   mode,
-  payload
-}: BenchmarkChartTooltipProps & { language: UiLanguage; mode: PerformanceMode }) {
+  payload,
+}: BenchmarkChartTooltipProps & {
+  language: UiLanguage;
+  mode: PerformanceMode;
+}) {
   const point = payload?.[0]?.payload;
   const locale = getUiLocale(language);
 
@@ -435,7 +532,9 @@ function BenchmarkChartTooltip({
         const change =
           item.dataKey === "portfolioDisplay"
             ? point.portfolioChangeFromRangeStart
-            : point.benchmarkChangeFromRangeStart;
+            : item.dataKey === "benchmarkDisplay"
+              ? point.benchmarkChangeFromRangeStart
+              : null;
 
         return (
           <div className="chart-tooltip-row" key={item.dataKey}>
@@ -455,6 +554,8 @@ function BenchmarkChartTooltip({
 
 export function BenchmarkChart({
   absoluteSeries,
+  benchmarkOverlays,
+  benchmarkQuotes,
   benchmarkSymbol,
   benchmarkCurrency,
   comparisonBasis,
@@ -463,7 +564,7 @@ export function BenchmarkChart({
   performanceSummary,
   portfolioCurrency,
   series,
-  status
+  status,
 }: BenchmarkChartProps) {
   const copy = getUiCopy(language);
   const locale = getUiLocale(language);
@@ -472,6 +573,7 @@ export function BenchmarkChart({
   const [mode, setMode] = useState<PerformanceMode>("INDEXED");
   const [hoverPoint, setHoverPoint] = useState<ChartPoint | null>(null);
   const [selection, setSelection] = useState<SelectionRange | null>(null);
+  const [selectedComparisonSymbols, setSelectedComparisonSymbols] = useState<string[]>([]);
   const isDraggingRef = useRef(false);
   const { chartContainerRef, chartRenderKey } = useChartVisibilityKey();
   const activeSeries =
@@ -481,14 +583,46 @@ export function BenchmarkChart({
         ? moneyWeightedSeries
         : series;
   const hasSeries = activeSeries.length > 0;
-  const hasAnySeries = series.length > 0 || absoluteSeries.length > 0 || moneyWeightedSeries.length > 0;
+  const hasAnySeries =
+    series.length > 0 || absoluteSeries.length > 0 || moneyWeightedSeries.length > 0;
   const returnBasisCopy = copy.charts.benchmark.returnBasis[returnBasis];
   const absoluteSummaryMessage = getAbsoluteSummaryMessage({
     copy: copy.charts.benchmark,
-    status: performanceSummary.status
+    status: performanceSummary.status,
   });
   const shouldShowAbsoluteSummary = performanceSummary.status !== "no-transactions";
-  const visibleSeries = useMemo(() => getVisibleSeries(activeSeries, timeframe), [activeSeries, timeframe]);
+  const visibleSeries = useMemo(
+    () => getVisibleSeries(activeSeries, timeframe),
+    [activeSeries, timeframe],
+  );
+  const comparisonOverlays = useMemo(
+    () =>
+      benchmarkOverlays.filter(
+        (overlay) => overlay.symbol !== benchmarkSymbol && overlay.points.length > 0,
+      ),
+    [benchmarkOverlays, benchmarkSymbol],
+  );
+  const selectedOverlays = useMemo(
+    () =>
+      selectedComparisonSymbols
+        .map((symbol) => comparisonOverlays.find((overlay) => overlay.symbol === symbol) ?? null)
+        .filter((overlay): overlay is DashboardBenchmarkOverlay => overlay != null),
+    [comparisonOverlays, selectedComparisonSymbols],
+  );
+  const visibleOverlayPointsBySymbol = useMemo(() => {
+    const latestPoint = visibleSeries[visibleSeries.length - 1] ?? null;
+
+    if (latestPoint == null) {
+      return new Map<string, DashboardBenchmarkOverlay["points"]>();
+    }
+
+    return new Map(
+      comparisonOverlays.map((overlay) => [
+        overlay.symbol,
+        getVisibleOverlayPoints(overlay.points, timeframe, latestPoint.date),
+      ]),
+    );
+  }, [comparisonOverlays, timeframe, visibleSeries]);
   const basisReturn = useMemo(() => {
     const firstPoint = visibleSeries[0] ?? null;
     const latestPoint = visibleSeries[visibleSeries.length - 1] ?? null;
@@ -509,9 +643,13 @@ export function BenchmarkChart({
       benchmarkHighWatermark = Math.max(benchmarkHighWatermark, point.benchmark);
 
       const portfolioReturn =
-        firstPoint == null ? 0 : calculatePercentChange(firstPoint.portfolio, point.portfolio) ?? 0;
+        firstPoint == null
+          ? 0
+          : (calculatePercentChange(firstPoint.portfolio, point.portfolio) ?? 0);
       const benchmarkReturn =
-        firstPoint == null ? 0 : calculatePercentChange(firstPoint.benchmark, point.benchmark) ?? 0;
+        firstPoint == null
+          ? 0
+          : (calculatePercentChange(firstPoint.benchmark, point.benchmark) ?? 0);
       const portfolioDrawdown =
         portfolioHighWatermark === 0
           ? 0
@@ -521,11 +659,26 @@ export function BenchmarkChart({
           ? 0
           : ((point.benchmark - benchmarkHighWatermark) / benchmarkHighWatermark) * 100;
 
+      const overlayReturns =
+        mode === "INDEXED" && firstPoint != null
+          ? Object.fromEntries(
+              selectedOverlays.map((overlay) => [
+                getOverlayDataKey(overlay.symbol),
+                getOverlayReturnAtDate(
+                  visibleOverlayPointsBySymbol.get(overlay.symbol) ?? [],
+                  firstPoint.date,
+                  point.date,
+                ),
+              ]),
+            )
+          : {};
+
       return {
         ...point,
+        ...overlayReturns,
         benchmarkChangeFromRangeStart: firstPoint == null ? null : benchmarkReturn,
         benchmarkDisplay:
-          mode === "DRAWDOWN" ? benchmarkDrawdown : mode === "GAP" ? 0 : point.benchmark,
+          mode === "DRAWDOWN" ? benchmarkDrawdown : mode === "GAP" ? 0 : benchmarkReturn,
         benchmarkDrawdown,
         benchmarkReturn,
         gap: portfolioReturn - benchmarkReturn,
@@ -535,12 +688,12 @@ export function BenchmarkChart({
             ? portfolioDrawdown
             : mode === "GAP"
               ? portfolioReturn - benchmarkReturn
-              : point.portfolio,
+              : portfolioReturn,
         portfolioDrawdown,
-        portfolioReturn
+        portfolioReturn,
       };
     });
-  }, [mode, visibleSeries]);
+  }, [mode, selectedOverlays, visibleOverlayPointsBySymbol, visibleSeries]);
   const rangeStats = useMemo(() => {
     if (chartData.length === 0) {
       return null;
@@ -551,15 +704,13 @@ export function BenchmarkChart({
     const portfolioChange = calculatePercentChange(firstPoint.portfolio, latestPoint.portfolio);
     const benchmarkChange = calculatePercentChange(firstPoint.benchmark, latestPoint.benchmark);
     const gap =
-      portfolioChange == null || benchmarkChange == null
-        ? null
-        : portfolioChange - benchmarkChange;
+      portfolioChange == null || benchmarkChange == null ? null : portfolioChange - benchmarkChange;
 
     return {
       latestPoint,
       portfolioChange,
       benchmarkChange,
-      gap
+      gap,
     };
   }, [chartData]);
   const selectionPoints = getSelectionPoints(chartData, selection);
@@ -567,33 +718,100 @@ export function BenchmarkChart({
   const selectedPortfolioChange =
     selectionPoints == null
       ? null
-      : calculatePercentChange(selectionPoints.startPoint.portfolio, selectionPoints.endPoint.portfolio);
+      : calculatePercentChange(
+          selectionPoints.startPoint.portfolio,
+          selectionPoints.endPoint.portfolio,
+        );
   const selectedBenchmarkChange =
     selectionPoints == null
       ? null
-      : calculatePercentChange(selectionPoints.startPoint.benchmark, selectionPoints.endPoint.benchmark);
+      : calculatePercentChange(
+          selectionPoints.startPoint.benchmark,
+          selectionPoints.endPoint.benchmark,
+        );
   const selectedGap =
     selectedPortfolioChange == null || selectedBenchmarkChange == null
       ? null
       : selectedPortfolioChange - selectedBenchmarkChange;
-  const modeCopy = mode === "INDEXED"
-    ? {
-        portfolioName: returnBasisCopy.portfolioName,
-        benchmarkName: copy.charts.benchmark.modeCopy.INDEXED.benchmarkName,
-        yAxisLabel: returnBasisCopy.yAxisLabel
-      }
-    : copy.charts.benchmark.modeCopy[mode];
-  const yDomain = useMemo(
+  const modeCopy =
+    mode === "INDEXED"
+      ? {
+          portfolioName: returnBasisCopy.portfolioName,
+          benchmarkName: copy.charts.benchmark.modeCopy.INDEXED.benchmarkName,
+          yAxisLabel: returnBasisCopy.yAxisLabel,
+        }
+      : copy.charts.benchmark.modeCopy[mode];
+  const yAxis = useMemo(
     () =>
-      getPaddedDomain(
-        chartData.flatMap((point) => [point.portfolioDisplay, point.benchmarkDisplay])
+      getRoundedPercentAxis(
+        chartData.flatMap((point) => {
+          const primaryValues = [point.portfolioDisplay, point.benchmarkDisplay];
+          const overlayValues =
+            mode === "INDEXED"
+              ? selectedOverlays
+                  .map((overlay) => point[getOverlayDataKey(overlay.symbol)])
+                  .filter((value): value is number => typeof value === "number")
+              : [];
+
+          return [...primaryValues, ...overlayValues];
+        }),
       ),
-    [chartData]
+    [chartData, mode, selectedOverlays],
   );
   const xDomain = useMemo(() => getTimeAxisDomain(chartData), [chartData]);
   const xAxisTicks = useMemo(() => buildTimeAxisTicks(chartData), [chartData]);
   const xAxisSpan = xDomain == null ? 0 : xDomain[1] - xDomain[0];
   const readoutPoint = hoverPoint ?? rangeStats?.latestPoint ?? null;
+  const comparisonItems = useMemo<BenchmarkComparisonPickerItem[]>(() => {
+    const firstPoint = visibleSeries[0] ?? null;
+    const latestPoint = visibleSeries[visibleSeries.length - 1] ?? null;
+    const quotesBySymbol = new Map(benchmarkQuotes.map((quote) => [quote.symbol, quote]));
+
+    return comparisonOverlays.map((overlay, index) => {
+      const quote = quotesBySymbol.get(overlay.symbol) ?? null;
+      const returnPercent =
+        firstPoint == null || latestPoint == null
+          ? null
+          : getOverlayReturnAtDate(
+              visibleOverlayPointsBySymbol.get(overlay.symbol) ?? [],
+              firstPoint.date,
+              latestPoint.date,
+            );
+
+      return {
+        symbol: overlay.symbol,
+        displayName: overlay.displayName,
+        market: overlay.market,
+        currency: overlay.currency,
+        price: quote?.price ?? null,
+        returnPercent,
+        color: OVERLAY_COLORS[index % OVERLAY_COLORS.length],
+        selected: selectedComparisonSymbols.includes(overlay.symbol),
+      };
+    });
+  }, [
+    benchmarkQuotes,
+    comparisonOverlays,
+    selectedComparisonSymbols,
+    visibleOverlayPointsBySymbol,
+    visibleSeries,
+  ]);
+
+  function handleComparisonToggle(symbol: string) {
+    setSelectedComparisonSymbols((currentSymbols) =>
+      currentSymbols.includes(symbol)
+        ? currentSymbols.filter((currentSymbol) => currentSymbol !== symbol)
+        : [...currentSymbols, symbol],
+    );
+    setHoverPoint(null);
+    setSelection(null);
+  }
+
+  function handleComparisonClear() {
+    setSelectedComparisonSymbols([]);
+    setHoverPoint(null);
+    setSelection(null);
+  }
 
   function handleChartMouseDown(state: ChartMouseState | undefined) {
     const point = getChartPoint(state);
@@ -605,7 +823,7 @@ export function BenchmarkChart({
     isDraggingRef.current = true;
     setSelection({
       startDate: point.date,
-      endDate: point.date
+      endDate: point.date,
     });
   }
 
@@ -625,8 +843,8 @@ export function BenchmarkChart({
         ? currentSelection
         : {
             ...currentSelection,
-            endDate: point.date
-          }
+            endDate: point.date,
+          },
     );
   }
 
@@ -643,7 +861,7 @@ export function BenchmarkChart({
     change,
     markerClassName,
     name,
-    value
+    value,
   }: {
     change: number;
     markerClassName: string;
@@ -746,7 +964,7 @@ export function BenchmarkChart({
                 benchmarkCurrency,
                 comparisonBasis,
                 copy: copy.charts.benchmark,
-                portfolioCurrency
+                portfolioCurrency,
               })}
             </p>
           ) : null}
@@ -758,9 +976,23 @@ export function BenchmarkChart({
 
       {shouldShowAbsoluteSummary ? (
         <div className="chart-stat-strip" aria-label={copy.charts.benchmark.absoluteSummary.label}>
-          <div title={returnBasis === "ABSOLUTE" ? copy.charts.benchmark.absoluteSummary.hints.absoluteReturn : returnBasisCopy.hint}>
-            <span>{returnBasis === "ABSOLUTE" ? copy.charts.benchmark.absoluteSummary.absoluteReturn : returnBasisCopy.summaryLabel}</span>
-            <strong className={getValueClassName(returnBasis === "ABSOLUTE" ? performanceSummary.absoluteReturn : basisReturn)}>
+          <div
+            title={
+              returnBasis === "ABSOLUTE"
+                ? copy.charts.benchmark.absoluteSummary.hints.absoluteReturn
+                : returnBasisCopy.hint
+            }
+          >
+            <span>
+              {returnBasis === "ABSOLUTE"
+                ? copy.charts.benchmark.absoluteSummary.absoluteReturn
+                : returnBasisCopy.summaryLabel}
+            </span>
+            <strong
+              className={getValueClassName(
+                returnBasis === "ABSOLUTE" ? performanceSummary.absoluteReturn : basisReturn,
+              )}
+            >
               {returnBasis !== "ABSOLUTE"
                 ? basisReturn == null
                   ? "-"
@@ -771,13 +1003,21 @@ export function BenchmarkChart({
           <div title={copy.charts.benchmark.absoluteSummary.hints.totalPnl}>
             <span>{copy.charts.benchmark.absoluteSummary.totalPnl}</span>
             <strong className={getValueClassName(performanceSummary.totalPnl)}>
-              {formatPerformanceMoney(performanceSummary.totalPnl, performanceSummary.currency, locale)}
+              {formatPerformanceMoney(
+                performanceSummary.totalPnl,
+                performanceSummary.currency,
+                locale,
+              )}
             </strong>
           </div>
           <div title={copy.charts.benchmark.absoluteSummary.hints.netInvested}>
             <span>{copy.charts.benchmark.absoluteSummary.netInvested}</span>
             <strong>
-              {formatPerformanceMoney(performanceSummary.netInvested, performanceSummary.currency, locale)}
+              {formatPerformanceMoney(
+                performanceSummary.netInvested,
+                performanceSummary.currency,
+                locale,
+              )}
             </strong>
           </div>
           <div title={returnBasisCopy.hint}>
@@ -830,7 +1070,9 @@ export function BenchmarkChart({
                 </strong>
               </div>
               <div>
-                <span>{mode === "GAP" ? copy.charts.benchmark.latestGap : copy.charts.benchmark.gap}</span>
+                <span>
+                  {mode === "GAP" ? copy.charts.benchmark.latestGap : copy.charts.benchmark.gap}
+                </span>
                 <strong
                   className={
                     rangeStats.gap == null
@@ -845,16 +1087,18 @@ export function BenchmarkChart({
               </div>
               <div>
                 <span>{modeCopy.yAxisLabel}</span>
-                <strong>{formatModeValue(rangeStats.latestPoint.portfolioDisplay, mode, locale)}</strong>
+                <strong>
+                  {formatModeValue(rangeStats.latestPoint.portfolioDisplay, mode, locale)}
+                </strong>
               </div>
             </div>
           )}
 
           <div className="chart-shell" ref={chartContainerRef}>
-            <ResponsiveContainer height={300} key={chartRenderKey} width="100%">
+            <ResponsiveContainer height={380} key={chartRenderKey} width="100%">
               <LineChart
                 data={chartData}
-                margin={{ top: 12, right: 10, left: 4, bottom: 8 }}
+                margin={{ top: 16, right: 14, left: 8, bottom: 8 }}
                 onMouseDown={handleChartMouseDown}
                 onMouseLeave={handleChartMouseLeave}
                 onMouseMove={handleChartMouseMove}
@@ -867,7 +1111,9 @@ export function BenchmarkChart({
                   scale="time"
                   domain={xDomain}
                   ticks={xAxisTicks}
-                  tickFormatter={(value: number | string) => formatTimeAxisTick(value, locale, xAxisSpan)}
+                  tickFormatter={(value: number | string) =>
+                    formatTimeAxisTick(value, locale, xAxisSpan)
+                  }
                   tickLine={false}
                   axisLine={false}
                   minTickGap={28}
@@ -880,16 +1126,16 @@ export function BenchmarkChart({
                   tickLine={false}
                   axisLine={false}
                   width={64}
-                  domain={yDomain}
-                  tickCount={5}
+                  domain={yAxis?.domain}
+                  ticks={yAxis?.ticks}
                   tickMargin={8}
                   stroke="var(--chart-axis)"
                 />
                 <Tooltip
                   cursor={{
                     stroke: "var(--chart-hover)",
-                    strokeDasharray: "2 5",
-                    strokeWidth: 1.25
+                    strokeDasharray: "2 1",
+                    strokeWidth: 1.25,
                   }}
                   content={<BenchmarkChartTooltip language={language} mode={mode} />}
                 />
@@ -916,13 +1162,42 @@ export function BenchmarkChart({
                   isAnimationActive={false}
                   type="linear"
                   dataKey="benchmarkDisplay"
-                  name={mode === "GAP" ? modeCopy.benchmarkName : benchmarkSymbol ?? modeCopy.benchmarkName}
+                  name={
+                    mode === "GAP"
+                      ? modeCopy.benchmarkName
+                      : (benchmarkSymbol ?? modeCopy.benchmarkName)
+                  }
                   stroke="var(--warm)"
                   strokeWidth={1.6}
                   strokeOpacity={0.72}
                   dot={false}
                   activeDot={{ r: 3.5, fill: "var(--warm)" }}
                 />
+                {mode !== "INDEXED"
+                  ? null
+                  : selectedOverlays.map((overlay) => {
+                      const comparisonItem = comparisonItems.find(
+                        (item) => item.symbol === overlay.symbol,
+                      );
+
+                      return (
+                        <Line
+                          activeDot={{
+                            fill: comparisonItem?.color ?? "var(--ink)",
+                            r: 3.5,
+                          }}
+                          dataKey={getOverlayDataKey(overlay.symbol)}
+                          dot={false}
+                          isAnimationActive={false}
+                          key={overlay.symbol}
+                          name={overlay.symbol}
+                          stroke={comparisonItem?.color ?? "var(--ink)"}
+                          strokeOpacity={0.86}
+                          strokeWidth={1.9}
+                          type="linear"
+                        />
+                      );
+                    })}
               </LineChart>
             </ResponsiveContainer>
             {readoutPoint == null ? null : (
@@ -934,13 +1209,16 @@ export function BenchmarkChart({
                   change: getSeriesChangeValue(readoutPoint, "portfolio", mode),
                   markerClassName: "chart-series-marker-portfolio",
                   name: modeCopy.portfolioName,
-                  value: readoutPoint.portfolioDisplay
+                  value: readoutPoint.portfolioDisplay,
                 })}
                 {renderSeriesReadoutRow({
                   change: getSeriesChangeValue(readoutPoint, "benchmark", mode),
                   markerClassName: "chart-series-marker-benchmark",
-                  name: mode === "GAP" ? modeCopy.benchmarkName : benchmarkSymbol ?? modeCopy.benchmarkName,
-                  value: readoutPoint.benchmarkDisplay
+                  name:
+                    mode === "GAP"
+                      ? modeCopy.benchmarkName
+                      : (benchmarkSymbol ?? modeCopy.benchmarkName),
+                  value: readoutPoint.benchmarkDisplay,
                 })}
               </div>
             )}
@@ -961,24 +1239,39 @@ export function BenchmarkChart({
                 <span>{copy.charts.common.dragToCompare}</span>
               ) : (
                 <>
-                <span>
-                  {formatChartDate(selectionPoints.startPoint.date, locale)}{" "}
-                  {copy.charts.common.to} {formatChartDate(selectionPoints.endPoint.date, locale)}
-                </span>
-                <strong className={selectedPortfolioChange >= 0 ? "value-positive" : "value-negative"}>
-                  {copy.charts.benchmark.portfolio} {formatSignedPercent(selectedPortfolioChange)}
-                </strong>
-                <span className={selectedBenchmarkChange >= 0 ? "value-positive" : "value-negative"}>
-                  {benchmarkSymbol ?? copy.charts.benchmark.benchmark} {formatSignedPercent(selectedBenchmarkChange)}
-                </span>
-                {selectedGap == null ? null : (
-                  <span className={selectedGap >= 0 ? "value-positive" : "value-negative"}>
-                    {copy.charts.benchmark.gap} {formatPercentagePoint(selectedGap)}
+                  <span>
+                    {formatChartDate(selectionPoints.startPoint.date, locale)}{" "}
+                    {copy.charts.common.to} {formatChartDate(selectionPoints.endPoint.date, locale)}
                   </span>
-                )}
+                  <strong
+                    className={selectedPortfolioChange >= 0 ? "value-positive" : "value-negative"}
+                  >
+                    {copy.charts.benchmark.portfolio} {formatSignedPercent(selectedPortfolioChange)}
+                  </strong>
+                  <span
+                    className={selectedBenchmarkChange >= 0 ? "value-positive" : "value-negative"}
+                  >
+                    {benchmarkSymbol ?? copy.charts.benchmark.benchmark}{" "}
+                    {formatSignedPercent(selectedBenchmarkChange)}
+                  </span>
+                  {selectedGap == null ? null : (
+                    <span className={selectedGap >= 0 ? "value-positive" : "value-negative"}>
+                      {copy.charts.benchmark.gap} {formatPercentagePoint(selectedGap)}
+                    </span>
+                  )}
                 </>
               )}
             </div>
+            {mode === "INDEXED" && comparisonItems.length > 0 ? (
+              <BenchmarkComparisonPicker
+                items={comparisonItems}
+                labels={copy.charts.benchmark.comparisonPicker}
+                language={language}
+                onClear={handleComparisonClear}
+                onToggle={handleComparisonToggle}
+                selectedSymbols={selectedComparisonSymbols}
+              />
+            ) : null}
           </div>
         </div>
       ) : (
@@ -990,7 +1283,7 @@ export function BenchmarkChart({
               copy: copy.charts.benchmark,
               portfolioCurrency,
               returnBasis,
-              status
+              status,
             })}
           </p>
         </div>

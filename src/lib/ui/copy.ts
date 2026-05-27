@@ -134,6 +134,12 @@ const uiCopy = {
         benchmark: "Benchmark",
         latestGap: "Gap ล่าสุด",
         gap: "Gap",
+        comparisonPicker: {
+          add: "+ Add comparison",
+          clear: "Clear all",
+          aria: "Benchmark comparison overlays",
+          remove: (symbol: string) => `Remove ${symbol} comparison`
+        },
         modes: {
           INDEXED: "Return",
           GAP: "Gap",
@@ -583,6 +589,12 @@ const uiCopy = {
         benchmark: "Benchmark",
         latestGap: "Latest gap",
         gap: "Gap",
+        comparisonPicker: {
+          add: "+ Add comparison",
+          clear: "Clear all",
+          aria: "Benchmark comparison overlays",
+          remove: (symbol: string) => `Remove ${symbol} comparison`
+        },
         modes: {
           INDEXED: "Return",
           GAP: "Gap",
