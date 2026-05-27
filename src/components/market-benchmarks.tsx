@@ -156,7 +156,7 @@ function formatPeriodLabel({
   const lastMonth = orderedMonths[orderedMonths.length - 1];
 
   if (timeframe !== "ALL") {
-    return `${TIMEFRAME_OPTIONS.find((option) => option.key === timeframe)?.label ?? timeframe} · ${formatMonthLabel(lastMonth, locale)}`;
+    return `${TIMEFRAME_OPTIONS.find((option) => option.key === timeframe)?.label ?? timeframe} - ${formatMonthLabel(lastMonth, locale)}`;
   }
 
   return firstMonth === lastMonth
@@ -351,7 +351,7 @@ export function MarketBenchmarks({
               {comparison.periodLabel ?? "No return cache"}
               {comparison.quote.price == null
                 ? ""
-                : ` · ${formatCurrency(comparison.quote.price, {
+                : ` - ${formatCurrency(comparison.quote.price, {
                     currency: comparison.quote.currency,
                     locale,
                     maximumFractionDigits: comparison.quote.price >= 100 ? 2 : 4

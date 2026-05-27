@@ -6,7 +6,6 @@ import { db } from "@/lib/db/runtime";
 import { historicalPrices, instruments, intradayPrices, priceSnapshots, transactions } from "@/lib/db/schema";
 import {
   ensureFreshMarketDataCache,
-  ensureBenchmarkWatchlistInstruments,
   BENCHMARK_WATCHLIST,
   getMarketSettings,
   getPriceAgeMinutes,
@@ -519,8 +518,6 @@ export async function getDashboardSnapshot({
     await Promise.all(
       portfolioIds.map((portfolioId) => ensureFreshMarketDataCache({ portfolioId, includeBenchmark: true }))
     );
-  } else {
-    await ensureBenchmarkWatchlistInstruments();
   }
 
   const portfolioFilter =
