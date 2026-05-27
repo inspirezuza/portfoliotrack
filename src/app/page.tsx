@@ -589,6 +589,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <HoldingsTable
           holdings={holdingsSnapshot.holdings}
           language={language}
+          canEdit={isAdmin && !isAggregatePortfolio}
           canRefresh={isAdmin && !isAggregatePortfolio}
         />
 

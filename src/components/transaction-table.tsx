@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ButtonLoadingContent, PendingBanner } from "@/components/loading-indicator";
+import { PendingBanner } from "@/components/loading-indicator";
 import { formatCurrency, formatQuantity } from "@/lib/format";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
 import type { TransactionListItem } from "@/server/transactions";
 import { InstrumentLogo } from "@/components/instrument-logo";
+import { TransactionDeleteDialog } from "@/components/transaction-delete-dialog";
 
 type TransactionTableProps = {
   transactions: TransactionListItem[];
@@ -145,6 +146,8 @@ export function TransactionTable({
 }: TransactionTableProps) {
   const copy = getUiCopy(language);
   const locale = getUiLocale(language);
+  const [pendingDeleteTransaction, setPendingDeleteTransaction] =
+    useState<TransactionListItem | null>(null);
   const [deletingTransactionId, setDeletingTransactionId] = useState<number | null>(null);
   const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -182,21 +185,12 @@ export function TransactionTable({
     );
   }
 
-  async function handleDelete(transaction: TransactionListItem) {
-    const isConfirmed = window.confirm(
-      copy.transactions.table.deleteConfirm(
-        transaction.side,
-        formatQuantity(transaction.quantity, { locale }),
-        transaction.instrument.symbol,
-        transaction.tradeDate
-      )
-    );
-
-    if (!isConfirmed) {
+  async function handleDelete() {
+    if (!pendingDeleteTransaction) {
       return;
     }
 
-    setDeletingTransactionId(transaction.id);
+    setDeletingTransactionId(pendingDeleteTransaction.id);
     setDeleteErrorMessage(null);
 
     try {
@@ -205,7 +199,7 @@ export function TransactionTable({
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ id: transaction.id })
+        body: JSON.stringify({ id: pendingDeleteTransaction.id })
       });
       const payload = (await response.json()) as ApiErrorResponse;
 
@@ -213,9 +207,11 @@ export function TransactionTable({
         throw new Error(getDeleteErrorMessage(payload.error, copy.transactions.table.deleteCouldNot));
       }
 
-      if (editingTransactionId === transaction.id) {
+      if (editingTransactionId === pendingDeleteTransaction.id) {
         onCloseEdit?.();
       }
+
+      setPendingDeleteTransaction(null);
 
       if (onWorkspaceRefresh) {
         setIsRefreshing(true);
@@ -247,6 +243,19 @@ export function TransactionTable({
         <PendingBanner label={copy.transactions.table.deleting} />
       ) : isRefreshing ? (
         <PendingBanner label={copy.transactions.table.refreshing} />
+      ) : null}
+
+      {pendingDeleteTransaction ? (
+        <TransactionDeleteDialog
+          transaction={pendingDeleteTransaction}
+          language={language}
+          isDeleting={deletingTransactionId === pendingDeleteTransaction.id}
+          onCancel={() => {
+            setPendingDeleteTransaction(null);
+            setDeleteErrorMessage(null);
+          }}
+          onConfirm={handleDelete}
+        />
       ) : null}
 
       {transactions.length === 0 ? (
@@ -363,19 +372,23 @@ export function TransactionTable({
                       <td className="table-notes">{transaction.notes ?? "-"}</td>
                       {canEdit ? (
                         <td>
-                          <div className="table-actions">
+                          <div className="table-actions table-actions-icon">
                             <button
                               type="button"
-                              className="table-action-link"
+                              className="table-icon-button"
+                              aria-label={`${copy.transactions.table.edit} ${transaction.instrument.symbol} ${transaction.tradeDate}`}
+                              title={copy.transactions.table.edit}
                               onClick={() => onEdit?.(transaction)}
                               disabled={isRefreshing || deletingTransactionId !== null}
                             >
-                              {copy.transactions.table.edit}
+                              <span className="table-icon table-icon-edit" aria-hidden="true" />
                             </button>
                             <button
                               type="button"
-                              className="table-action-button table-action-button-danger"
-                              onClick={() => void handleDelete(transaction)}
+                              className="table-icon-button table-icon-button-danger"
+                              aria-label={`${copy.transactions.table.delete} ${transaction.instrument.symbol} ${transaction.tradeDate}`}
+                              title={copy.transactions.table.delete}
+                              onClick={() => setPendingDeleteTransaction(transaction)}
                               disabled={
                                 deletingTransactionId === transaction.id ||
                                 isRefreshing ||
@@ -383,11 +396,9 @@ export function TransactionTable({
                               }
                             >
                               {deletingTransactionId === transaction.id ? (
-                                <ButtonLoadingContent label={copy.transactions.table.deleting}>
-                                  {copy.transactions.table.delete}
-                                </ButtonLoadingContent>
+                                <span className="table-icon-spinner" aria-hidden="true" />
                               ) : (
-                                copy.transactions.table.delete
+                                <span className="table-icon table-icon-delete" aria-hidden="true" />
                               )}
                             </button>
                           </div>

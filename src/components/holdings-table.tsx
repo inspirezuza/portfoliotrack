@@ -2,16 +2,27 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, type CSSProperties, useCallback, useMemo, useState, useTransition } from "react";
+import {
+  Fragment,
+  type CSSProperties,
+  type MouseEvent,
+  useCallback,
+  useMemo,
+  useState,
+  useTransition,
+} from "react";
 import { InstrumentLogo } from "@/components/instrument-logo";
 import { ButtonLoadingContent, PendingBanner } from "@/components/loading-indicator";
 import {
   MarketRefreshStatus,
   type MarketRefreshStatusRun,
 } from "@/components/market-refresh-status";
+import { TransactionDeleteDialog } from "@/components/transaction-delete-dialog";
+import { TransactionEditModal } from "@/components/transaction-edit-modal";
 import { formatCurrency, formatPercentRatio, formatQuantity } from "@/lib/format";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
+import type { TransactionBroker } from "@/lib/validation/transaction";
 import type {
   HoldingPerformance,
   HoldingPerformanceKey,
@@ -19,10 +30,12 @@ import type {
   HoldingLot,
   HoldingRow,
 } from "@/server/holdings";
+import type { TransactionInstrumentOption, TransactionListItem } from "@/server/transactions";
 
 type HoldingsTableProps = {
   holdings: HoldingRow[];
   language: UiLanguage;
+  canEdit?: boolean;
   canRefresh?: boolean;
 };
 
@@ -49,6 +62,12 @@ type PerformanceBasis = "price" | "cost";
 
 type RefreshResponse = {
   run?: MarketRefreshStatusRun;
+  error?: {
+    message?: string;
+  };
+};
+
+type ApiErrorResponse = {
   error?: {
     message?: string;
   };
@@ -411,6 +430,67 @@ function getHoldingSearchText(holding: HoldingRow) {
     .toLowerCase();
 }
 
+function shouldIgnoreHoldingRowToggle(event: MouseEvent<HTMLTableRowElement>) {
+  const target = event.target;
+
+  return target instanceof HTMLElement
+    ? target.closest("a, button, input, select, textarea, [data-row-toggle-ignore]") != null
+    : false;
+}
+
+function getHoldingLotInstrumentOption(holding: HoldingRow): TransactionInstrumentOption {
+  return {
+    id: holding.instrumentId,
+    symbol: holding.symbol,
+    displayName: holding.displayName,
+    market: holding.market,
+    instrumentType: holding.instrumentType,
+    currency: holding.currency,
+    providerSymbol: holding.providerSymbol,
+    isActive: true,
+    currentQuantity: holding.quantity,
+    label: `${holding.symbol} - ${holding.displayName} - ${holding.market} - ${holding.currency}`,
+  };
+}
+
+function getHoldingLotTransaction(holding: HoldingRow, lot: HoldingLot): TransactionListItem {
+  const grossAmount = lot.originalQuantity * lot.price;
+  const netAmount = lot.side === "BUY" ? grossAmount + lot.fee : grossAmount - lot.fee;
+
+  return {
+    id: lot.transactionId,
+    portfolioId: 0,
+    instrumentId: lot.instrumentId,
+    tradeDate: lot.tradeDate,
+    side: lot.side,
+    broker: lot.broker as TransactionBroker,
+    quantity: lot.originalQuantity,
+    price: lot.price,
+    fee: lot.fee,
+    notes: lot.notes,
+    createdAt: lot.createdAt,
+    updatedAt: lot.updatedAt,
+    portfolioName: lot.portfolioName,
+    instrument: {
+      id: holding.instrumentId,
+      symbol: holding.symbol,
+      displayName: holding.displayName,
+      market: holding.market,
+      instrumentType: holding.instrumentType,
+      currency: holding.currency,
+      providerSymbol: holding.providerSymbol,
+      underlyingProviderSymbol: holding.underlyingProviderSymbol,
+    },
+    grossAmount,
+    netAmount,
+    signedQuantity: lot.side === "BUY" ? lot.originalQuantity : -lot.originalQuantity,
+  };
+}
+
+function getDeleteErrorMessage(error: ApiErrorResponse["error"], fallback: string) {
+  return error?.message ?? fallback;
+}
+
 function formatSummaryMoney(
   value: number | null,
   currency: string | null,
@@ -464,12 +544,23 @@ function SortableHeader({
   );
 }
 
-export function HoldingsTable({ holdings, language, canRefresh = false }: HoldingsTableProps) {
+export function HoldingsTable({
+  holdings,
+  language,
+  canEdit = false,
+  canRefresh = false,
+}: HoldingsTableProps) {
   const copy = getUiCopy(language);
   const locale = getUiLocale(language);
   const router = useRouter();
   const [isRefreshing, startRefreshTransition] = useTransition();
   const [isRefreshRequestPending, setIsRefreshRequestPending] = useState(false);
+  const [editInstruments, setEditInstruments] = useState<TransactionInstrumentOption[]>([]);
+  const [editingTransaction, setEditingTransaction] = useState<TransactionListItem | null>(null);
+  const [pendingDeleteTransaction, setPendingDeleteTransaction] =
+    useState<TransactionListItem | null>(null);
+  const [deletingTransactionId, setDeletingTransactionId] = useState<number | null>(null);
+  const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null);
   const [activeRefreshRunId, setActiveRefreshRunId] = useState<number | null>(null);
   const [sort, setSort] = useState<SortState>({ key: "marketValue", direction: "desc" });
   const [searchQuery, setSearchQuery] = useState("");
@@ -572,6 +663,69 @@ export function HoldingsTable({ holdings, language, canRefresh = false }: Holdin
     });
   }
 
+  function handleHoldingRowClick(event: MouseEvent<HTMLTableRowElement>, instrumentId: number) {
+    if (shouldIgnoreHoldingRowToggle(event)) {
+      return;
+    }
+
+    toggleHoldingLots(instrumentId);
+  }
+
+  function refreshHoldings() {
+    startRefreshTransition(() => {
+      router.refresh();
+    });
+  }
+
+  function handleEditHoldingLot(holding: HoldingRow, lot: HoldingLot) {
+    setDeleteErrorMessage(null);
+    setEditInstruments([getHoldingLotInstrumentOption(holding)]);
+    setEditingTransaction(getHoldingLotTransaction(holding, lot));
+  }
+
+  function handleDeleteHoldingLot(holding: HoldingRow, lot: HoldingLot) {
+    setDeleteErrorMessage(null);
+    setPendingDeleteTransaction(getHoldingLotTransaction(holding, lot));
+  }
+
+  async function confirmDeleteHoldingLot() {
+    if (!pendingDeleteTransaction) {
+      return;
+    }
+
+    setDeletingTransactionId(pendingDeleteTransaction.id);
+    setDeleteErrorMessage(null);
+
+    try {
+      const response = await fetch("/api/transactions", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id: pendingDeleteTransaction.id }),
+      });
+      const payload = (await response.json()) as ApiErrorResponse;
+
+      if (!response.ok) {
+        throw new Error(getDeleteErrorMessage(payload.error, copy.transactions.table.deleteCouldNot));
+      }
+
+      if (editingTransaction?.id === pendingDeleteTransaction.id) {
+        setEditingTransaction(null);
+        setEditInstruments([]);
+      }
+
+      setPendingDeleteTransaction(null);
+      refreshHoldings();
+    } catch (error) {
+      setDeleteErrorMessage(
+        error instanceof Error ? error.message : copy.transactions.table.deleteCouldNot,
+      );
+    } finally {
+      setDeletingTransactionId(null);
+    }
+  }
+
   const handleRefreshSettled = useCallback(
     (run: MarketRefreshStatusRun) => {
       setActiveRefreshRunId(null);
@@ -625,9 +779,13 @@ export function HoldingsTable({ holdings, language, canRefresh = false }: Holdin
   }
 
   const isRefreshBusy = isRefreshRequestPending || isRefreshing || activeRefreshRunId != null;
+  const isTransactionActionBusy = deletingTransactionId != null || isRefreshing;
 
   return (
-    <article className="surface-card holdings-table-card" aria-busy={isRefreshBusy}>
+    <article
+      className="surface-card holdings-table-card"
+      aria-busy={isRefreshBusy || isTransactionActionBusy}
+    >
       <div className="transaction-panel-header">
         <div>
           <p className="eyebrow">{copy.holdings.table.eyebrow}</p>
@@ -652,12 +810,41 @@ export function HoldingsTable({ holdings, language, canRefresh = false }: Holdin
       </div>
 
       {isRefreshBusy ? <PendingBanner label={copy.holdings.table.refreshing} /> : null}
+      {deleteErrorMessage ? (
+        <p className="form-banner form-banner-error">{deleteErrorMessage}</p>
+      ) : null}
 
       {activeRefreshRunId != null ? (
         <MarketRefreshStatus
           language={language}
           onSettled={handleRefreshSettled}
           runId={activeRefreshRunId}
+        />
+      ) : null}
+
+      {editingTransaction ? (
+        <TransactionEditModal
+          instruments={editInstruments}
+          editingTransaction={editingTransaction}
+          language={language}
+          onClose={() => {
+            setEditingTransaction(null);
+            setEditInstruments([]);
+          }}
+          onWorkspaceRefresh={refreshHoldings}
+        />
+      ) : null}
+
+      {pendingDeleteTransaction ? (
+        <TransactionDeleteDialog
+          transaction={pendingDeleteTransaction}
+          language={language}
+          isDeleting={deletingTransactionId === pendingDeleteTransaction.id}
+          onCancel={() => {
+            setPendingDeleteTransaction(null);
+            setDeleteErrorMessage(null);
+          }}
+          onConfirm={confirmDeleteHoldingLot}
         />
       ) : null}
 
@@ -859,7 +1046,11 @@ export function HoldingsTable({ holdings, language, canRefresh = false }: Holdin
 
                     return (
                       <Fragment key={holding.instrumentId}>
-                        <tr data-expanded={isExpanded}>
+                        <tr
+                          data-clickable="true"
+                          data-expanded={isExpanded}
+                          onClick={(event) => handleHoldingRowClick(event, holding.instrumentId)}
+                        >
                           <td>
                             <div className="instrument-cell instrument-cell-with-logo">
                               <InstrumentLogo
@@ -1053,7 +1244,10 @@ export function HoldingsTable({ holdings, language, canRefresh = false }: Holdin
                                   ? copy.holdings.table.lots.collapse(holding.symbol)
                                   : copy.holdings.table.lots.expand(holding.symbol)
                               }
-                              onClick={() => toggleHoldingLots(holding.instrumentId)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                toggleHoldingLots(holding.instrumentId);
+                              }}
                             >
                               <span aria-hidden="true" />
                             </button>
@@ -1066,7 +1260,11 @@ export function HoldingsTable({ holdings, language, canRefresh = false }: Holdin
                                 holding={holding}
                                 id={lotsId}
                                 language={language}
+                                canEdit={canEdit}
+                                deletingTransactionId={deletingTransactionId}
                                 lots={holding.lots}
+                                onDelete={handleDeleteHoldingLot}
+                                onEdit={handleEditHoldingLot}
                               />
                             </td>
                           </tr>
@@ -1141,15 +1339,23 @@ export function HoldingsTable({ holdings, language, canRefresh = false }: Holdin
 }
 
 function HoldingLotsPanel({
+  canEdit,
+  deletingTransactionId,
   holding,
   id,
   language,
   lots,
+  onDelete,
+  onEdit,
 }: {
+  canEdit: boolean;
+  deletingTransactionId: number | null;
   holding: HoldingRow;
   id: string;
   language: UiLanguage;
   lots: HoldingLot[];
+  onDelete: (holding: HoldingRow, lot: HoldingLot) => void;
+  onEdit: (holding: HoldingRow, lot: HoldingLot) => void;
 }) {
   const copy = getUiCopy(language);
   const locale = getUiLocale(language);
@@ -1160,6 +1366,14 @@ function HoldingLotsPanel({
         <p className="table-empty-cell">{copy.holdings.table.lots.noOpenLots}</p>
       ) : (
         <table className="holdings-lot-table">
+          <colgroup>
+            <col className="holdings-lot-col-date" />
+            <col className="holdings-lot-col-price" />
+            <col className="holdings-lot-col-quantity" />
+            <col className="holdings-lot-col-gain" />
+            <col className="holdings-lot-col-value" />
+            {canEdit ? <col className="holdings-lot-col-actions" /> : null}
+          </colgroup>
           <thead>
             <tr>
               <th scope="col">{copy.holdings.table.lots.columns.date}</th>
@@ -1175,12 +1389,17 @@ function HoldingLotsPanel({
               <th scope="col" className="table-heading-number">
                 {copy.holdings.table.lots.columns.value}
               </th>
-              <th scope="col">{copy.holdings.table.lots.columns.note}</th>
+              {canEdit ? (
+                <th scope="col" className="holdings-lot-actions-heading">
+                  {copy.transactions.table.columns.actions}
+                </th>
+              ) : null}
             </tr>
           </thead>
           <tbody>
             {lots.map((lot) => {
               const gainTone = getPnlToneClass(lot.totalGainInValuationCurrency ?? lot.totalGain);
+              const isDeleting = deletingTransactionId === lot.transactionId;
 
               return (
                 <tr key={lot.transactionId}>
@@ -1261,7 +1480,36 @@ function HoldingLotsPanel({
                       </span>
                     </div>
                   </td>
-                  <td className="table-notes">{lot.notes ?? copy.holdings.table.lots.openLot}</td>
+                  {canEdit ? (
+                    <td>
+                      <div className="table-actions table-actions-icon" data-row-toggle-ignore>
+                        <button
+                          type="button"
+                          className="table-icon-button"
+                          aria-label={`${copy.transactions.table.edit} ${holding.symbol} ${lot.tradeDate}`}
+                          title={copy.transactions.table.edit}
+                          onClick={() => onEdit(holding, lot)}
+                          disabled={deletingTransactionId != null}
+                        >
+                          <span className="table-icon table-icon-edit" aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          className="table-icon-button table-icon-button-danger"
+                          aria-label={`${copy.transactions.table.delete} ${holding.symbol} ${lot.tradeDate}`}
+                          title={copy.transactions.table.delete}
+                          onClick={() => onDelete(holding, lot)}
+                          disabled={deletingTransactionId != null}
+                        >
+                          {isDeleting ? (
+                            <span className="table-icon-spinner" aria-hidden="true" />
+                          ) : (
+                            <span className="table-icon table-icon-delete" aria-hidden="true" />
+                          )}
+                        </button>
+                      </div>
+                    </td>
+                  ) : null}
                 </tr>
               );
             })}

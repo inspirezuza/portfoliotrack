@@ -1820,6 +1820,47 @@ html[data-theme="dark"] .portfolio-name-field input {
   padding-right: 44px;
 }
 
+.transaction-delete-dialog {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+  width: min(440px, 100%);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 18px;
+  background: var(--surface-strong);
+  box-shadow: 0 24px 80px rgba(18, 31, 25, 0.32);
+}
+
+.transaction-delete-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(184, 75, 67, 0.18);
+  border-radius: 999px;
+  color: var(--danger);
+  background: rgba(184, 75, 67, 0.1);
+}
+
+.transaction-delete-copy {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-weight: 650;
+  line-height: 1.55;
+}
+
+.transaction-delete-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .transaction-edit-close {
   position: absolute;
   z-index: 2;
@@ -2448,7 +2489,7 @@ html[data-theme="dark"] .transaction-table-wrap {
 }
 
 .transaction-col-actions {
-  width: 134px;
+  width: 92px;
 }
 
 .asset-transaction-col-date {
@@ -2510,15 +2551,41 @@ html[data-theme="dark"] .transaction-table-wrap {
   width: 56px;
 }
 
-.transaction-table th,
-.transaction-table td {
+.holdings-lot-col-date {
+  width: 22%;
+}
+
+.holdings-lot-col-price {
+  width: 17%;
+}
+
+.holdings-lot-col-quantity {
+  width: 18%;
+}
+
+.holdings-lot-col-gain {
+  width: 18%;
+}
+
+.holdings-lot-col-value {
+  width: auto;
+}
+
+.holdings-lot-col-actions {
+  width: 86px;
+}
+
+.transaction-table > thead > tr > th,
+.transaction-table > tbody > tr > td,
+.transaction-table > tfoot > tr > th,
+.transaction-table > tfoot > tr > td {
   padding: 14px 16px;
   border-bottom: 1px solid var(--line);
   text-align: left;
   vertical-align: middle;
 }
 
-.transaction-table th {
+.transaction-table > thead > tr > th {
   position: sticky;
   top: 0;
   z-index: 1;
@@ -2532,39 +2599,39 @@ html[data-theme="dark"] .transaction-table-wrap {
   white-space: nowrap;
 }
 
-html[data-theme="dark"] .transaction-table th {
+html[data-theme="dark"] .transaction-table > thead > tr > th {
   color: rgba(184, 200, 191, 0.94);
   background: linear-gradient(180deg, rgba(23, 31, 27, 0.98), rgba(18, 24, 21, 0.98));
 }
 
-.transaction-table tbody tr {
+.transaction-table > tbody > tr {
   transition:
     background 150ms ease,
     box-shadow 150ms ease;
 }
 
-.transaction-table tbody tr:nth-child(odd) td {
+.transaction-table > tbody > tr:nth-child(odd) > td {
   background: rgba(18, 31, 25, 0.018);
 }
 
-.transaction-table tbody tr:hover td {
+.transaction-table > tbody > tr:hover > td {
   background: rgba(8, 116, 93, 0.052);
 }
 
-html[data-theme="dark"] .transaction-table tbody tr:hover td {
+html[data-theme="dark"] .transaction-table > tbody > tr:hover > td {
   background: rgba(113, 232, 176, 0.07);
 }
 
-html[data-theme="dark"] .transaction-table tbody tr:nth-child(odd) td {
+html[data-theme="dark"] .transaction-table > tbody > tr:nth-child(odd) > td {
   background: rgba(255, 255, 255, 0.026);
 }
 
-html[data-theme="dark"] .transaction-table tbody tr:nth-child(odd):hover td {
+html[data-theme="dark"] .transaction-table > tbody > tr:nth-child(odd):hover > td {
   background: rgba(113, 232, 176, 0.07);
 }
 
-.transaction-table tfoot th,
-.transaction-table tfoot td {
+.transaction-table > tfoot > tr > th,
+.transaction-table > tfoot > tr > td {
   position: sticky;
   bottom: 0;
   border-top: 1px solid var(--line-strong);
@@ -2575,8 +2642,8 @@ html[data-theme="dark"] .transaction-table tbody tr:nth-child(odd):hover td {
   font-weight: 750;
 }
 
-html[data-theme="dark"] .transaction-table tfoot th,
-html[data-theme="dark"] .transaction-table tfoot td {
+html[data-theme="dark"] .transaction-table > tfoot > tr > th,
+html[data-theme="dark"] .transaction-table > tfoot > tr > td {
   background: rgba(22, 30, 26, 0.98);
 }
 
@@ -2783,7 +2850,7 @@ html[data-theme="dark"] .holdings-timeframe-group {
   transition: color 150ms ease;
 }
 
-.transaction-table th.table-heading-number {
+.transaction-table > thead > tr > th.table-heading-number {
   text-align: right;
 }
 
@@ -2919,6 +2986,15 @@ html[data-theme="dark"] .holdings-pnl-percent.value-negative {
   text-align: center;
 }
 
+.holdings-table > tbody > tr[data-clickable="true"] {
+  cursor: pointer;
+}
+
+.holdings-table > tbody > tr[data-clickable="true"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .holdings-expand-button {
   display: inline-grid;
   place-items: center;
@@ -2956,63 +3032,89 @@ html[data-theme="dark"] .holdings-pnl-percent.value-negative {
   transform: rotate(225deg) translate(-1px, -1px);
 }
 
-.transaction-table tbody tr[data-expanded="true"] td {
-  background: rgba(8, 116, 93, 0.055);
+.transaction-table > tbody > tr[data-expanded="true"] > td {
+  background: rgba(8, 116, 93, 0.04);
 }
 
-html[data-theme="dark"] .transaction-table tbody tr[data-expanded="true"] td {
-  background: rgba(113, 232, 176, 0.08);
+html[data-theme="dark"] .transaction-table > tbody > tr[data-expanded="true"] > td {
+  background: rgba(113, 232, 176, 0.06);
 }
 
-.holdings-lot-row td {
+.holdings-lot-row > td {
   padding: 0;
-  background: rgba(8, 116, 93, 0.035);
+  background: transparent;
 }
 
-.holdings-lot-row td:first-child,
-.transaction-table tbody tr.holdings-lot-row:hover td:first-child {
+.holdings-lot-row > td:first-child,
+.transaction-table > tbody > tr.holdings-lot-row:hover > td:first-child {
   border-left-color: rgba(8, 116, 93, 0.42);
   padding-left: 0;
 }
 
-html[data-theme="dark"] .holdings-lot-row td {
-  background: rgba(113, 232, 176, 0.055);
+html[data-theme="dark"] .holdings-lot-row > td {
+  background: transparent;
 }
 
 .holdings-lot-panel {
-  padding: 12px 16px 16px;
+  margin: 0;
+  padding: 12px 14px 14px;
+  background:
+    linear-gradient(90deg, rgba(8, 116, 93, 0.09), transparent 34%), rgba(8, 116, 93, 0.026);
 }
 
 .holdings-lot-table {
   width: 100%;
-  border-collapse: collapse;
+  overflow: hidden;
+  border: 1px solid rgba(18, 31, 25, 0.08);
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-strong) 92%, white);
   table-layout: fixed;
 }
 
 .holdings-lot-table th,
 .holdings-lot-table td {
   border-bottom: 1px solid rgba(18, 31, 25, 0.08);
-  padding: 10px 12px;
+  padding: 11px 12px;
   text-align: left;
   vertical-align: top;
 }
 
 .holdings-lot-table th {
   color: rgba(77, 90, 83, 0.88);
+  background: rgba(18, 31, 25, 0.025);
   font-size: 0.68rem;
   font-weight: 780;
   letter-spacing: 0;
   white-space: nowrap;
 }
 
+.holdings-lot-table th.table-heading-number {
+  text-align: right;
+}
+
+.holdings-lot-actions-heading {
+  text-align: center;
+}
+
 .holdings-lot-table td {
-  color: rgba(18, 31, 25, 0.78);
+  color: color-mix(in srgb, var(--ink) 82%, var(--muted));
   font-size: 0.84rem;
   font-weight: 650;
 }
 
+.holdings-lot-table tbody tr:hover td {
+  background: rgba(8, 116, 93, 0.035);
+}
+
 .holdings-lot-table tr:last-child td {
   border-bottom: 0;
+}
+
+html[data-theme="dark"] .holdings-lot-panel {
+  background:
+    linear-gradient(90deg, rgba(113, 232, 176, 0.09), transparent 34%), rgba(113, 232, 176, 0.035);
 }
 
 html[data-theme="dark"] .holdings-lot-table th,
@@ -3020,12 +3122,22 @@ html[data-theme="dark"] .holdings-lot-table td {
   border-bottom-color: rgba(255, 255, 255, 0.08);
 }
 
+html[data-theme="dark"] .holdings-lot-table {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--surface-strong) 90%, #000);
+}
+
 html[data-theme="dark"] .holdings-lot-table th {
   color: rgba(184, 200, 191, 0.9);
+  background: rgba(255, 255, 255, 0.035);
 }
 
 html[data-theme="dark"] .holdings-lot-table td {
   color: rgba(245, 248, 240, 0.82);
+}
+
+html[data-theme="dark"] .holdings-lot-table tbody tr:hover td {
+  background: rgba(113, 232, 176, 0.055);
 }
 
 .holdings-lot-cell-stack {
@@ -3113,39 +3225,39 @@ html[data-theme="dark"] .table-status-warning {
   text-align: center;
 }
 
-.transaction-table tbody td {
+.transaction-table > tbody > tr > td {
   color: rgba(18, 31, 25, 0.82);
   font-size: 0.9rem;
   font-weight: 650;
   line-height: 1.35;
 }
 
-html[data-theme="dark"] .transaction-table tbody td {
+html[data-theme="dark"] .transaction-table > tbody > tr > td {
   color: rgba(245, 248, 240, 0.84);
 }
 
-.transaction-table tbody td:first-child {
+.transaction-table > tbody > tr > td:first-child {
   border-left: 3px solid transparent;
   padding-left: 13px;
 }
 
-.transaction-table tbody tr:hover td:first-child {
+.transaction-table > tbody > tr:hover > td:first-child {
   border-left-color: rgba(8, 116, 93, 0.52);
 }
 
-html[data-theme="dark"] .transaction-table tbody tr:hover td:first-child {
+html[data-theme="dark"] .transaction-table > tbody > tr:hover > td:first-child {
   border-left-color: rgba(113, 232, 176, 0.68);
 }
 
-.transaction-table tbody tr:last-child td {
+.transaction-table > tbody > tr:last-child > td {
   border-bottom: 0;
 }
 
-.transaction-table tbody tr[data-editing="true"] td {
+.transaction-table > tbody > tr[data-editing="true"] > td {
   background: var(--accent-soft);
 }
 
-.transaction-table tbody tr[data-editing="true"] td:first-child {
+.transaction-table > tbody > tr[data-editing="true"] > td:first-child {
   border-left-color: var(--accent);
 }
 
@@ -3189,6 +3301,122 @@ html[data-theme="dark"] .transaction-table tbody tr:hover td:first-child {
   flex-wrap: wrap;
   gap: 6px;
   justify-content: flex-end;
+}
+
+.table-actions-icon {
+  flex-wrap: nowrap;
+  justify-content: center;
+}
+
+.table-icon-button {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(8, 116, 93, 0.12);
+  border-radius: 999px;
+  color: var(--accent);
+  background: rgba(8, 116, 93, 0.08);
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    color 150ms ease,
+    background 150ms ease,
+    transform 150ms ease;
+}
+
+.table-icon-button:hover:not(:disabled),
+.table-icon-button:focus-visible {
+  border-color: rgba(8, 116, 93, 0.26);
+  color: var(--accent-strong);
+  background: rgba(8, 116, 93, 0.14);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.table-icon-button-danger {
+  border-color: rgba(184, 75, 67, 0.14);
+  color: var(--danger);
+  background: rgba(184, 75, 67, 0.1);
+}
+
+.table-icon-button-danger:hover:not(:disabled),
+.table-icon-button-danger:focus-visible {
+  border-color: rgba(184, 75, 67, 0.28);
+  color: var(--danger);
+  background: rgba(184, 75, 67, 0.16);
+}
+
+.table-icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+  transform: none;
+}
+
+.table-icon {
+  position: relative;
+  display: block;
+  width: 15px;
+  height: 15px;
+}
+
+.table-icon-edit::before {
+  position: absolute;
+  top: 6px;
+  left: 2px;
+  width: 11px;
+  height: 4px;
+  border-radius: 2px;
+  background: currentColor;
+  content: "";
+  transform: rotate(-38deg);
+}
+
+.table-icon-edit::after {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  width: 0;
+  height: 0;
+  border-top: 4px solid currentColor;
+  border-left: 4px solid transparent;
+  content: "";
+  transform: rotate(-38deg);
+}
+
+.table-icon-delete::before {
+  position: absolute;
+  top: 5px;
+  left: 3px;
+  width: 9px;
+  height: 8px;
+  border: 2px solid currentColor;
+  border-top-width: 0;
+  border-radius: 0 0 2px 2px;
+  content: "";
+}
+
+.table-icon-delete::after {
+  position: absolute;
+  top: 1px;
+  left: 2px;
+  width: 11px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 3px -3px 0 -1px currentColor;
+  content: "";
+}
+
+.table-icon-spinner {
+  display: block;
+  width: 15px;
+  height: 15px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 999px;
+  animation: spin 700ms linear infinite;
 }
 
 .table-action-button {
@@ -4047,9 +4275,9 @@ html[data-theme="dark"] .subtabs .active {
     content: none;
   }
 
-  .transaction-table th,
-  .transaction-table tfoot th,
-  .transaction-table tfoot td {
+  .transaction-table > thead > tr > th,
+  .transaction-table > tfoot > tr > th,
+  .transaction-table > tfoot > tr > td {
     position: static;
     backdrop-filter: none;
   }
@@ -4216,8 +4444,10 @@ html[data-theme="dark"] .subtabs .active {
     min-width: 1060px;
   }
 
-  .transaction-table th,
-  .transaction-table td {
+  .transaction-table > thead > tr > th,
+  .transaction-table > tbody > tr > td,
+  .transaction-table > tfoot > tr > th,
+  .transaction-table > tfoot > tr > td {
     padding: 10px 12px;
   }
 

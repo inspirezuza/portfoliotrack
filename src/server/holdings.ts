@@ -38,14 +38,18 @@ type HoldingJoinedRow = {
 
 export type HoldingLot = {
   transactionId: number;
+  instrumentId: number;
   portfolioName: string | null;
   tradeDate: string;
+  side: "BUY" | "SELL";
   broker: string;
   originalQuantity: number;
   remainingQuantity: number;
   price: number;
   fee: number;
   notes: string | null;
+  createdAt: string;
+  updatedAt: string;
   costBasis: number;
   costBasisInValuationCurrency: number | null;
   marketValue: number | null;
@@ -552,6 +556,7 @@ type HoldingLotTransaction = PositionTransaction & {
   notes: string | null;
   portfolioId: number;
   portfolioName: string | null;
+  updatedAt: string;
 };
 
 type WorkingHoldingLot = HoldingLotTransaction & {
@@ -585,14 +590,18 @@ function toHoldingLot({
 
   return {
     transactionId: lot.id ?? 0,
+    instrumentId: lot.instrumentId,
     portfolioName: lot.portfolioName,
     tradeDate: lot.tradeDate,
+    side: lot.side,
     broker: lot.broker,
     originalQuantity: lot.originalQuantity,
     remainingQuantity: lot.remainingQuantity,
     price: lot.price,
     fee: lot.originalFee,
     notes: lot.notes,
+    createdAt: lot.createdAt ?? "",
+    updatedAt: lot.updatedAt,
     costBasis,
     costBasisInValuationCurrency:
       fxRateToValuationCurrency == null
@@ -1072,6 +1081,7 @@ export async function getHoldingsSnapshot({
       notes: row.transaction.notes,
       portfolioId: row.transaction.portfolioId,
       portfolioName: portfolioIds.length > 1 ? row.portfolio.name : null,
+      updatedAt: row.transaction.updatedAt,
     });
     transactionsByInstrumentId.set(row.transaction.instrumentId, instrumentTransactions);
   }
