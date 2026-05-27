@@ -63,7 +63,7 @@ function getTransactionSortValue(transaction: TransactionListItem, key: Transact
 function compareTransactions(
   left: TransactionListItem,
   right: TransactionListItem,
-  sort: SortState
+  sort: SortState,
 ) {
   const leftValue = getTransactionSortValue(left, sort.key);
   const rightValue = getTransactionSortValue(right, sort.key);
@@ -89,7 +89,7 @@ function getTransactionSearchText(transaction: TransactionListItem) {
     transaction.instrument.symbol,
     transaction.instrument.displayName,
     transaction.instrument.market,
-    transaction.instrument.currency
+    transaction.instrument.currency,
   ]
     .join(" ")
     .toLowerCase();
@@ -101,7 +101,7 @@ function SortableHeader({
   label,
   sortKey,
   sort,
-  onSort
+  onSort,
 }: {
   align?: "left" | "right";
   language: UiLanguage;
@@ -142,7 +142,7 @@ export function TransactionTable({
   canEdit = false,
   onCloseEdit,
   onEdit,
-  onWorkspaceRefresh
+  onWorkspaceRefresh,
 }: TransactionTableProps) {
   const copy = getUiCopy(language);
   const locale = getUiLocale(language);
@@ -163,7 +163,7 @@ export function TransactionTable({
       .filter((transaction) =>
         normalizedQuery.length === 0
           ? true
-          : getTransactionSearchText(transaction).includes(normalizedQuery)
+          : getTransactionSearchText(transaction).includes(normalizedQuery),
       )
       .sort((left, right) => compareTransactions(left, right, sort));
   }, [searchQuery, sort, transactions]);
@@ -173,15 +173,18 @@ export function TransactionTable({
       currentSort.key === sortKey
         ? {
             key: sortKey,
-            direction: currentSort.direction === "asc" ? "desc" : "asc"
+            direction: currentSort.direction === "asc" ? "desc" : "asc",
           }
         : {
             key: sortKey,
             direction:
-              sortKey === "instrument" || sortKey === "portfolio" || sortKey === "side" || sortKey === "broker"
+              sortKey === "instrument" ||
+              sortKey === "portfolio" ||
+              sortKey === "side" ||
+              sortKey === "broker"
                 ? "asc"
-                : "desc"
-          }
+                : "desc",
+          },
     );
   }
 
@@ -197,14 +200,19 @@ export function TransactionTable({
       const response = await fetch("/api/transactions", {
         method: "DELETE",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ id: pendingDeleteTransaction.id })
+        body: JSON.stringify({
+          id: pendingDeleteTransaction.id,
+          portfolioId: pendingDeleteTransaction.portfolioId,
+        }),
       });
       const payload = (await response.json()) as ApiErrorResponse;
 
       if (!response.ok) {
-        throw new Error(getDeleteErrorMessage(payload.error, copy.transactions.table.deleteCouldNot));
+        throw new Error(
+          getDeleteErrorMessage(payload.error, copy.transactions.table.deleteCouldNot),
+        );
       }
 
       if (editingTransactionId === pendingDeleteTransaction.id) {
@@ -219,7 +227,7 @@ export function TransactionTable({
       }
     } catch (error) {
       setDeleteErrorMessage(
-        error instanceof Error ? error.message : copy.transactions.table.deleteCouldNot
+        error instanceof Error ? error.message : copy.transactions.table.deleteCouldNot,
       );
     } finally {
       setDeletingTransactionId(null);
@@ -228,7 +236,10 @@ export function TransactionTable({
   }
 
   return (
-    <article className="surface-card transaction-table-card" aria-busy={isRefreshing || deletingTransactionId !== null}>
+    <article
+      className="surface-card transaction-table-card"
+      aria-busy={isRefreshing || deletingTransactionId !== null}
+    >
       <div className="transaction-panel-header">
         <div>
           <p className="eyebrow">{copy.transactions.table.eyebrow}</p>
@@ -280,7 +291,7 @@ export function TransactionTable({
             {copy.shared.countOf(
               visibleTransactions.length,
               transactions.length,
-              copy.transactions.table.transactionsUnit
+              copy.transactions.table.transactionsUnit,
             )}
           </div>
 
@@ -301,17 +312,75 @@ export function TransactionTable({
               </colgroup>
               <thead>
                 <tr>
-                  <SortableHeader label={copy.transactions.table.columns.date} language={language} sortKey="tradeDate" sort={sort} onSort={handleSort} />
-                  <SortableHeader label={copy.transactions.table.columns.instrument} language={language} sortKey="instrument" sort={sort} onSort={handleSort} />
+                  <SortableHeader
+                    label={copy.transactions.table.columns.date}
+                    language={language}
+                    sortKey="tradeDate"
+                    sort={sort}
+                    onSort={handleSort}
+                  />
+                  <SortableHeader
+                    label={copy.transactions.table.columns.instrument}
+                    language={language}
+                    sortKey="instrument"
+                    sort={sort}
+                    onSort={handleSort}
+                  />
                   {showPortfolioColumn ? (
-                    <SortableHeader label={copy.transactions.table.columns.portfolio} language={language} sortKey="portfolio" sort={sort} onSort={handleSort} />
+                    <SortableHeader
+                      label={copy.transactions.table.columns.portfolio}
+                      language={language}
+                      sortKey="portfolio"
+                      sort={sort}
+                      onSort={handleSort}
+                    />
                   ) : null}
-                  <SortableHeader label={copy.transactions.table.columns.side} language={language} sortKey="side" sort={sort} onSort={handleSort} />
-                  <SortableHeader label={copy.transactions.table.columns.broker} language={language} sortKey="broker" sort={sort} onSort={handleSort} />
-                  <SortableHeader label={copy.transactions.table.columns.quantity} language={language} sortKey="quantity" sort={sort} onSort={handleSort} align="right" />
-                  <SortableHeader label={copy.transactions.table.columns.price} language={language} sortKey="price" sort={sort} onSort={handleSort} align="right" />
-                  <SortableHeader label={copy.transactions.table.columns.fee} language={language} sortKey="fee" sort={sort} onSort={handleSort} align="right" />
-                  <SortableHeader label={copy.transactions.table.columns.net} language={language} sortKey="netAmount" sort={sort} onSort={handleSort} align="right" />
+                  <SortableHeader
+                    label={copy.transactions.table.columns.side}
+                    language={language}
+                    sortKey="side"
+                    sort={sort}
+                    onSort={handleSort}
+                  />
+                  <SortableHeader
+                    label={copy.transactions.table.columns.broker}
+                    language={language}
+                    sortKey="broker"
+                    sort={sort}
+                    onSort={handleSort}
+                  />
+                  <SortableHeader
+                    label={copy.transactions.table.columns.quantity}
+                    language={language}
+                    sortKey="quantity"
+                    sort={sort}
+                    onSort={handleSort}
+                    align="right"
+                  />
+                  <SortableHeader
+                    label={copy.transactions.table.columns.price}
+                    language={language}
+                    sortKey="price"
+                    sort={sort}
+                    onSort={handleSort}
+                    align="right"
+                  />
+                  <SortableHeader
+                    label={copy.transactions.table.columns.fee}
+                    language={language}
+                    sortKey="fee"
+                    sort={sort}
+                    onSort={handleSort}
+                    align="right"
+                  />
+                  <SortableHeader
+                    label={copy.transactions.table.columns.net}
+                    language={language}
+                    sortKey="netAmount"
+                    sort={sort}
+                    onSort={handleSort}
+                    align="right"
+                  />
                   <th scope="col">{copy.transactions.table.columns.notes}</th>
                   {canEdit ? <th scope="col">{copy.transactions.table.columns.actions}</th> : null}
                 </tr>
@@ -337,7 +406,9 @@ export function TransactionTable({
                             displayName={transaction.instrument.displayName}
                             instrumentType={transaction.instrument.instrumentType}
                             providerSymbol={transaction.instrument.providerSymbol}
-                            underlyingProviderSymbol={transaction.instrument.underlyingProviderSymbol}
+                            underlyingProviderSymbol={
+                              transaction.instrument.underlyingProviderSymbol
+                            }
                             size="sm"
                           />
                           <div className="instrument-cell-copy">
@@ -359,16 +430,28 @@ export function TransactionTable({
                         </span>
                       </td>
                       <td>{transaction.broker === "WEBULL" ? "Webull" : "Dime"}</td>
-                      <td className="table-number">{formatQuantity(transaction.quantity, { locale })}</td>
+                      <td className="table-number">
+                        {formatQuantity(transaction.quantity, { locale })}
+                      </td>
                       <td className="table-number">
                         {formatCurrency(transaction.price, {
                           currency: transaction.instrument.currency,
                           locale,
-                          maximumFractionDigits: 4
+                          maximumFractionDigits: 4,
                         })}
                       </td>
-                      <td className="table-number">{formatCurrency(transaction.fee, { currency: transaction.instrument.currency, locale })}</td>
-                      <td className="table-number">{formatCurrency(transaction.netAmount, { currency: transaction.instrument.currency, locale })}</td>
+                      <td className="table-number">
+                        {formatCurrency(transaction.fee, {
+                          currency: transaction.instrument.currency,
+                          locale,
+                        })}
+                      </td>
+                      <td className="table-number">
+                        {formatCurrency(transaction.netAmount, {
+                          currency: transaction.instrument.currency,
+                          locale,
+                        })}
+                      </td>
                       <td className="table-notes">{transaction.notes ?? "-"}</td>
                       {canEdit ? (
                         <td>

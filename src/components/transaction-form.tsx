@@ -1,13 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ButtonLoadingContent, LoadingIndicator, PendingBanner } from "@/components/loading-indicator";
+import {
+  ButtonLoadingContent,
+  LoadingIndicator,
+  PendingBanner,
+} from "@/components/loading-indicator";
 import { formatQuantity } from "@/lib/format";
 import {
   findExactInstrumentSearchMatch,
   getInstrumentSearchScore,
   normalizeInstrumentSearchValue,
-  sortInstrumentOptions
+  sortInstrumentOptions,
 } from "@/lib/transactions/instrument-selection";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
@@ -86,7 +90,7 @@ function createInitialValues(instruments: TransactionInstrumentOption[]): Transa
     quantity: "",
     price: "",
     fee: "0",
-    notes: ""
+    notes: "",
   };
 }
 
@@ -99,13 +103,15 @@ function createValuesFromTransaction(transaction: TransactionListItem): Transact
     quantity: String(transaction.quantity),
     price: String(transaction.price),
     fee: String(transaction.fee),
-    notes: transaction.notes ?? ""
+    notes: transaction.notes ?? "",
   };
 }
 
 function getInitialInstrumentSearch(instruments: TransactionInstrumentOption[]) {
   const initialInstrumentId = getSynchronizedInstrumentId("", instruments);
-  const initialInstrument = instruments.find((instrument) => String(instrument.id) === initialInstrumentId);
+  const initialInstrument = instruments.find(
+    (instrument) => String(instrument.id) === initialInstrumentId,
+  );
 
   return initialInstrument?.label ?? "";
 }
@@ -116,7 +122,7 @@ function getInstrumentLookupLabel(instrument: InstrumentSearchResult) {
 
 function getTransactionInstrumentLabel(
   transaction: TransactionListItem,
-  instruments: TransactionInstrumentOption[]
+  instruments: TransactionInstrumentOption[],
 ) {
   return (
     instruments.find((instrument) => instrument.id === transaction.instrumentId)?.label ??
@@ -127,7 +133,7 @@ function getTransactionInstrumentLabel(
 function getErrorMessage(
   error: ApiErrorResponse["error"],
   fallbackMessage: string,
-  language: UiLanguage
+  language: UiLanguage,
 ) {
   if (!error) {
     return fallbackMessage;
@@ -156,7 +162,7 @@ function getErrorMessage(
     if (typeof availableQuantity === "number") {
       const copy = getUiCopy(language).transactions.form;
       return copy.insufficientQuantity(
-        formatQuantity(availableQuantity, { locale: getUiLocale(language) })
+        formatQuantity(availableQuantity, { locale: getUiLocale(language) }),
       );
     }
   }
@@ -166,14 +172,14 @@ function getErrorMessage(
 
 function getSynchronizedInstrumentId(
   instrumentId: string,
-  instruments: TransactionInstrumentOption[]
+  instruments: TransactionInstrumentOption[],
 ) {
   if (instruments.length === 0) {
     return "";
   }
 
   const hasMatchingInstrument = instruments.some(
-    (instrument) => String(instrument.id) === instrumentId
+    (instrument) => String(instrument.id) === instrumentId,
   );
 
   return hasMatchingInstrument ? instrumentId : "";
@@ -184,25 +190,30 @@ export function TransactionForm({
   editingTransaction = null,
   language,
   onCloseEdit,
-  onWorkspaceRefresh
+  onWorkspaceRefresh,
 }: TransactionFormProps) {
   const copy = getUiCopy(language);
   const locale = getUiLocale(language);
   const isEditing = editingTransaction != null;
-  const [instrumentOptions, setInstrumentOptions] = useState<TransactionInstrumentOption[]>(instruments);
+  const [instrumentOptions, setInstrumentOptions] =
+    useState<TransactionInstrumentOption[]>(instruments);
   const [values, setValues] = useState<TransactionFormValues>(() =>
-    editingTransaction ? createValuesFromTransaction(editingTransaction) : createInitialValues(instruments)
+    editingTransaction
+      ? createValuesFromTransaction(editingTransaction)
+      : createInitialValues(instruments),
   );
   const [instrumentSearch, setInstrumentSearch] = useState(() =>
     editingTransaction
       ? getTransactionInstrumentLabel(editingTransaction, instruments)
-      : getInitialInstrumentSearch(instruments)
+      : getInitialInstrumentSearch(instruments),
   );
   const [isInstrumentComboboxOpen, setIsInstrumentComboboxOpen] = useState(false);
   const [highlightedInstrumentId, setHighlightedInstrumentId] = useState<string | null>(null);
   const [instrumentLookupQuery, setInstrumentLookupQuery] = useState("");
   const [isInstrumentLookupMenuOpen, setIsInstrumentLookupMenuOpen] = useState(false);
-  const [instrumentLookupResults, setInstrumentLookupResults] = useState<InstrumentSearchResult[]>([]);
+  const [instrumentLookupResults, setInstrumentLookupResults] = useState<InstrumentSearchResult[]>(
+    [],
+  );
   const [selectedInstrumentLookupResult, setSelectedInstrumentLookupResult] =
     useState<InstrumentSearchResult | null>(null);
   const [isSearchingInstruments, setIsSearchingInstruments] = useState(false);
@@ -221,7 +232,7 @@ export function TransactionForm({
     const rankedOptions = instrumentOptions
       .map((instrument) => ({
         instrument,
-        score: getInstrumentSearchScore(instrument, instrumentSearch)
+        score: getInstrumentSearchScore(instrument, instrumentSearch),
       }))
       .filter((item) => item.score > 0)
       .sort((left, right) => {
@@ -275,7 +286,7 @@ export function TransactionForm({
 
       return {
         ...currentValues,
-        instrumentId
+        instrumentId,
       };
     });
   }, [editingTransaction, instruments]);
@@ -292,7 +303,7 @@ export function TransactionForm({
     }
 
     const hasHighlightedOption = visibleInstrumentOptions.some(
-      (instrument) => String(instrument.id) === highlightedInstrumentId
+      (instrument) => String(instrument.id) === highlightedInstrumentId,
     );
 
     if (hasHighlightedOption) {
@@ -300,7 +311,7 @@ export function TransactionForm({
     }
 
     setHighlightedInstrumentId(
-      visibleInstrumentOptions[0] ? String(visibleInstrumentOptions[0].id) : null
+      visibleInstrumentOptions[0] ? String(visibleInstrumentOptions[0].id) : null,
     );
   }, [highlightedInstrumentId, isInstrumentComboboxOpen, visibleInstrumentOptions]);
 
@@ -309,7 +320,10 @@ export function TransactionForm({
       return;
     }
 
-    const exactInstrument = findExactInstrumentSearchMatch(visibleInstrumentOptions, instrumentSearch);
+    const exactInstrument = findExactInstrumentSearchMatch(
+      visibleInstrumentOptions,
+      instrumentSearch,
+    );
 
     if (!exactInstrument || String(exactInstrument.id) === values.instrumentId) {
       return;
@@ -317,7 +331,7 @@ export function TransactionForm({
 
     setValues((currentValues) => ({
       ...currentValues,
-      instrumentId: String(exactInstrument.id)
+      instrumentId: String(exactInstrument.id),
     }));
   }, [instrumentSearch, isInstrumentComboboxOpen, values.instrumentId, visibleInstrumentOptions]);
 
@@ -338,12 +352,14 @@ export function TransactionForm({
 
       try {
         const response = await fetch(`/api/instruments/search?query=${encodeURIComponent(query)}`, {
-          signal: abortController.signal
+          signal: abortController.signal,
         });
         const payload = (await response.json()) as InstrumentSearchApiResponse;
 
         if (!response.ok) {
-          throw new Error(getErrorMessage(payload.error, copy.transactions.form.couldNotSave, language));
+          throw new Error(
+            getErrorMessage(payload.error, copy.transactions.form.couldNotSave, language),
+          );
         }
 
         setInstrumentLookupResults(payload.results ?? []);
@@ -354,7 +370,9 @@ export function TransactionForm({
 
         setInstrumentLookupResults([]);
         setInstrumentErrorMessage(
-          error instanceof Error ? error.message : copy.transactions.form.instrumentSearchUnavailable
+          error instanceof Error
+            ? error.message
+            : copy.transactions.form.instrumentSearchUnavailable,
         );
       } finally {
         setIsSearchingInstruments(false);
@@ -369,7 +387,7 @@ export function TransactionForm({
     copy.transactions.form.couldNotSave,
     copy.transactions.form.instrumentSearchUnavailable,
     instrumentLookupQuery,
-    language
+    language,
   ]);
 
   async function refreshWorkspace() {
@@ -408,21 +426,22 @@ export function TransactionForm({
         quantity: Number(values.quantity),
         price: Number(values.price),
         fee: Number(values.fee || "0"),
-        notes: values.notes
+        notes: values.notes,
       };
       const response = await fetch("/api/transactions", {
         method: editingTransaction ? "PUT" : "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(
           editingTransaction
             ? {
                 id: editingTransaction.id,
-                ...transactionPayload
+                portfolioId: editingTransaction.portfolioId,
+                ...transactionPayload,
               }
-            : transactionPayload
-        )
+            : transactionPayload,
+        ),
       });
 
       const payload = (await response.json()) as ApiErrorResponse;
@@ -432,15 +451,17 @@ export function TransactionForm({
           getErrorMessage(
             payload.error,
             isEditing ? copy.transactions.form.couldNotUpdate : copy.transactions.form.couldNotSave,
-            language
-          )
+            language,
+          ),
         );
       }
 
       setValues(createInitialValues(instrumentOptions));
       setInstrumentSearch(getInitialInstrumentSearch(instrumentOptions));
       setSuccessMessage(
-        isEditing ? copy.transactions.form.transactionUpdated : copy.transactions.form.transactionSaved
+        isEditing
+          ? copy.transactions.form.transactionUpdated
+          : copy.transactions.form.transactionSaved,
       );
       if (isEditing) {
         onCloseEdit?.();
@@ -451,11 +472,7 @@ export function TransactionForm({
         ? copy.transactions.form.couldNotUpdate
         : copy.transactions.form.couldNotSave;
 
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : fallbackErrorMessage
-      );
+      setErrorMessage(error instanceof Error ? error.message : fallbackErrorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -463,11 +480,11 @@ export function TransactionForm({
 
   function updateValue<Key extends keyof TransactionFormValues>(
     key: Key,
-    value: TransactionFormValues[Key]
+    value: TransactionFormValues[Key],
   ) {
     setValues((currentValues) => ({
       ...currentValues,
-      [key]: value
+      [key]: value,
     }));
   }
 
@@ -495,22 +512,24 @@ export function TransactionForm({
       const response = await fetch("/api/instruments", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(instrumentValues)
+        body: JSON.stringify(instrumentValues),
       });
 
       const payload = (await response.json()) as InstrumentApiResponse;
 
       if (!response.ok || !payload.instrument) {
-        throw new Error(getErrorMessage(payload.error, copy.transactions.form.instrumentCouldNotSave, language));
+        throw new Error(
+          getErrorMessage(payload.error, copy.transactions.form.instrumentCouldNotSave, language),
+        );
       }
 
       const createdInstrument = payload.instrument;
 
       setInstrumentOptions((currentOptions) => {
         const withoutDuplicate = currentOptions.filter(
-          (instrument) => instrument.id !== createdInstrument.id
+          (instrument) => instrument.id !== createdInstrument.id,
         );
 
         return sortInstrumentOptions([...withoutDuplicate, createdInstrument]);
@@ -522,13 +541,15 @@ export function TransactionForm({
       setSelectedInstrumentLookupResult(null);
       setValues((currentValues) => ({
         ...currentValues,
-        instrumentId: String(createdInstrument.id)
+        instrumentId: String(createdInstrument.id),
       }));
-      setInstrumentSuccessMessage(copy.transactions.form.addedAndSelected(createdInstrument.symbol));
+      setInstrumentSuccessMessage(
+        copy.transactions.form.addedAndSelected(createdInstrument.symbol),
+      );
       await refreshWorkspace();
     } catch (error) {
       setInstrumentErrorMessage(
-        error instanceof Error ? error.message : copy.transactions.form.instrumentCouldNotSave
+        error instanceof Error ? error.message : copy.transactions.form.instrumentCouldNotSave,
       );
     } finally {
       setIsCreatingInstrument(false);
@@ -541,7 +562,7 @@ export function TransactionForm({
         normalizeInstrumentSearchValue(instrument.symbol) ===
           normalizeInstrumentSearchValue(instrumentValues.symbol) ||
         normalizeInstrumentSearchValue(instrument.providerSymbol ?? "") ===
-          normalizeInstrumentSearchValue(instrumentValues.providerSymbol)
+          normalizeInstrumentSearchValue(instrumentValues.providerSymbol),
     );
   }
 
@@ -565,7 +586,7 @@ export function TransactionForm({
     if (existingInstrument) {
       setInstrumentSuccessMessage(null);
       setInstrumentErrorMessage(
-        copy.transactions.form.instrumentAlreadyAdded(existingInstrument.symbol)
+        copy.transactions.form.instrumentAlreadyAdded(existingInstrument.symbol),
       );
       return;
     }
@@ -603,13 +624,15 @@ export function TransactionForm({
       }
 
       const currentIndex = visibleInstrumentOptions.findIndex(
-        (instrument) => String(instrument.id) === highlightedInstrumentId
+        (instrument) => String(instrument.id) === highlightedInstrumentId,
       );
       const fallbackIndex = event.key === "ArrowDown" ? -1 : 0;
       const nextIndex =
         event.key === "ArrowDown"
           ? (currentIndex + 1) % visibleInstrumentOptions.length
-          : (currentIndex === -1 ? fallbackIndex : currentIndex - 1 + visibleInstrumentOptions.length) %
+          : (currentIndex === -1
+              ? fallbackIndex
+              : currentIndex - 1 + visibleInstrumentOptions.length) %
             visibleInstrumentOptions.length;
 
       setHighlightedInstrumentId(String(visibleInstrumentOptions[nextIndex].id));
@@ -619,7 +642,7 @@ export function TransactionForm({
     if (event.key === "Enter" && isInstrumentComboboxOpen) {
       const highlightedInstrument =
         visibleInstrumentOptions.find(
-          (instrument) => String(instrument.id) === highlightedInstrumentId
+          (instrument) => String(instrument.id) === highlightedInstrumentId,
         ) ?? visibleInstrumentOptions[0];
 
       if (highlightedInstrument) {
@@ -636,7 +659,10 @@ export function TransactionForm({
   }
 
   return (
-    <article className="surface-card transaction-panel" aria-busy={isFormBusy || isCreatingInstrument}>
+    <article
+      className="surface-card transaction-panel"
+      aria-busy={isFormBusy || isCreatingInstrument}
+    >
       <div className="transaction-panel-header">
         <div>
           <p className="eyebrow">
@@ -656,113 +682,119 @@ export function TransactionForm({
           </div>
         </div>
 
-        <form className="instrument-lookup" onSubmit={handleInstrumentLookupSubmit} aria-busy={isCreatingInstrument || isSearchingInstruments}>
-            <label className="field-group">
-              <span className="field-label">{copy.transactions.form.searchInstrument}</span>
-              <span className="instrument-lookup-search">
-                <input
-                  type="text"
-                  value={instrumentLookupQuery}
-                  onChange={(event) => {
-                    setInstrumentLookupQuery(event.target.value);
-                    setIsInstrumentLookupMenuOpen(event.target.value.trim().length >= 2);
-                    setSelectedInstrumentLookupResult(null);
-                    setInstrumentErrorMessage(null);
-                    setInstrumentSuccessMessage(null);
-                  }}
-                  onFocus={() => {
-                    if (!selectedInstrumentLookupResult && instrumentLookupQuery.trim().length >= 2) {
-                      setIsInstrumentLookupMenuOpen(true);
-                    }
-                  }}
-                  placeholder={copy.transactions.form.searchInstrumentPlaceholder}
-                  autoComplete="off"
+        <form
+          className="instrument-lookup"
+          onSubmit={handleInstrumentLookupSubmit}
+          aria-busy={isCreatingInstrument || isSearchingInstruments}
+        >
+          <label className="field-group">
+            <span className="field-label">{copy.transactions.form.searchInstrument}</span>
+            <span className="instrument-lookup-search">
+              <input
+                type="text"
+                value={instrumentLookupQuery}
+                onChange={(event) => {
+                  setInstrumentLookupQuery(event.target.value);
+                  setIsInstrumentLookupMenuOpen(event.target.value.trim().length >= 2);
+                  setSelectedInstrumentLookupResult(null);
+                  setInstrumentErrorMessage(null);
+                  setInstrumentSuccessMessage(null);
+                }}
+                onFocus={() => {
+                  if (!selectedInstrumentLookupResult && instrumentLookupQuery.trim().length >= 2) {
+                    setIsInstrumentLookupMenuOpen(true);
+                  }
+                }}
+                placeholder={copy.transactions.form.searchInstrumentPlaceholder}
+                autoComplete="off"
+                disabled={isCreatingInstrument}
+              />
+              {instrumentLookupQuery.trim().length > 0 ? (
+                <button
+                  type="button"
+                  className="instrument-lookup-clear"
+                  onClick={clearInstrumentLookup}
+                  aria-label={copy.transactions.form.clearInstrumentSearch}
                   disabled={isCreatingInstrument}
-                />
-                {instrumentLookupQuery.trim().length > 0 ? (
-                  <button
-                    type="button"
-                    className="instrument-lookup-clear"
-                    onClick={clearInstrumentLookup}
-                    aria-label={copy.transactions.form.clearInstrumentSearch}
-                    disabled={isCreatingInstrument}
-                  >
-                    x
-                  </button>
-                ) : null}
-              </span>
-            </label>
+                >
+                  x
+                </button>
+              ) : null}
+            </span>
+          </label>
 
-            {isInstrumentLookupMenuOpen && instrumentLookupQuery.trim().length >= 2 ? (
-              <div className="instrument-lookup-menu">
-                {isSearchingInstruments ? (
-                  <div className="instrument-combobox-empty" role="status">
-                    <LoadingIndicator label={copy.transactions.form.searching} size="sm" />
-                  </div>
-                ) : instrumentLookupResults.length > 0 ? (
-                  instrumentLookupResults.map((instrument) => {
-                    const existingInstrument = instrumentOptions.find(
-                      (option) =>
-                        normalizeInstrumentSearchValue(option.symbol) ===
-                          normalizeInstrumentSearchValue(instrument.symbol) ||
-                        normalizeInstrumentSearchValue(option.providerSymbol ?? "") ===
-                          normalizeInstrumentSearchValue(instrument.providerSymbol)
-                    );
-                    const isSelected =
-                      selectedInstrumentLookupResult?.providerSymbol === instrument.providerSymbol;
+          {isInstrumentLookupMenuOpen && instrumentLookupQuery.trim().length >= 2 ? (
+            <div className="instrument-lookup-menu">
+              {isSearchingInstruments ? (
+                <div className="instrument-combobox-empty" role="status">
+                  <LoadingIndicator label={copy.transactions.form.searching} size="sm" />
+                </div>
+              ) : instrumentLookupResults.length > 0 ? (
+                instrumentLookupResults.map((instrument) => {
+                  const existingInstrument = instrumentOptions.find(
+                    (option) =>
+                      normalizeInstrumentSearchValue(option.symbol) ===
+                        normalizeInstrumentSearchValue(instrument.symbol) ||
+                      normalizeInstrumentSearchValue(option.providerSymbol ?? "") ===
+                        normalizeInstrumentSearchValue(instrument.providerSymbol),
+                  );
+                  const isSelected =
+                    selectedInstrumentLookupResult?.providerSymbol === instrument.providerSymbol;
 
-                    return (
-                      <button
-                        key={instrument.providerSymbol}
-                        type="button"
-                        className="instrument-combobox-option"
-                        data-selected={isSelected}
-                        onClick={() => handleInstrumentLookupSelect(instrument)}
-                        disabled={isCreatingInstrument}
-                      >
-                        <span className="instrument-combobox-symbol">{instrument.symbol}</span>
-                        <span className="instrument-combobox-name">{instrument.displayName}</span>
-                        <span className="instrument-combobox-meta">
-                          {existingInstrument ? copy.transactions.form.saved : copy.transactions.form.add}
-                          {copy.shared.separator}
-                          {instrument.instrumentType}
-                          {copy.shared.separator}
-                          {instrument.market}
-                          {copy.shared.separator}
-                          {instrument.currency}
-                          {copy.shared.separator}
-                          {instrument.providerSymbol}
-                        </span>
-                      </button>
-                    );
-                  })
-                ) : (
-                  <div className="instrument-combobox-empty" role="status">
-                    {copy.transactions.form.noMatchingInstruments}
-                  </div>
-                )}
-              </div>
-            ) : null}
-
-            <button
-              type="submit"
-              className="compact-button instrument-lookup-submit"
-              disabled={!selectedInstrumentLookupResult || isCreatingInstrument}
-            >
-              {isCreatingInstrument ? (
-                <ButtonLoadingContent label={copy.transactions.form.addingInstrument}>
-                  {copy.transactions.form.addInstrument}
-                </ButtonLoadingContent>
+                  return (
+                    <button
+                      key={instrument.providerSymbol}
+                      type="button"
+                      className="instrument-combobox-option"
+                      data-selected={isSelected}
+                      onClick={() => handleInstrumentLookupSelect(instrument)}
+                      disabled={isCreatingInstrument}
+                    >
+                      <span className="instrument-combobox-symbol">{instrument.symbol}</span>
+                      <span className="instrument-combobox-name">{instrument.displayName}</span>
+                      <span className="instrument-combobox-meta">
+                        {existingInstrument
+                          ? copy.transactions.form.saved
+                          : copy.transactions.form.add}
+                        {copy.shared.separator}
+                        {instrument.instrumentType}
+                        {copy.shared.separator}
+                        {instrument.market}
+                        {copy.shared.separator}
+                        {instrument.currency}
+                        {copy.shared.separator}
+                        {instrument.providerSymbol}
+                      </span>
+                    </button>
+                  );
+                })
               ) : (
-                copy.transactions.form.addInstrument
+                <div className="instrument-combobox-empty" role="status">
+                  {copy.transactions.form.noMatchingInstruments}
+                </div>
               )}
-            </button>
-            {instrumentErrorMessage ? (
-              <p className="form-banner form-banner-error">{instrumentErrorMessage}</p>
-            ) : null}
-            {instrumentSuccessMessage ? (
-              <p className="form-banner form-banner-success">{instrumentSuccessMessage}</p>
-            ) : null}
+            </div>
+          ) : null}
+
+          <button
+            type="submit"
+            className="compact-button instrument-lookup-submit"
+            disabled={!selectedInstrumentLookupResult || isCreatingInstrument}
+          >
+            {isCreatingInstrument ? (
+              <ButtonLoadingContent label={copy.transactions.form.addingInstrument}>
+                {copy.transactions.form.addInstrument}
+              </ButtonLoadingContent>
+            ) : (
+              copy.transactions.form.addInstrument
+            )}
+          </button>
+          {instrumentErrorMessage ? (
+            <p className="form-banner form-banner-error">{instrumentErrorMessage}</p>
+          ) : null}
+          {instrumentSuccessMessage ? (
+            <p className="form-banner form-banner-success">{instrumentSuccessMessage}</p>
+          ) : null}
         </form>
       </div>
 
@@ -797,14 +829,14 @@ export function TransactionForm({
                   const nextSearch = event.target.value;
                   const exactInstrument = findExactInstrumentSearchMatch(
                     instrumentOptions,
-                    nextSearch
+                    nextSearch,
                   );
 
                   setInstrumentSearch(nextSearch);
                   setIsInstrumentComboboxOpen(true);
                   setValues((currentValues) => ({
                     ...currentValues,
-                    instrumentId: exactInstrument ? String(exactInstrument.id) : ""
+                    instrumentId: exactInstrument ? String(exactInstrument.id) : "",
                   }));
                 }}
                 onFocus={() => {
@@ -817,7 +849,9 @@ export function TransactionForm({
                 aria-controls="instrument-options"
                 aria-autocomplete="list"
                 aria-activedescendant={
-                  highlightedInstrumentId ? `instrument-option-${highlightedInstrumentId}` : undefined
+                  highlightedInstrumentId
+                    ? `instrument-option-${highlightedInstrumentId}`
+                    : undefined
                 }
                 autoComplete="off"
                 placeholder={copy.transactions.form.chooseInstrument}
@@ -873,7 +907,7 @@ export function TransactionForm({
             {selectedInstrument ? (
               <span className="field-hint">
                 {copy.transactions.form.currentQuantity(
-                  formatQuantity(selectedInstrument.currentQuantity, { locale })
+                  formatQuantity(selectedInstrument.currentQuantity, { locale }),
                 )}
               </span>
             ) : instrumentSearch.trim().length > 0 ? (
@@ -995,7 +1029,9 @@ export function TransactionForm({
           </label>
 
           {errorMessage ? <p className="form-banner form-banner-error">{errorMessage}</p> : null}
-          {successMessage ? <p className="form-banner form-banner-success">{successMessage}</p> : null}
+          {successMessage ? (
+            <p className="form-banner form-banner-success">{successMessage}</p>
+          ) : null}
 
           <div className="transaction-form-footer">
             {isEditing ? (
@@ -1008,9 +1044,16 @@ export function TransactionForm({
                 {copy.transactions.form.cancelEdit}
               </button>
             ) : null}
-            <button type="submit" className="primary-button" disabled={isSubmitDisabled} aria-busy={isFormBusy}>
+            <button
+              type="submit"
+              className="primary-button"
+              disabled={isSubmitDisabled}
+              aria-busy={isFormBusy}
+            >
               {isFormBusy ? (
-                <ButtonLoadingContent label={submitButtonLabel}>{submitIdleLabel}</ButtonLoadingContent>
+                <ButtonLoadingContent label={submitButtonLabel}>
+                  {submitIdleLabel}
+                </ButtonLoadingContent>
               ) : (
                 submitButtonLabel
               )}

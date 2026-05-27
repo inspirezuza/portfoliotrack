@@ -56,6 +56,23 @@ function aggregateSelectionErrorResponse() {
   );
 }
 
+async function getMutationPortfolioId(payload: Record<string, unknown>) {
+  if (payload.portfolioId == null) {
+    return getSelectedPortfolioId();
+  }
+
+  const portfolioId = Number(payload.portfolioId);
+
+  if (!Number.isInteger(portfolioId) || portfolioId <= 0) {
+    throw new TransactionServiceError(
+      "VALIDATION_ERROR",
+      "Portfolio id must be a positive integer.",
+    );
+  }
+
+  return portfolioId;
+}
+
 function sortTransactionsByOrder(transactions: TransactionListItem[], order: "asc" | "desc") {
   if (order === "desc") {
     return transactions;
@@ -165,8 +182,11 @@ export async function PUT(request: Request) {
       );
     }
 
-    const { id, ...transactionPayload } = payload as Record<string, unknown>;
-    const portfolioId = await getSelectedPortfolioId();
+    const { id } = payload as Record<string, unknown>;
+    const transactionPayload = { ...(payload as Record<string, unknown>) };
+    delete transactionPayload.id;
+    delete transactionPayload.portfolioId;
+    const portfolioId = await getMutationPortfolioId(payload as Record<string, unknown>);
     const transaction = await updateTransaction(id, transactionPayload, { portfolioId });
 
     return NextResponse.json({ transaction });
@@ -208,7 +228,7 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const portfolioId = await getSelectedPortfolioId();
+    const portfolioId = await getMutationPortfolioId(payload as Record<string, unknown>);
     const deletedTransaction = await deleteTransaction((payload as Record<string, unknown>).id, {
       portfolioId,
     });

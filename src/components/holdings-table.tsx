@@ -459,7 +459,7 @@ function getHoldingLotTransaction(holding: HoldingRow, lot: HoldingLot): Transac
 
   return {
     id: lot.transactionId,
-    portfolioId: 0,
+    portfolioId: lot.portfolioId,
     instrumentId: lot.instrumentId,
     tradeDate: lot.tradeDate,
     side: lot.side,
@@ -702,12 +702,17 @@ export function HoldingsTable({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ id: pendingDeleteTransaction.id }),
+        body: JSON.stringify({
+          id: pendingDeleteTransaction.id,
+          portfolioId: pendingDeleteTransaction.portfolioId,
+        }),
       });
       const payload = (await response.json()) as ApiErrorResponse;
 
       if (!response.ok) {
-        throw new Error(getDeleteErrorMessage(payload.error, copy.transactions.table.deleteCouldNot));
+        throw new Error(
+          getDeleteErrorMessage(payload.error, copy.transactions.table.deleteCouldNot),
+        );
       }
 
       if (editingTransaction?.id === pendingDeleteTransaction.id) {

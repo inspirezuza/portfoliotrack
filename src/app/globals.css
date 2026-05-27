@@ -3045,13 +3045,19 @@ html[data-theme="dark"] .transaction-table > tbody > tr[data-expanded="true"] > 
   background: transparent;
 }
 
+.transaction-table > tbody > tr.holdings-lot-row > td,
+.transaction-table > tbody > tr.holdings-lot-row:hover > td {
+  background: transparent;
+}
+
 .holdings-lot-row > td:first-child,
 .transaction-table > tbody > tr.holdings-lot-row:hover > td:first-child {
   border-left-color: rgba(8, 116, 93, 0.42);
   padding-left: 0;
 }
 
-html[data-theme="dark"] .holdings-lot-row > td {
+html[data-theme="dark"] .holdings-lot-row > td,
+html[data-theme="dark"] .transaction-table > tbody > tr.holdings-lot-row:hover > td {
   background: transparent;
 }
 

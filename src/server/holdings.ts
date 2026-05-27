@@ -39,6 +39,7 @@ type HoldingJoinedRow = {
 export type HoldingLot = {
   transactionId: number;
   instrumentId: number;
+  portfolioId: number;
   portfolioName: string | null;
   tradeDate: string;
   side: "BUY" | "SELL";
@@ -591,6 +592,7 @@ function toHoldingLot({
   return {
     transactionId: lot.id ?? 0,
     instrumentId: lot.instrumentId,
+    portfolioId: lot.portfolioId,
     portfolioName: lot.portfolioName,
     tradeDate: lot.tradeDate,
     side: lot.side,
