@@ -53,6 +53,7 @@ Important directories:
 - `src/lib/auth/`: Admin password verification and signed session helpers.
 - `src/lib/db/`: local/Neon Postgres Drizzle setup, schema, seed script, and precision helpers.
 - `src/lib/market/`: Market provider abstraction, Yahoo Finance implementation, and cache refresh orchestration.
+- `src/lib/observability/`: server-side structured logging helpers for high-risk runtime paths.
 - `src/lib/portfolio/`: Selected-portfolio cookie helpers plus portfolio math for positions and timeline comparison.
 - `src/lib/transactions/`: Transaction UI/search helpers and Excel workbook parsing/generation.
 - `src/lib/ui/`: Browser local UI preferences and shell translation helpers.
@@ -225,3 +226,4 @@ Notes:
 - If changing auth or public/admin behavior, verify both logged-out read-only and logged-in admin flows.
 - If changing market data, preserve currency checks and missing-data states.
 - If changing page performance, keep dashboard/transactions cached-first; provider refresh should stay outside route render.
+- For unexpected server/runtime failures, prefer `logServerError` from `src/lib/observability/server-log.ts` with an event name plus portfolio/run/request context instead of raw `console.error`.

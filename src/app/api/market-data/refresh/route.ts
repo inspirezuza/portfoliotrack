@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth/admin";
-import { AggregatePortfolioSelectionError, getSelectedPortfolioId } from "@/lib/portfolio/selection";
+import { logServerError } from "@/lib/observability/server-log";
+import {
+  AggregatePortfolioSelectionError,
+  getSelectedPortfolioId,
+} from "@/lib/portfolio/selection";
 import { scheduleMarketRefreshWorker } from "@/server/market-refresh-batches";
 import { startManualMarketRefresh } from "@/server/market-refresh";
 
@@ -12,10 +16,10 @@ function jsonErrorResponse(code: string, message: string, status: number) {
     {
       error: {
         code,
-        message
-      }
+        message,
+      },
     },
-    { status }
+    { status },
   );
 }
 
@@ -29,7 +33,10 @@ function buildRedirectUrl(request: Request, searchParams: URLSearchParams) {
     !redirectTo.startsWith("/\\") &&
     candidateUrl.origin === requestUrl.origin;
 
-  return new URL(isSafeLocalPath ? `${candidateUrl.pathname}${candidateUrl.search}${candidateUrl.hash}` : "/", requestUrl);
+  return new URL(
+    isSafeLocalPath ? `${candidateUrl.pathname}${candidateUrl.search}${candidateUrl.hash}` : "/",
+    requestUrl,
+  );
 }
 
 async function getFormSearchParams(request: Request) {
@@ -44,8 +51,8 @@ async function getFormSearchParams(request: Request) {
     const formData = await request.formData();
     return new URLSearchParams(
       Array.from(formData.entries()).flatMap(([key, value]) =>
-        typeof value === "string" ? [[key, value] as [string, string]] : []
-      )
+        typeof value === "string" ? [[key, value] as [string, string]] : [],
+      ),
     );
   }
 
@@ -98,7 +105,11 @@ export async function POST(request: Request) {
         return NextResponse.redirect(new URL("/login?next=/", request.url), { status: 303 });
       }
 
-      return jsonErrorResponse("ADMIN_REQUIRED", "Admin login is required to refresh market data.", 401);
+      return jsonErrorResponse(
+        "ADMIN_REQUIRED",
+        "Admin login is required to refresh market data.",
+        401,
+      );
     }
 
     if (expectsRedirect) {
@@ -124,9 +135,9 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         ...result,
-        statusUrl: `/api/market-data/refresh/status?runId=${result.run.id}`
+        statusUrl: `/api/market-data/refresh/status?runId=${result.run.id}`,
       },
-      { status: 202 }
+      { status: 202 },
     );
   } catch (error) {
     if (error instanceof AggregatePortfolioSelectionError) {
@@ -134,24 +145,37 @@ export async function POST(request: Request) {
         const redirectUrl = buildRedirectUrl(request, formSearchParams ?? new URLSearchParams());
         redirectUrl.searchParams.set("eventAt", new Date().toISOString());
         redirectUrl.searchParams.set("refresh", "error");
-        redirectUrl.searchParams.set("message", "Choose a specific portfolio before refreshing market data.");
+        redirectUrl.searchParams.set(
+          "message",
+          "Choose a specific portfolio before refreshing market data.",
+        );
         return NextResponse.redirect(redirectUrl, { status: 303 });
       }
 
       return jsonErrorResponse(
         "AGGREGATE_PORTFOLIO_SELECTION",
         "Choose a specific portfolio before refreshing market data.",
-        409
+        409,
       );
     }
 
-    console.error("Unexpected market data refresh failure", error);
+    logServerError(
+      "market_refresh.manual.unexpected_failure",
+      "Unexpected market data refresh failure.",
+      error,
+      {
+        expectsRedirect,
+      },
+    );
 
     if (expectsRedirect) {
       const redirectUrl = buildRedirectUrl(request, formSearchParams ?? new URLSearchParams());
       redirectUrl.searchParams.set("eventAt", new Date().toISOString());
       redirectUrl.searchParams.set("refresh", "error");
-      redirectUrl.searchParams.set("message", "Market data refresh failed. Latest cached prices are still shown.");
+      redirectUrl.searchParams.set(
+        "message",
+        "Market data refresh failed. Latest cached prices are still shown.",
+      );
       return NextResponse.redirect(redirectUrl, { status: 303 });
     }
 

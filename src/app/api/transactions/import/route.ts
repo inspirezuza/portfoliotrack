@@ -1,15 +1,18 @@
 import { isAdminAuthenticated } from "@/lib/auth/admin";
-import { AggregatePortfolioSelectionError, getSelectedPortfolioId } from "@/lib/portfolio/selection";
+import { logServerError } from "@/lib/observability/server-log";
+import {
+  AggregatePortfolioSelectionError,
+  getSelectedPortfolioId,
+} from "@/lib/portfolio/selection";
 import {
   commitTransactionImport,
   previewTransactionImport,
-  TransactionImportExportError
+  TransactionImportExportError,
 } from "@/server/transaction-import-export";
 
 export const runtime = "nodejs";
 
-const AGGREGATE_SELECTION_MESSAGE =
-  "Choose a specific portfolio before importing transactions.";
+const AGGREGATE_SELECTION_MESSAGE = "Choose a specific portfolio before importing transactions.";
 
 function getStatusCode(error: TransactionImportExportError) {
   switch (error.code) {
@@ -29,17 +32,17 @@ function jsonErrorResponse(
   code: string,
   message: string,
   status: number,
-  details?: Record<string, unknown> | null
+  details?: Record<string, unknown> | null,
 ) {
   return Response.json(
     {
       error: {
         code,
         message,
-        details: details ?? null
-      }
+        details: details ?? null,
+      },
     },
-    { status }
+    { status },
   );
 }
 
@@ -53,7 +56,11 @@ function isExcelFile(file: File) {
 export async function POST(request: Request) {
   try {
     if (!(await isAdminAuthenticated())) {
-      return jsonErrorResponse("ADMIN_REQUIRED", "Admin login is required to import transactions.", 401);
+      return jsonErrorResponse(
+        "ADMIN_REQUIRED",
+        "Admin login is required to import transactions.",
+        401,
+      );
     }
 
     const formData = await request.formData();
@@ -63,7 +70,7 @@ export async function POST(request: Request) {
     if (mode !== "preview" && mode !== "commit") {
       throw new TransactionImportExportError(
         "INVALID_MODE",
-        "Import mode must be preview or commit."
+        "Import mode must be preview or commit.",
       );
     }
 
@@ -72,7 +79,10 @@ export async function POST(request: Request) {
     }
 
     if (!isExcelFile(file)) {
-      throw new TransactionImportExportError("INVALID_FILE", "Import file must be an .xlsx workbook.");
+      throw new TransactionImportExportError(
+        "INVALID_FILE",
+        "Import file must be an .xlsx workbook.",
+      );
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -84,7 +94,7 @@ export async function POST(request: Request) {
 
     return Response.json({
       mode,
-      preview
+      preview,
     });
   } catch (error) {
     if (error instanceof AggregatePortfolioSelectionError) {
@@ -92,15 +102,14 @@ export async function POST(request: Request) {
     }
 
     if (error instanceof TransactionImportExportError) {
-      return jsonErrorResponse(
-        error.code,
-        error.message,
-        getStatusCode(error),
-        error.details
-      );
+      return jsonErrorResponse(error.code, error.message, getStatusCode(error), error.details);
     }
 
-    console.error("Unexpected transaction import failure", error);
+    logServerError(
+      "transactions.import.unexpected_failure",
+      "Unexpected transaction import failure.",
+      error,
+    );
 
     return jsonErrorResponse("INTERNAL_ERROR", "Transaction import failed.", 500);
   }

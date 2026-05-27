@@ -3,11 +3,12 @@ import "server-only";
 import { and, desc, eq, gt, lt, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db/runtime";
 import { marketRefreshRuns, type MarketRefreshRun } from "@/lib/db/schema";
+import { logServerError } from "@/lib/observability/server-log";
 import {
   refreshMarketDataCache,
   refreshMarketDataCacheBatch,
   type MarketDataRefreshBatchResult,
-  type MarketDataRefreshResult
+  type MarketDataRefreshResult,
 } from "@/lib/market/provider";
 import { parsePortfolioId } from "@/server/portfolios";
 
@@ -70,7 +71,7 @@ function getBangkokDate(now = new Date()) {
     day: "2-digit",
     month: "2-digit",
     timeZone: "Asia/Bangkok",
-    year: "numeric"
+    year: "numeric",
   }).formatToParts(now);
   const valueByType = new Map(parts.map((part) => [part.type, part.value]));
 
@@ -114,7 +115,7 @@ function mapRunStatus(run: MarketRefreshRun): MarketRefreshRunStatus {
     errorMessage: run.errorMessage,
     startedAt: run.startedAt,
     completedAt: run.completedAt,
-    updatedAt: run.updatedAt
+    updatedAt: run.updatedAt,
   };
 }
 
@@ -127,9 +128,11 @@ function parseRunId(runId: number) {
 }
 
 function getLatestSuccessfulAsOf(run: MarketRefreshRun, result: MarketDataRefreshBatchResult) {
-  return [run.latestSuccessfulAsOf, result.latestSuccessfulAsOf]
-    .filter((value): value is string => value != null)
-    .sort((left, right) => right.localeCompare(left))[0] ?? null;
+  return (
+    [run.latestSuccessfulAsOf, result.latestSuccessfulAsOf]
+      .filter((value): value is string => value != null)
+      .sort((left, right) => right.localeCompare(left))[0] ?? null
+  );
 }
 
 async function markRunSuccess(runId: number, result: MarketDataRefreshResult) {
@@ -146,7 +149,7 @@ async function markRunSuccess(runId: number, result: MarketDataRefreshResult) {
       latestSuccessfulAsOf: result.latestSuccessfulAsOf,
       errorMessage: null,
       completedAt: now,
-      updatedAt: now
+      updatedAt: now,
     })
     .where(eq(marketRefreshRuns.id, runId));
 }
@@ -160,7 +163,7 @@ async function markRunFailed(runId: number, error: unknown) {
       status: "failed",
       errorMessage: getErrorMessage(error),
       completedAt: now,
-      updatedAt: now
+      updatedAt: now,
     })
     .where(eq(marketRefreshRuns.id, runId));
 }
@@ -176,7 +179,7 @@ async function createManualRun(portfolioId: number) {
       status: "running",
       attemptCount: 1,
       startedAt: now,
-      updatedAt: now
+      updatedAt: now,
     })
     .returning();
 
@@ -192,8 +195,8 @@ async function getActiveManualRun(portfolioId: number) {
         eq(marketRefreshRuns.portfolioId, portfolioId),
         eq(marketRefreshRuns.mode, MANUAL_MODE),
         eq(marketRefreshRuns.status, "running"),
-        gt(marketRefreshRuns.updatedAt, getStaleRunningCutoff())
-      )
+        gt(marketRefreshRuns.updatedAt, getStaleRunningCutoff()),
+      ),
     )
     .orderBy(desc(marketRefreshRuns.updatedAt), desc(marketRefreshRuns.id))
     .limit(1);
@@ -201,7 +204,10 @@ async function getActiveManualRun(portfolioId: number) {
   return run ?? null;
 }
 
-async function claimDailyAutoRun(portfolioId: number, refreshSlot?: string): Promise<DailyAutoClaim> {
+async function claimDailyAutoRun(
+  portfolioId: number,
+  refreshSlot?: string,
+): Promise<DailyAutoClaim> {
   const refreshDate = getBangkokRefreshDateKey(refreshSlot);
   const now = getDbTimestamp();
   const [insertedRun] = await db
@@ -213,7 +219,7 @@ async function claimDailyAutoRun(portfolioId: number, refreshSlot?: string): Pro
       status: "running",
       attemptCount: 1,
       startedAt: now,
-      updatedAt: now
+      updatedAt: now,
     })
     .onConflictDoNothing()
     .returning();
@@ -222,7 +228,7 @@ async function claimDailyAutoRun(portfolioId: number, refreshSlot?: string): Pro
     return {
       claimed: true,
       run: insertedRun,
-      refreshDate
+      refreshDate,
     };
   }
 
@@ -233,15 +239,15 @@ async function claimDailyAutoRun(portfolioId: number, refreshSlot?: string): Pro
       and(
         eq(marketRefreshRuns.portfolioId, portfolioId),
         eq(marketRefreshRuns.refreshDate, refreshDate),
-        eq(marketRefreshRuns.mode, DAILY_AUTO_MODE)
-      )
+        eq(marketRefreshRuns.mode, DAILY_AUTO_MODE),
+      ),
     );
 
   if (!existingRun) {
     return {
       claimed: false,
       refreshDate,
-      reason: "claim-not-found"
+      reason: "claim-not-found",
     };
   }
 
@@ -249,7 +255,7 @@ async function claimDailyAutoRun(portfolioId: number, refreshSlot?: string): Pro
     return {
       claimed: false,
       refreshDate,
-      reason: "already-refreshed"
+      reason: "already-refreshed",
     };
   }
 
@@ -257,7 +263,7 @@ async function claimDailyAutoRun(portfolioId: number, refreshSlot?: string): Pro
     return {
       claimed: false,
       refreshDate,
-      reason: "daily-attempt-limit"
+      reason: "daily-attempt-limit",
     };
   }
 
@@ -270,7 +276,7 @@ async function claimDailyAutoRun(portfolioId: number, refreshSlot?: string): Pro
       errorMessage: null,
       startedAt: now,
       completedAt: null,
-      updatedAt: now
+      updatedAt: now,
     })
     .where(
       and(
@@ -278,9 +284,12 @@ async function claimDailyAutoRun(portfolioId: number, refreshSlot?: string): Pro
         lt(marketRefreshRuns.attemptCount, MAX_DAILY_AUTO_ATTEMPTS),
         or(
           eq(marketRefreshRuns.status, "failed"),
-          and(eq(marketRefreshRuns.status, "running"), lt(marketRefreshRuns.updatedAt, staleBefore))
-        )
-      )
+          and(
+            eq(marketRefreshRuns.status, "running"),
+            lt(marketRefreshRuns.updatedAt, staleBefore),
+          ),
+        ),
+      ),
     )
     .returning();
 
@@ -288,18 +297,22 @@ async function claimDailyAutoRun(portfolioId: number, refreshSlot?: string): Pro
     return {
       claimed: false,
       refreshDate,
-      reason: "already-running"
+      reason: "already-running",
     };
   }
 
   return {
     claimed: true,
     run: claimedRetry,
-    refreshDate
+    refreshDate,
   };
 }
 
-export async function runManualMarketRefresh({ portfolioId: portfolioIdInput }: { portfolioId: number }) {
+export async function runManualMarketRefresh({
+  portfolioId: portfolioIdInput,
+}: {
+  portfolioId: number;
+}) {
   const portfolioId = parsePortfolioId(portfolioIdInput);
   const run = await createManualRun(portfolioId);
 
@@ -308,6 +321,10 @@ export async function runManualMarketRefresh({ portfolioId: portfolioIdInput }: 
     await markRunSuccess(run.id, result);
     return result;
   } catch (error) {
+    logServerError("market_refresh.manual.failed", "Manual market refresh failed.", error, {
+      portfolioId,
+      runId: run.id,
+    });
     await markRunFailed(run.id, error);
     throw error;
   }
@@ -315,7 +332,7 @@ export async function runManualMarketRefresh({ portfolioId: portfolioIdInput }: 
 
 export async function runDailyAutoMarketRefresh({
   portfolioId: portfolioIdInput,
-  refreshSlot
+  refreshSlot,
 }: {
   portfolioId: number;
   refreshSlot?: string;
@@ -328,7 +345,7 @@ export async function runDailyAutoMarketRefresh({
       status: "skipped",
       refreshDate: claim.refreshDate,
       refreshSlot,
-      reason: claim.reason
+      reason: claim.reason,
     };
   }
 
@@ -339,23 +356,28 @@ export async function runDailyAutoMarketRefresh({
     return {
       status: "success",
       refreshDate: claim.refreshDate,
-      refreshSlot
+      refreshSlot,
     };
   } catch (error) {
-    console.error("Daily auto market refresh failed", error);
+    logServerError("market_refresh.daily_auto.failed", "Daily auto market refresh failed.", error, {
+      portfolioId,
+      refreshDate: claim.refreshDate,
+      refreshSlot,
+      runId: claim.run.id,
+    });
     await markRunFailed(claim.run.id, error);
 
     return {
       status: "failed",
       refreshDate: claim.refreshDate,
       refreshSlot,
-      reason: "refresh-failed"
+      reason: "refresh-failed",
     };
   }
 }
 
 export async function startManualMarketRefresh({
-  portfolioId: portfolioIdInput
+  portfolioId: portfolioIdInput,
 }: {
   portfolioId: number;
 }): Promise<MarketRefreshStartResponse> {
@@ -365,7 +387,7 @@ export async function startManualMarketRefresh({
   if (activeRun != null) {
     return {
       status: "already-running",
-      run: mapRunStatus(activeRun)
+      run: mapRunStatus(activeRun),
     };
   }
 
@@ -373,15 +395,11 @@ export async function startManualMarketRefresh({
 
   return {
     status: "started",
-    run: mapRunStatus(run)
+    run: mapRunStatus(run),
   };
 }
 
-export async function getMarketRefreshRunStatus({
-  runId: runIdInput
-}: {
-  runId: number;
-}) {
+export async function getMarketRefreshRunStatus({ runId: runIdInput }: { runId: number }) {
   const runId = parseRunId(runIdInput);
   const [run] = await db.select().from(marketRefreshRuns).where(eq(marketRefreshRuns.id, runId));
 
@@ -390,7 +408,7 @@ export async function getMarketRefreshRunStatus({
 
 export async function processMarketRefreshRunBatch({
   runId: runIdInput,
-  batchSize = DEFAULT_REFRESH_BATCH_SIZE
+  batchSize = DEFAULT_REFRESH_BATCH_SIZE,
 }: {
   runId: number;
   batchSize?: number;
@@ -405,7 +423,7 @@ export async function processMarketRefreshRunBatch({
   if (run.status !== "running") {
     return {
       hasMore: false,
-      run: mapRunStatus(run)
+      run: mapRunStatus(run),
     };
   }
 
@@ -415,7 +433,7 @@ export async function processMarketRefreshRunBatch({
     .update(marketRefreshRuns)
     .set({
       workerHeartbeatAt: heartbeatAt,
-      updatedAt: heartbeatAt
+      updatedAt: heartbeatAt,
     })
     .where(eq(marketRefreshRuns.id, run.id));
 
@@ -423,13 +441,13 @@ export async function processMarketRefreshRunBatch({
     const result = await refreshMarketDataCacheBatch({
       portfolioId: run.portfolioId,
       afterInstrumentId: run.lastProcessedInstrumentId,
-      maxTargets: batchSize
+      maxTargets: batchSize,
     });
     const now = getDbTimestamp();
     const completed = !result.hasMore;
     const processedTargetCount = Math.min(
       result.targetCount,
-      run.processedTargetCount + result.processedTargetCount
+      run.processedTargetCount + result.processedTargetCount,
     );
     const [updatedRun] = await db
       .update(marketRefreshRuns)
@@ -447,16 +465,25 @@ export async function processMarketRefreshRunBatch({
         workerHeartbeatAt: now,
         lastProcessedInstrumentId: result.lastProcessedInstrumentId,
         completedAt: completed ? now : null,
-        updatedAt: now
+        updatedAt: now,
       })
       .where(eq(marketRefreshRuns.id, run.id))
       .returning();
 
     return {
       hasMore: result.hasMore,
-      run: mapRunStatus(updatedRun)
+      run: mapRunStatus(updatedRun),
     };
   } catch (error) {
+    logServerError(
+      "market_refresh.worker.batch_failed",
+      "Market refresh worker batch failed.",
+      error,
+      {
+        portfolioId: run.portfolioId,
+        runId: run.id,
+      },
+    );
     await markRunFailed(run.id, error);
 
     const failedStatus = await getMarketRefreshRunStatus({ runId: run.id });
@@ -467,14 +494,14 @@ export async function processMarketRefreshRunBatch({
 
     return {
       hasMore: false,
-      run: failedStatus
+      run: failedStatus,
     };
   }
 }
 
 export async function startDailyAutoMarketRefresh({
   portfolioId: portfolioIdInput,
-  refreshSlot
+  refreshSlot,
 }: {
   portfolioId: number;
   refreshSlot?: string;
@@ -487,7 +514,7 @@ export async function startDailyAutoMarketRefresh({
       status: "skipped",
       refreshDate: claim.refreshDate,
       refreshSlot,
-      reason: claim.reason
+      reason: claim.reason,
     };
   }
 
@@ -495,6 +522,6 @@ export async function startDailyAutoMarketRefresh({
     status: "started",
     refreshDate: claim.refreshDate,
     refreshSlot,
-    runId: claim.run.id
+    runId: claim.run.id,
   };
 }

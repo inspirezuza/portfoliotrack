@@ -1,6 +1,7 @@
 import "server-only";
 
 import { waitUntil } from "@vercel/functions";
+import { logServerError } from "@/lib/observability/server-log";
 
 const LOCAL_WORKER_HEADER = "x-portfoliotrack-worker";
 const LOCAL_WORKER_VALUE = "local";
@@ -17,13 +18,13 @@ function getWorkerHeaders(): Record<string, string> | null {
 
   if (secret != null) {
     return {
-      authorization: `Bearer ${secret}`
+      authorization: `Bearer ${secret}`,
     };
   }
 
   if (process.env.NODE_ENV !== "production") {
     return {
-      [LOCAL_WORKER_HEADER]: LOCAL_WORKER_VALUE
+      [LOCAL_WORKER_HEADER]: LOCAL_WORKER_VALUE,
     };
   }
 
@@ -47,8 +48,13 @@ async function processMarketRefreshRunInternally(runId: number) {
 function scheduleInternalMarketRefreshWorker(runId: number) {
   waitUntil(
     processMarketRefreshRunInternally(runId).catch((error) => {
-      console.error("Internal market refresh worker failed", error);
-    })
+      logServerError(
+        "market_refresh.worker.internal_failed",
+        "Internal market refresh worker failed.",
+        error,
+        { runId },
+      );
+    }),
   );
 }
 
@@ -69,7 +75,12 @@ export function scheduleMarketRefreshWorker(request: Request, runId: number) {
   const headers = getWorkerHeaders();
 
   if (headers == null) {
-    console.error("Market refresh worker fetch could not be scheduled because CRON_SECRET is missing. Using internal worker fallback.");
+    logServerError(
+      "market_refresh.worker.missing_cron_secret",
+      "Market refresh worker fetch could not be scheduled because CRON_SECRET is missing. Using internal worker fallback.",
+      null,
+      { runId },
+    );
     scheduleInternalMarketRefreshWorker(runId);
     return;
   }
@@ -81,19 +92,32 @@ export function scheduleMarketRefreshWorker(request: Request, runId: number) {
       method: "POST",
       headers: {
         ...headers,
-        "content-type": "application/json"
+        "content-type": "application/json",
       },
-      body: JSON.stringify({ runId })
+      body: JSON.stringify({ runId }),
     })
       .then((response) => {
         if (!response.ok) {
-          console.error(`Market refresh worker request failed with status ${response.status}. Using internal worker fallback.`);
+          logServerError(
+            "market_refresh.worker.request_failed",
+            "Market refresh worker request failed. Using internal worker fallback.",
+            null,
+            {
+              runId,
+              status: response.status,
+            },
+          );
           scheduleInternalMarketRefreshWorker(runId);
         }
       })
       .catch((error) => {
-        console.error("Market refresh worker scheduling failed", error);
+        logServerError(
+          "market_refresh.worker.schedule_failed",
+          "Market refresh worker scheduling failed.",
+          error,
+          { runId },
+        );
         scheduleInternalMarketRefreshWorker(runId);
-      })
+      }),
   );
 }
