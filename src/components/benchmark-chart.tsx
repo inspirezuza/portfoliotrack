@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CartesianGrid,
   Line,
@@ -92,6 +92,11 @@ type ChartMouseState = {
 type SelectionRange = {
   startDate: string;
   endDate: string;
+};
+
+type BenchmarkComparisonPayload = {
+  overlay: DashboardBenchmarkOverlay;
+  quote: DashboardBenchmarkQuote;
 };
 
 type BenchmarkChartTooltipProps = {
@@ -236,10 +241,6 @@ function getSeriesChangeValue(
   }
 
   return key === "portfolio" ? point.portfolioReturn : point.benchmarkReturn;
-}
-
-function formatSeriesChange(value: number, mode: PerformanceMode) {
-  return mode === "GAP" ? formatPercentagePoint(value) : formatSignedPercent(value);
 }
 
 function formatSeriesPointValue(value: number, mode: PerformanceMode, locale: string) {
@@ -409,6 +410,39 @@ function getOverlayDataKey(symbol: string) {
   return `overlay_${symbol.replace(/[^a-zA-Z0-9]/g, "_")}`;
 }
 
+function getComparisonColor(symbol: string, index: number, benchmarkSymbol: string | null) {
+  return symbol === benchmarkSymbol ? "var(--warm)" : OVERLAY_COLORS[index % OVERLAY_COLORS.length];
+}
+
+function getInitialSelectedComparisonSymbols(
+  overlays: DashboardBenchmarkOverlay[],
+  benchmarkSymbol: string | null,
+) {
+  return benchmarkSymbol == null ||
+    !overlays.some((overlay) => overlay.symbol === benchmarkSymbol && overlay.points.length > 0)
+    ? []
+    : [benchmarkSymbol];
+}
+
+function mergeOverlays(
+  overlays: DashboardBenchmarkOverlay[],
+  overlay: DashboardBenchmarkOverlay,
+) {
+  return [
+    ...overlays.filter(
+      (currentOverlay) => currentOverlay.providerSymbol !== overlay.providerSymbol,
+    ),
+    overlay,
+  ];
+}
+
+function mergeQuotes(quotes: DashboardBenchmarkQuote[], quote: DashboardBenchmarkQuote) {
+  return [
+    ...quotes.filter((currentQuote) => currentQuote.providerSymbol !== quote.providerSymbol),
+    quote,
+  ];
+}
+
 function getPointTimestamp(point: { date: string }) {
   return getUtcDateTime(point.date);
 }
@@ -573,7 +607,11 @@ export function BenchmarkChart({
   const [mode, setMode] = useState<PerformanceMode>("INDEXED");
   const [hoverPoint, setHoverPoint] = useState<ChartPoint | null>(null);
   const [selection, setSelection] = useState<SelectionRange | null>(null);
-  const [selectedComparisonSymbols, setSelectedComparisonSymbols] = useState<string[]>([]);
+  const [comparisonOverlayState, setComparisonOverlayState] = useState(benchmarkOverlays);
+  const [comparisonQuoteState, setComparisonQuoteState] = useState(benchmarkQuotes);
+  const [selectedComparisonSymbols, setSelectedComparisonSymbols] = useState<string[]>(() =>
+    getInitialSelectedComparisonSymbols(benchmarkOverlays, benchmarkSymbol),
+  );
   const isDraggingRef = useRef(false);
   const { chartContainerRef, chartRenderKey } = useChartVisibilityKey();
   const activeSeries =
@@ -591,16 +629,20 @@ export function BenchmarkChart({
     status: performanceSummary.status,
   });
   const shouldShowAbsoluteSummary = performanceSummary.status !== "no-transactions";
+  useEffect(() => {
+    setComparisonOverlayState(benchmarkOverlays);
+    setComparisonQuoteState(benchmarkQuotes);
+    setSelectedComparisonSymbols(getInitialSelectedComparisonSymbols(benchmarkOverlays, benchmarkSymbol));
+    setHoverPoint(null);
+    setSelection(null);
+  }, [benchmarkOverlays, benchmarkQuotes, benchmarkSymbol]);
   const visibleSeries = useMemo(
     () => getVisibleSeries(activeSeries, timeframe),
     [activeSeries, timeframe],
   );
   const comparisonOverlays = useMemo(
-    () =>
-      benchmarkOverlays.filter(
-        (overlay) => overlay.symbol !== benchmarkSymbol && overlay.points.length > 0,
-      ),
-    [benchmarkOverlays, benchmarkSymbol],
+    () => comparisonOverlayState.filter((overlay) => overlay.points.length > 0),
+    [comparisonOverlayState],
   );
   const selectedOverlays = useMemo(
     () =>
@@ -745,7 +787,10 @@ export function BenchmarkChart({
     () =>
       getRoundedPercentAxis(
         chartData.flatMap((point) => {
-          const primaryValues = [point.portfolioDisplay, point.benchmarkDisplay];
+          const primaryValues =
+            mode === "INDEXED"
+              ? [point.portfolioDisplay]
+              : [point.portfolioDisplay, point.benchmarkDisplay];
           const overlayValues =
             mode === "INDEXED"
               ? selectedOverlays
@@ -765,7 +810,7 @@ export function BenchmarkChart({
   const comparisonItems = useMemo<BenchmarkComparisonPickerItem[]>(() => {
     const firstPoint = visibleSeries[0] ?? null;
     const latestPoint = visibleSeries[visibleSeries.length - 1] ?? null;
-    const quotesBySymbol = new Map(benchmarkQuotes.map((quote) => [quote.symbol, quote]));
+    const quotesBySymbol = new Map(comparisonQuoteState.map((quote) => [quote.symbol, quote]));
 
     return comparisonOverlays.map((overlay, index) => {
       const quote = quotesBySymbol.get(overlay.symbol) ?? null;
@@ -781,17 +826,19 @@ export function BenchmarkChart({
       return {
         symbol: overlay.symbol,
         displayName: overlay.displayName,
+        providerSymbol: overlay.providerSymbol,
         market: overlay.market,
         currency: overlay.currency,
         price: quote?.price ?? null,
         returnPercent,
-        color: OVERLAY_COLORS[index % OVERLAY_COLORS.length],
+        color: getComparisonColor(overlay.symbol, index, benchmarkSymbol),
         selected: selectedComparisonSymbols.includes(overlay.symbol),
       };
     });
   }, [
-    benchmarkQuotes,
+    comparisonQuoteState,
     comparisonOverlays,
+    benchmarkSymbol,
     selectedComparisonSymbols,
     visibleOverlayPointsBySymbol,
     visibleSeries,
@@ -807,10 +854,33 @@ export function BenchmarkChart({
     setSelection(null);
   }
 
+  function handleComparisonAdd({ overlay, quote }: BenchmarkComparisonPayload) {
+    setComparisonOverlayState((currentOverlays) => mergeOverlays(currentOverlays, overlay));
+    setComparisonQuoteState((currentQuotes) => mergeQuotes(currentQuotes, quote));
+    setSelectedComparisonSymbols((currentSymbols) =>
+      currentSymbols.includes(overlay.symbol) ? currentSymbols : [...currentSymbols, overlay.symbol],
+    );
+    setHoverPoint(null);
+    setSelection(null);
+  }
+
   function handleComparisonClear() {
     setSelectedComparisonSymbols([]);
     setHoverPoint(null);
     setSelection(null);
+  }
+
+  function ensurePrimaryBenchmarkSelected() {
+    if (
+      benchmarkSymbol == null ||
+      !comparisonOverlays.some((overlay) => overlay.symbol === benchmarkSymbol)
+    ) {
+      return;
+    }
+
+    setSelectedComparisonSymbols((currentSymbols) =>
+      currentSymbols.includes(benchmarkSymbol) ? currentSymbols : [...currentSymbols, benchmarkSymbol],
+    );
   }
 
   function handleChartMouseDown(state: ChartMouseState | undefined) {
@@ -860,25 +930,45 @@ export function BenchmarkChart({
   function renderSeriesReadoutRow({
     change,
     markerClassName,
+    markerColor,
     name,
+    onRemove,
+    removeLabel,
     value,
   }: {
     change: number;
-    markerClassName: string;
+    markerClassName?: string;
+    markerColor?: string;
     name: string;
+    onRemove?: () => void;
+    removeLabel?: string;
     value: number;
   }) {
     const toneClassName = getValueClassName(change);
 
     return (
       <div className="chart-series-readout-row">
-        <span className={`chart-series-marker ${markerClassName}`} aria-hidden="true" />
+        <span
+          className={["chart-series-marker", markerClassName].filter(Boolean).join(" ")}
+          style={markerColor == null ? undefined : { backgroundColor: markerColor }}
+          aria-hidden="true"
+        />
         <strong>{name}</strong>
-        <span>{formatSeriesPointValue(value, mode, locale)}</span>
-        <span className={toneClassName}>{formatSeriesChange(change, mode)}</span>
         <span className={`chart-series-percent-chip ${toneClassName}`}>
-          {formatSeriesChange(change, mode)}
+          {formatSeriesPointValue(value, mode, locale)}
         </span>
+        {onRemove == null ? (
+          <span className="chart-series-remove-spacer" aria-hidden="true" />
+        ) : (
+          <button
+            aria-label={removeLabel}
+            className="chart-series-remove-button"
+            onClick={onRemove}
+            type="button"
+          >
+            x
+          </button>
+        )}
       </div>
     );
   }
@@ -894,6 +984,9 @@ export function BenchmarkChart({
                 className={mode === option ? "active" : ""}
                 key={option}
                 onClick={() => {
+                  if (option !== "INDEXED") {
+                    ensurePrimaryBenchmarkSelected();
+                  }
                   setMode(option);
                   setHoverPoint(null);
                   setSelection(null);
@@ -1158,21 +1251,23 @@ export function BenchmarkChart({
                   dot={false}
                   activeDot={{ r: 4, fill: "var(--accent-strong)" }}
                 />
-                <Line
-                  isAnimationActive={false}
-                  type="linear"
-                  dataKey="benchmarkDisplay"
-                  name={
-                    mode === "GAP"
-                      ? modeCopy.benchmarkName
-                      : (benchmarkSymbol ?? modeCopy.benchmarkName)
-                  }
-                  stroke="var(--warm)"
-                  strokeWidth={1.6}
-                  strokeOpacity={0.72}
-                  dot={false}
-                  activeDot={{ r: 3.5, fill: "var(--warm)" }}
-                />
+                {mode === "INDEXED" ? null : (
+                  <Line
+                    isAnimationActive={false}
+                    type="linear"
+                    dataKey="benchmarkDisplay"
+                    name={
+                      mode === "GAP"
+                        ? modeCopy.benchmarkName
+                        : (benchmarkSymbol ?? modeCopy.benchmarkName)
+                    }
+                    stroke="var(--warm)"
+                    strokeWidth={1.6}
+                    strokeOpacity={0.72}
+                    dot={false}
+                    activeDot={{ r: 3.5, fill: "var(--warm)" }}
+                  />
+                )}
                 {mode !== "INDEXED"
                   ? null
                   : selectedOverlays.map((overlay) => {
@@ -1211,15 +1306,37 @@ export function BenchmarkChart({
                   name: modeCopy.portfolioName,
                   value: readoutPoint.portfolioDisplay,
                 })}
-                {renderSeriesReadoutRow({
-                  change: getSeriesChangeValue(readoutPoint, "benchmark", mode),
-                  markerClassName: "chart-series-marker-benchmark",
-                  name:
-                    mode === "GAP"
-                      ? modeCopy.benchmarkName
-                      : (benchmarkSymbol ?? modeCopy.benchmarkName),
-                  value: readoutPoint.benchmarkDisplay,
-                })}
+                {mode === "INDEXED"
+                  ? selectedOverlays.map((overlay) => {
+                      const value = readoutPoint[getOverlayDataKey(overlay.symbol)];
+                      const comparisonItem = comparisonItems.find(
+                        (item) => item.symbol === overlay.symbol,
+                      );
+
+                      return typeof value !== "number" ? null : (
+                        <div key={overlay.symbol}>
+                          {renderSeriesReadoutRow({
+                            change: value,
+                            markerColor: comparisonItem?.color ?? "var(--ink)",
+                            name: overlay.symbol,
+                            onRemove: () => handleComparisonToggle(overlay.symbol),
+                            removeLabel: copy.charts.benchmark.comparisonPicker.remove(
+                              overlay.symbol,
+                            ),
+                            value,
+                          })}
+                        </div>
+                      );
+                    })
+                  : renderSeriesReadoutRow({
+                      change: getSeriesChangeValue(readoutPoint, "benchmark", mode),
+                      markerClassName: "chart-series-marker-benchmark",
+                      name:
+                        mode === "GAP"
+                          ? modeCopy.benchmarkName
+                          : (benchmarkSymbol ?? modeCopy.benchmarkName),
+                      value: readoutPoint.benchmarkDisplay,
+                    })}
               </div>
             )}
             <div
@@ -1262,11 +1379,12 @@ export function BenchmarkChart({
                 </>
               )}
             </div>
-            {mode === "INDEXED" && comparisonItems.length > 0 ? (
+            {mode === "INDEXED" ? (
               <BenchmarkComparisonPicker
                 items={comparisonItems}
                 labels={copy.charts.benchmark.comparisonPicker}
                 language={language}
+                onAddComparison={handleComparisonAdd}
                 onClear={handleComparisonClear}
                 onToggle={handleComparisonToggle}
                 selectedSymbols={selectedComparisonSymbols}

@@ -918,7 +918,7 @@ html[data-theme="dark"] .chart-stat-strip div {
 
 .chart-series-readout-row {
   display: grid;
-  grid-template-columns: 6px minmax(130px, 1fr) minmax(76px, auto) minmax(76px, auto) minmax(76px, auto);
+  grid-template-columns: 6px minmax(130px, 1fr) minmax(76px, auto) 32px;
   align-items: center;
   gap: 12px;
   min-width: 0;
@@ -977,6 +977,34 @@ html[data-theme="dark"] .chart-stat-strip div {
 
 .chart-series-percent-chip.value-positive {
   background: color-mix(in srgb, var(--accent-soft) 92%, transparent);
+}
+
+.chart-series-remove-spacer {
+  width: 28px;
+  height: 28px;
+}
+
+.chart-series-remove-button {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  color: var(--muted);
+  background: transparent;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 820;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.chart-series-remove-button:hover,
+.chart-series-remove-button:focus-visible {
+  color: var(--ink);
+  background: var(--surface-muted);
+  outline: none;
 }
 
 .chart-series-percent-chip.value-negative {
@@ -3916,14 +3944,9 @@ html[data-theme="dark"] .subtabs .active {
   }
 
   .chart-series-readout-row {
-    grid-template-columns: 5px minmax(0, 1fr) auto;
+    grid-template-columns: 5px minmax(0, 1fr) auto 30px;
     gap: 9px;
     padding: 11px 10px;
-  }
-
-  .chart-series-readout-row > span:nth-of-type(2),
-  .chart-series-readout-row > span:nth-of-type(3) {
-    display: none;
   }
 
   .chart-series-readout-row strong {

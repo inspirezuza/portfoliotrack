@@ -614,6 +614,20 @@ export async function refreshMarketDataCache(
   return runRefreshWithDedup(context);
 }
 
+export async function refreshMarketDataTargets({
+  targets
+}: {
+  targets: RefreshTarget[];
+}): Promise<MarketDataRefreshResult> {
+  const { benchmarkSymbol, marketRefreshMinutes } = await getMarketSettings();
+
+  return runRefreshWithDedup({
+    benchmarkSymbol,
+    marketRefreshMinutes,
+    targets
+  });
+}
+
 export async function refreshMarketDataCacheBatch({
   portfolioId,
   afterInstrumentId = null,

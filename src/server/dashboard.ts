@@ -24,6 +24,7 @@ import {
   type HoldingsSnapshot,
   type RealizedBreakdown
 } from "@/server/holdings";
+import { buildBenchmarkComparisonPayload } from "@/server/benchmark-comparisons";
 import { parsePortfolioId } from "@/server/portfolios";
 
 export type DashboardSummary = {
@@ -375,25 +376,30 @@ function buildBenchmarkWatchlist({
   timeline: PortfolioBenchmarkTimeline;
 }) {
   const instrumentsBySymbol = new Map(instrumentRows.map((instrument) => [instrument.symbol, instrument]));
-  const snapshotsByInstrumentId = new Map(
-    priceSnapshotRows.map((snapshot) => [snapshot.instrumentId, snapshot] as const)
-  );
   const quotes = BENCHMARK_WATCHLIST.map((benchmark) => {
     const instrument = instrumentsBySymbol.get(benchmark.symbol) ?? null;
-    const snapshot = instrument == null ? null : snapshotsByInstrumentId.get(instrument.id) ?? null;
     const historyRows = instrument == null
       ? []
       : historicalPriceRows
           .filter((row) => row.instrumentId === instrument.id && row.currency === benchmark.currency)
           .sort((left, right) => left.priceDate.localeCompare(right.priceDate));
-    const latestHistory = historyRows[historyRows.length - 1] ?? null;
-    const previousHistory = historyRows[historyRows.length - 2] ?? null;
     const localDemoQuote = shouldUseLocalDemoMarketData(historyRows.length)
       ? LOCAL_DEMO_QUOTES[benchmark.symbol] ?? null
       : null;
-    const price = snapshot?.price ?? latestHistory?.close ?? localDemoQuote?.price ?? null;
-    const dailyChange = price == null || localDemoQuote == null ? null : localDemoQuote.dailyChange;
-    const previousClose = previousHistory?.close ?? (price == null || dailyChange == null ? null : price - dailyChange);
+    const comparisonQuote =
+      instrument == null
+        ? null
+        : buildBenchmarkComparisonPayload({
+            historicalPriceRows,
+            instrument,
+            intradayPriceRows,
+            priceSnapshotRows
+          }).quote;
+    const price = comparisonQuote?.price ?? localDemoQuote?.price ?? null;
+    const dailyChange =
+      comparisonQuote?.dailyChange ??
+      (price == null || localDemoQuote == null ? null : localDemoQuote.dailyChange);
+    const previousClose = price == null || dailyChange == null ? null : price - dailyChange;
 
     return {
       symbol: benchmark.symbol,
@@ -402,7 +408,7 @@ function buildBenchmarkWatchlist({
       market: benchmark.market,
       currency: benchmark.currency,
       price,
-      asOf: snapshot?.asOf ?? latestHistory?.priceDate ?? localDemoQuote?.asOf ?? null,
+      asOf: comparisonQuote?.asOf ?? localDemoQuote?.asOf ?? null,
       dailyChange: price == null || previousClose == null ? null : price - previousClose,
       dailyChangePercent: calculateReturnPercent(previousClose, price)
     };
@@ -462,33 +468,21 @@ function buildBenchmarkWatchlist({
   );
   const overlays = BENCHMARK_WATCHLIST.map((benchmark) => {
     const instrument = instrumentsBySymbol.get(benchmark.symbol) ?? null;
-    const dailyPoints: DashboardBenchmarkOverlayPoint[] =
+    const comparisonOverlay =
       instrument == null
-        ? []
-        : historicalPriceRows
-            .filter((row) => row.instrumentId === instrument.id && row.currency === benchmark.currency)
-            .map((row) => ({
-              date: row.priceDate,
-              interval: "1d" as const,
-              value: row.close
-            }));
-    const intradayPoints: DashboardBenchmarkOverlayPoint[] =
+        ? null
+        : buildBenchmarkComparisonPayload({
+            historicalPriceRows,
+            instrument,
+            intradayPriceRows,
+            priceSnapshotRows
+          }).overlay;
+    const dailyPointCount =
       instrument == null
-        ? []
-        : intradayPriceRows
-            .filter(
-              (row) =>
-                row.instrumentId === instrument.id &&
-                row.currency === benchmark.currency &&
-                isTimelineIntradayInterval(row.interval)
-            )
-            .map((row) => ({
-              date: row.observedAt,
-              interval: row.interval as TimelinePointInterval,
-              value: row.close
-            }));
-
-    const realPoints = [...dailyPoints, ...intradayPoints].sort((left, right) => left.date.localeCompare(right.date));
+        ? 0
+        : historicalPriceRows.filter(
+            (row) => row.instrumentId === instrument.id && row.currency === benchmark.currency
+          ).length;
 
     return {
       symbol: benchmark.symbol,
@@ -496,9 +490,9 @@ function buildBenchmarkWatchlist({
       providerSymbol: benchmark.providerSymbol,
       market: benchmark.market,
       currency: benchmark.currency,
-      points: shouldUseLocalDemoMarketData(dailyPoints.length)
+      points: shouldUseLocalDemoMarketData(dailyPointCount)
         ? buildLocalDemoOverlayPoints(benchmark.symbol)
-        : realPoints
+        : comparisonOverlay?.points ?? []
     };
   });
 

@@ -136,9 +136,18 @@ const uiCopy = {
         gap: "Gap",
         comparisonPicker: {
           add: "+ Add comparison",
+          adding: "กำลังเพิ่ม...",
           clear: "Clear all",
+          close: "ปิด",
+          dialogTitle: "เพิ่มหุ้นหรือ ETF เพื่อเทียบ",
           aria: "Benchmark comparison overlays",
-          remove: (symbol: string) => `Remove ${symbol} comparison`
+          noMatches: "ไม่พบหุ้นหรือ ETF ที่ตรงกัน",
+          remove: (symbol: string) => `Remove ${symbol} comparison`,
+          saved: "เพิ่มแล้ว",
+          search: "ค้นหา",
+          searchError: "ไม่สามารถเพิ่ม comparison ได้ตอนนี้",
+          searchPlaceholder: "พิมพ์ SPY, QQQ, TDEX หรือชื่อบริษัท",
+          searching: "กำลังค้นหา..."
         },
         modes: {
           INDEXED: "Return",
@@ -591,9 +600,18 @@ const uiCopy = {
         gap: "Gap",
         comparisonPicker: {
           add: "+ Add comparison",
+          adding: "Adding...",
           clear: "Clear all",
+          close: "Close",
+          dialogTitle: "Add stock or ETF comparison",
           aria: "Benchmark comparison overlays",
-          remove: (symbol: string) => `Remove ${symbol} comparison`
+          noMatches: "No matching stocks or ETFs",
+          remove: (symbol: string) => `Remove ${symbol} comparison`,
+          saved: "Added",
+          search: "Search",
+          searchError: "Comparison could not be added right now.",
+          searchPlaceholder: "Type SPY, QQQ, TDEX, or a company name",
+          searching: "Searching..."
         },
         modes: {
           INDEXED: "Return",

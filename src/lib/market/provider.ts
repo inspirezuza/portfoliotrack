@@ -9,7 +9,8 @@ export {
   getPriceAgeMinutes,
   isMarketDataStale,
   refreshMarketDataCache,
-  refreshMarketDataCacheBatch
+  refreshMarketDataCacheBatch,
+  refreshMarketDataTargets
 } from "./provider-core";
 export type {
   MarketDataRefreshBatchResult,
