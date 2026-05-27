@@ -32,14 +32,20 @@ Generate `AUTH_SECRET` with any strong random value, for example:
 node -e "console.log(crypto.randomBytes(32).toString('base64url'))"
 ```
 
+Before deploy handoff, check that required production variables are present:
+
+```powershell
+npm run config:check:prod
+```
+
 ## 3. Prepare The Database
 
-Install dependencies locally, then point `DATABASE_URL` at Neon and push the schema:
+Install dependencies locally, then point `DATABASE_URL` at Neon and apply committed migrations:
 
 ```powershell
 npm install
 $env:DATABASE_URL="postgresql://..."
-npm run db:migrate
+npm run db:migrate:prod
 ```
 
 Optional seed:
@@ -54,11 +60,13 @@ For local development, keep Neon credentials out of the dev loop and set `LOCAL_
 
 ```powershell
 $env:LOCAL_DATABASE_URL="postgresql://postgres:<your-postgres-password>@localhost:5432/portfoliotrack"
-npm run db:migrate
+npm run db:migrate:local
 npm run db:seed
 ```
 
 The app prefers `LOCAL_DATABASE_URL` in development. Local development uses the machine-level PostgreSQL service that pgAdmin connects to on `localhost:5432`. Hosted Vercel environments should continue using `DATABASE_URL`.
+
+For schema changes, update `src/lib/db/schema.ts`, run `npm run db:generate`, and review the generated SQL under `drizzle/` before applying the migration. Keep `drizzle-kit push` for local iteration only; production handoff should use committed migrations.
 
 The seed script is local-test oriented: it creates demo portfolios, transactions, prices, FX snapshots, DR metadata, and settings so dashboard, holdings, asset detail, import-adjacent flows, US stock valuation, and realized/closed-trade behavior can be checked without manual setup.
 
@@ -69,6 +77,8 @@ Push the repository to GitHub and let Vercel build it with:
 ```text
 npm run build
 ```
+
+GitHub Actions runs `npm ci` and `npm run verify` before normal merge. Pull requests also run the Playwright smoke suite.
 
 After deploy:
 

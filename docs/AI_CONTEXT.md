@@ -89,10 +89,10 @@ Tables:
 Schema deployment:
 
 ```powershell
-npm run db:migrate
+npm run db:migrate:local
 ```
 
-This runs `drizzle-kit push` against `LOCAL_DATABASE_URL` when set, then `DATABASE_URL`, with a machine-level local Postgres fallback in development. The baseline SQL is `drizzle/0000_initial_postgres.sql`; `drizzle/0001_multi_portfolios.sql` adds portfolio support and migrates existing transactions into `Main Portfolio`; `drizzle/0002_transaction_broker.sql` adds the broker field; `drizzle/0003_market_refresh_runs.sql` adds refresh run tracking; `drizzle/0004_market_refresh_progress.sql` adds worker progress fields for async refresh batches.
+This runs `drizzle-kit push` against `LOCAL_DATABASE_URL` when set, then `DATABASE_URL`, with a machine-level local Postgres fallback in development. For production handoff, run `npm run db:generate`, review the generated SQL in `drizzle/`, then use `npm run db:migrate:prod` with `DATABASE_URL` set. The baseline SQL is `drizzle/0000_initial_postgres.sql`; `drizzle/0001_multi_portfolios.sql` adds portfolio support and migrates existing transactions into `Main Portfolio`; `drizzle/0002_transaction_broker.sql` adds the broker field; `drizzle/0003_market_refresh_runs.sql` adds refresh run tracking; `drizzle/0004_market_refresh_progress.sql` adds worker progress fields for async refresh batches.
 
 Seed:
 
@@ -187,10 +187,16 @@ Performance behavior:
 ```powershell
 npm run dev
 npm run test
+npm run typecheck
 npm run verify
 npm run lint
+npm run format:check
 npm run build
 npm run db:migrate
+npm run db:migrate:local
+npm run db:migrate:prod
+npm run config:check
+npm run config:check:prod
 npm run db:seed
 npm run auth:hash
 ```
@@ -198,16 +204,19 @@ npm run auth:hash
 Notes:
 
 - `npm run build` also performs Next.js type/lint checks.
+- `npm run verify` runs lint, typecheck, unit tests, and production build.
+- GitHub Actions runs `npm run verify` on `main` and pull requests. Pull requests also run Playwright smoke tests.
+- Dependabot opens conservative weekly npm PRs. Major framework/library upgrades remain manual review work, not automatic PR churn.
 - `npm run test` uses Node's built-in test runner with `tsx`.
-- The user has requested that tests not be added or updated unless explicitly asked.
+- Add or update tests only when they materially improve confidence for the current change.
 - The development server may print a Windows SWC DLL warning and still work.
 
 ## Guardrails For AI Agents
 
 - Read `AGENTS.md` before making changes.
-- Do not create commits unless the user explicitly asks.
-- Keep related changes bundled as one uncommitted work set by default.
-- Do not add or update tests unless explicitly asked.
+- This checkout expects an automatic git commit after each verified coherent work set unless the user explicitly says not to commit or the next action is risky/destructive.
+- Commit only files changed for the current task and never include unrelated dirty or untracked files.
+- Add focused tests when they materially improve confidence in the current change; avoid broad test churn.
 - Prefer small, targeted edits that fit the existing App Router, server module, and Drizzle patterns.
 - Do not silently reset or overwrite existing uncommitted changes.
 - If changing schema, update `src/lib/db/schema.ts`, `drizzle/*.sql`, and `src/lib/db/seed.ts` when needed.

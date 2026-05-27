@@ -1,0 +1,51 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Bangkok
+    open-pull-requests-limit: 5
+    groups:
+      next-stack:
+        patterns:
+          - next
+          - eslint-config-next
+          - "@next/*"
+      react-stack:
+        patterns:
+          - react
+          - react-dom
+          - "@types/react"
+          - "@types/react-dom"
+      test-tooling:
+        patterns:
+          - "@playwright/test"
+          - tsx
+          - typescript
+          - eslint
+          - "@eslint/*"
+    ignore:
+      - dependency-name: next
+        update-types:
+          - version-update:semver-major
+      - dependency-name: eslint-config-next
+        update-types:
+          - version-update:semver-major
+      - dependency-name: react
+        update-types:
+          - version-update:semver-major
+      - dependency-name: react-dom
+        update-types:
+          - version-update:semver-major
+      - dependency-name: recharts
+        update-types:
+          - version-update:semver-major
+      - dependency-name: zod
+        update-types:
+          - version-update:semver-major
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major

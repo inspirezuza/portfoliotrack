@@ -1,0 +1,78 @@
+name: Verify
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify application
+        run: npm run verify
+
+  playwright-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name == 'pull_request'
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: portfoliotrack
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d portfoliotrack"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Prepare smoke database
+        run: |
+          npm run db:migrate:local
+          npm run db:seed
+        env:
+          LOCAL_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/portfoliotrack
+
+      - name: Run browser smoke tests
+        run: npm run test:e2e
+        env:
+          ADMIN_PASSWORD_HASH: ci-smoke-hash
+          ADMIN_USERNAME: ci
+          AUTH_SECRET: ci-smoke-secret
+          LOCAL_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/portfoliotrack
