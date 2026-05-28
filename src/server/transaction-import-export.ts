@@ -4,7 +4,7 @@ import { asc, eq, or } from "drizzle-orm";
 import YahooFinance from "yahoo-finance2";
 import { withOperationTimeout } from "@/lib/async/timeout";
 import { db } from "@/lib/db/runtime";
-import { instruments, transactions, type NewTransaction } from "@/lib/db/schema";
+import { instruments, transactions } from "@/lib/db/schema";
 import {
   getInstrumentTypeFromYahooQuoteType,
   normalizeInstrumentType,
@@ -43,6 +43,14 @@ import {
   normalizeLookupValue,
   parseInstrumentAction,
 } from "@/server/transaction-import-export/import-helpers";
+import {
+  buildFinalImportInput,
+  buildInstrumentInsertValue,
+  buildTransactionInsertValue,
+} from "@/server/transaction-import-export/commit-helpers";
+import { TransactionImportExportError } from "@/server/transaction-import-export/errors";
+
+export { TransactionImportExportError } from "@/server/transaction-import-export/errors";
 
 export const MAX_TRANSACTION_IMPORT_FILE_SIZE = 5 * 1024 * 1024;
 export const MAX_TRANSACTION_IMPORT_ROWS = 5000;
@@ -104,28 +112,6 @@ type ResolvedImportInstrument = ImportInstrument | PreparedPendingImportInstrume
 type ImportTransactionInput = Omit<TransactionInput, "instrumentId"> & {
   instrumentId: number | null;
 };
-
-export class TransactionImportExportError extends Error {
-  readonly code:
-    | "INVALID_FILE"
-    | "INVALID_MODE"
-    | "IMPORT_HAS_ERRORS"
-    | "IMPORT_TOO_LARGE"
-    | "TOO_MANY_ROWS"
-    | "INTERNAL_ERROR";
-  readonly details?: Record<string, unknown>;
-
-  constructor(
-    code: TransactionImportExportError["code"],
-    message: string,
-    details?: Record<string, unknown>,
-  ) {
-    super(message);
-    this.name = "TransactionImportExportError";
-    this.code = code;
-    this.details = details;
-  }
-}
 
 function getTodayIsoDate() {
   const now = new Date();
@@ -548,70 +534,6 @@ async function parseImportBuffer(buffer: Buffer) {
   }
 }
 
-function buildInsertValue(input: TransactionInput, portfolioId: number): NewTransaction {
-  return {
-    portfolioId,
-    instrumentId: input.instrumentId,
-    tradeDate: input.tradeDate,
-    side: input.side,
-    broker: input.broker ?? "DIME",
-    quantity: input.quantity,
-    price: input.price,
-    fee: input.fee,
-    notes: input.notes,
-  };
-}
-
-function buildInstrumentInsertValue(input: InstrumentInput) {
-  const knownDrMetadata = getKnownDrMetadata(input);
-
-  return {
-    symbol: input.symbol,
-    displayName: input.displayName,
-    market: input.market,
-    instrumentType:
-      knownDrMetadata?.instrumentType ?? normalizeInstrumentType(input.instrumentType),
-    currency: input.currency,
-    providerSymbol: input.providerSymbol,
-    underlyingSymbol: knownDrMetadata?.underlyingSymbol ?? null,
-    underlyingDisplayName: knownDrMetadata?.underlyingDisplayName ?? null,
-    underlyingCurrency: knownDrMetadata?.underlyingCurrency ?? null,
-    underlyingProviderSymbol: knownDrMetadata?.underlyingProviderSymbol ?? null,
-    drRatio: knownDrMetadata?.drRatio ?? null,
-    fxProviderSymbol: knownDrMetadata?.fxProviderSymbol ?? null,
-    isActive: true,
-  };
-}
-
-function getFinalImportInput(
-  row: ReadyImportRow,
-  createdInstrumentIds: Map<string, number>,
-): TransactionInput {
-  if (row.input.instrumentId != null) {
-    return {
-      ...row.input,
-      instrumentId: row.input.instrumentId,
-    };
-  }
-
-  const createdInstrumentId =
-    row.createInstrumentKey == null
-      ? null
-      : (createdInstrumentIds.get(row.createInstrumentKey) ?? null);
-
-  if (createdInstrumentId == null) {
-    throw new TransactionImportExportError(
-      "INTERNAL_ERROR",
-      `Instrument ${row.symbol ?? ""} could not be resolved for import.`,
-    );
-  }
-
-  return {
-    ...row.input,
-    instrumentId: createdInstrumentId,
-  };
-}
-
 export async function buildTransactionExport({
   portfolioId: portfolioIdInput,
   template = false,
@@ -721,7 +643,7 @@ export async function commitTransactionImport(
     }
 
     const readyInputs = evaluation.readyRows.map((row) =>
-      getFinalImportInput(row, createdInstrumentIds),
+      buildFinalImportInput(row, createdInstrumentIds),
     );
     const currentRows = await tx
       .select({
@@ -755,7 +677,7 @@ export async function commitTransactionImport(
     if (readyInputs.length > 0) {
       await tx
         .insert(transactions)
-        .values(readyInputs.map((input) => buildInsertValue(input, portfolioId)));
+        .values(readyInputs.map((input) => buildTransactionInsertValue(input, portfolioId)));
     }
   });
 
