@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildBenchmarkComparisonItems,
   getComparisonColor,
   getOverlayDataKey,
   getRoundedPercentAxis,
@@ -9,6 +10,7 @@ import {
   mergeQuotes,
 } from "../src/components/benchmark-chart/chart-helpers";
 import type { DashboardBenchmarkOverlay, DashboardBenchmarkQuote } from "../src/server/dashboard";
+import type { ActivePerformancePoint } from "../src/components/benchmark-chart/types";
 
 function createOverlay(
   providerSymbol: string,
@@ -35,6 +37,16 @@ function createQuote(providerSymbol: string): DashboardBenchmarkQuote {
     price: null,
     providerSymbol,
     symbol: providerSymbol,
+  };
+}
+
+function createPerformancePoint(date: string): ActivePerformancePoint {
+  return {
+    benchmarkIndex: 100,
+    benchmarkReturnPercent: 0,
+    date,
+    portfolioIndex: 100,
+    portfolioReturnPercent: 0,
   };
 }
 
@@ -91,4 +103,57 @@ test("comparison merges replace matching provider symbols without disturbing oth
     createQuote("QQQ"),
     createQuote("SPY"),
   ]);
+});
+
+test("comparison item helper joins overlays, quotes, selection, colors, and returns", () => {
+  const spyPoints: DashboardBenchmarkOverlay["points"] = [
+    { date: "2026-01-01T00:00:00.000Z", interval: null, value: 100 },
+    { date: "2026-01-31T00:00:00.000Z", interval: null, value: 110 },
+  ];
+  const qqqPoints: DashboardBenchmarkOverlay["points"] = [
+    { date: "2026-01-01T00:00:00.000Z", interval: null, value: 200 },
+    { date: "2026-01-31T00:00:00.000Z", interval: null, value: 210 },
+  ];
+
+  assert.deepEqual(
+    buildBenchmarkComparisonItems({
+      benchmarkSymbol: "SPY",
+      overlays: [createOverlay("SPY", spyPoints), createOverlay("QQQ", qqqPoints)],
+      quotes: [{ ...createQuote("SPY"), price: 500 }],
+      returnBasis: "TWR",
+      selectedSymbols: ["QQQ"],
+      visibleOverlayPointsBySymbol: new Map([
+        ["SPY", spyPoints],
+        ["QQQ", qqqPoints],
+      ]),
+      visibleSeries: [
+        createPerformancePoint("2026-01-01T00:00:00.000Z"),
+        createPerformancePoint("2026-01-31T00:00:00.000Z"),
+      ],
+    }),
+    [
+      {
+        color: "var(--warm)",
+        currency: "USD",
+        displayName: "SPY",
+        market: "NYSE",
+        price: 500,
+        providerSymbol: "SPY",
+        returnPercent: 10,
+        selected: false,
+        symbol: "SPY",
+      },
+      {
+        color: "#8f5cf7",
+        currency: "USD",
+        displayName: "QQQ",
+        market: "NYSE",
+        price: null,
+        providerSymbol: "QQQ",
+        returnPercent: 5,
+        selected: true,
+        symbol: "QQQ",
+      },
+    ],
+  );
 });

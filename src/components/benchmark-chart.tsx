@@ -19,17 +19,14 @@ import {
 } from "@/lib/charts/time-axis";
 import { getRechartsPayloadPoint, type RechartsMouseState } from "@/lib/charts/recharts-state";
 import { useChartVisibilityKey } from "@/hooks/use-chart-visibility-key";
-import {
-  BenchmarkComparisonPicker,
-  type BenchmarkComparisonPickerItem,
-} from "@/components/benchmark-comparison-picker";
+import { BenchmarkComparisonPicker } from "@/components/benchmark-comparison-picker";
 import {
   buildBenchmarkChartData,
   calculateOverlayReturnAtDate,
   calculateSelectionChange,
 } from "@/components/benchmark-chart/chart-data";
 import {
-  getComparisonColor,
+  buildBenchmarkComparisonItems,
   getInitialSelectedComparisonSymbols,
   getOverlayDataKey,
   getRoundedPercentAxis,
@@ -316,44 +313,27 @@ export function BenchmarkChart({
   const xAxisTicks = useMemo(() => buildTimeAxisTicks(chartData), [chartData]);
   const xAxisSpan = xDomain == null ? 0 : xDomain[1] - xDomain[0];
   const readoutPoint = hoverPoint ?? rangeStats?.latestPoint ?? null;
-  const comparisonItems = useMemo<BenchmarkComparisonPickerItem[]>(() => {
-    const firstPoint = visibleSeries[0] ?? null;
-    const latestPoint = visibleSeries[visibleSeries.length - 1] ?? null;
-    const quotesBySymbol = new Map(comparisonQuoteState.map((quote) => [quote.symbol, quote]));
-
-    return comparisonOverlays.map((overlay, index) => {
-      const quote = quotesBySymbol.get(overlay.symbol) ?? null;
-      const returnPercent =
-        firstPoint == null || latestPoint == null
-          ? null
-          : calculateOverlayReturnAtDate({
-              points: visibleOverlayPointsBySymbol.get(overlay.symbol) ?? [],
-              returnBasis,
-              startDate: firstPoint.date,
-              targetDate: latestPoint.date,
-            });
-
-      return {
-        symbol: overlay.symbol,
-        displayName: overlay.displayName,
-        providerSymbol: overlay.providerSymbol,
-        market: overlay.market,
-        currency: overlay.currency,
-        price: quote?.price ?? null,
-        returnPercent,
-        color: getComparisonColor(overlay.symbol, index, benchmarkSymbol),
-        selected: selectedComparisonSymbols.includes(overlay.symbol),
-      };
-    });
-  }, [
-    comparisonQuoteState,
-    comparisonOverlays,
-    benchmarkSymbol,
-    returnBasis,
-    selectedComparisonSymbols,
-    visibleOverlayPointsBySymbol,
-    visibleSeries,
-  ]);
+  const comparisonItems = useMemo(
+    () =>
+      buildBenchmarkComparisonItems({
+        benchmarkSymbol,
+        overlays: comparisonOverlays,
+        quotes: comparisonQuoteState,
+        returnBasis,
+        selectedSymbols: selectedComparisonSymbols,
+        visibleOverlayPointsBySymbol,
+        visibleSeries,
+      }),
+    [
+      benchmarkSymbol,
+      comparisonOverlays,
+      comparisonQuoteState,
+      returnBasis,
+      selectedComparisonSymbols,
+      visibleOverlayPointsBySymbol,
+      visibleSeries,
+    ],
+  );
 
   function handleComparisonToggle(symbol: string) {
     setSelectedComparisonSymbols((currentSymbols) =>

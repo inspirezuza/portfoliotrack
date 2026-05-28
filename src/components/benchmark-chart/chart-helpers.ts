@@ -1,5 +1,13 @@
-import { selectVisibleTimeframePoints } from "@/components/benchmark-chart/chart-data";
-import type { TimeframeKey } from "@/components/benchmark-chart/types";
+import {
+  calculateOverlayReturnAtDate,
+  selectVisibleTimeframePoints,
+} from "@/components/benchmark-chart/chart-data";
+import type {
+  ActivePerformancePoint,
+  ReturnBasis,
+  TimeframeKey,
+} from "@/components/benchmark-chart/types";
+import type { BenchmarkComparisonPickerItem } from "@/components/benchmark-comparison-picker";
 import type { DashboardBenchmarkOverlay, DashboardBenchmarkQuote } from "@/server/dashboard";
 
 const OVERLAY_COLORS = ["#3f82ff", "#8f5cf7", "#009b8e", "#d66b24", "#5965d8", "#c14f8b"];
@@ -87,5 +95,52 @@ export function getVisibleOverlayPoints(
     includeBaselinePoint: true,
     points,
     timeframe,
+  });
+}
+
+export function buildBenchmarkComparisonItems({
+  benchmarkSymbol,
+  overlays,
+  quotes,
+  returnBasis,
+  selectedSymbols,
+  visibleOverlayPointsBySymbol,
+  visibleSeries,
+}: {
+  benchmarkSymbol: string | null;
+  overlays: DashboardBenchmarkOverlay[];
+  quotes: DashboardBenchmarkQuote[];
+  returnBasis: ReturnBasis;
+  selectedSymbols: string[];
+  visibleOverlayPointsBySymbol: Map<string, DashboardBenchmarkOverlay["points"]>;
+  visibleSeries: ActivePerformancePoint[];
+}): BenchmarkComparisonPickerItem[] {
+  const firstPoint = visibleSeries[0] ?? null;
+  const latestPoint = visibleSeries[visibleSeries.length - 1] ?? null;
+  const quotesBySymbol = new Map(quotes.map((quote) => [quote.symbol, quote]));
+
+  return overlays.map((overlay, index) => {
+    const quote = quotesBySymbol.get(overlay.symbol) ?? null;
+    const returnPercent =
+      firstPoint == null || latestPoint == null
+        ? null
+        : calculateOverlayReturnAtDate({
+            points: visibleOverlayPointsBySymbol.get(overlay.symbol) ?? [],
+            returnBasis,
+            startDate: firstPoint.date,
+            targetDate: latestPoint.date,
+          });
+
+    return {
+      symbol: overlay.symbol,
+      displayName: overlay.displayName,
+      providerSymbol: overlay.providerSymbol,
+      market: overlay.market,
+      currency: overlay.currency,
+      price: quote?.price ?? null,
+      returnPercent,
+      color: getComparisonColor(overlay.symbol, index, benchmarkSymbol),
+      selected: selectedSymbols.includes(overlay.symbol),
+    };
   });
 }
