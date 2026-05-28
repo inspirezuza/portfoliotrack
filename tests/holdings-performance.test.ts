@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildHoldingPerformance,
-  buildOpenHoldingLots,
   calculateOneDayGain,
   getFxProviderSymbol,
   getFxRateToValuationCurrency,
 } from "../src/server/holdings-performance";
 import type { HistoricalPrice, PriceSnapshot } from "../src/lib/db/schema";
 import type { PositionTransaction } from "../src/lib/portfolio/positions";
+import { buildOpenHoldingLots } from "../src/server/holdings/lots";
 
 function createPriceSnapshot(overrides: Partial<PriceSnapshot> = {}): PriceSnapshot {
   return {

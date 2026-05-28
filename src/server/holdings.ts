@@ -25,14 +25,13 @@ import { toChronologicalPositionTransaction } from "@/server/transactions";
 import { parsePortfolioId } from "@/server/portfolios";
 import {
   buildHoldingPerformance,
-  buildOpenHoldingLots,
   calculateOneDayGain,
   getFxRateToValuationCurrency,
   getPreviousClose,
   getUnderlyingFxRateToInstrumentCurrency,
-  type HoldingLotTransaction,
 } from "@/server/holdings-performance";
 import { buildCurrencyBreakdown, buildRealizedBreakdown } from "@/server/holdings/breakdowns";
+import { buildOpenHoldingLots, type HoldingLotTransaction } from "@/server/holdings/lots";
 import { buildHoldingsSnapshotTotals } from "@/server/holdings/totals";
 
 export type HoldingJoinedRow = {
