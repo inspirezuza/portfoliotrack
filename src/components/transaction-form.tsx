@@ -29,6 +29,7 @@ import {
   type NewInstrumentFormValues,
   type TransactionFormValues,
 } from "@/components/transaction-form/form-helpers";
+import { TransactionFormFields } from "@/components/transaction-form/form-fields";
 import { TransactionInstrumentCombobox } from "@/components/transaction-form/instrument-combobox";
 import { InstrumentLookupPanel } from "@/components/transaction-form/instrument-lookup";
 import { TransactionSubmitButton } from "@/components/transaction-form/submit-button";
@@ -557,121 +558,14 @@ export function TransactionForm({
             visibleInstrumentOptions={visibleInstrumentOptions}
           />
 
-          <label className="field-group">
-            <span className="field-label">{copy.transactions.form.tradeDate}</span>
-            <input
-              type="date"
-              name="tradeDate"
-              value={values.tradeDate}
-              onChange={(event) => updateValue("tradeDate", event.target.value)}
-              disabled={isDisabled}
-              required
-            />
-          </label>
-
-          <label className="field-group">
-            <span className="field-label">{copy.transactions.form.side}</span>
-            <select
-              name="side"
-              value={values.side}
-              onChange={(event) => updateValue("side", event.target.value as "BUY" | "SELL")}
-              disabled={isDisabled}
-            >
-              <option value="BUY">{copy.transactions.form.buy}</option>
-              <option value="SELL">{copy.transactions.form.sell}</option>
-            </select>
-          </label>
-
-          <label className="field-group">
-            <span className="field-label">{copy.transactions.form.broker}</span>
-            <div
-              className="broker-segmented-control"
-              role="radiogroup"
-              aria-label={copy.transactions.form.broker}
-            >
-              {(["DIME", "WEBULL"] as const).map((broker) => (
-                <button
-                  key={broker}
-                  type="button"
-                  className="broker-segmented-option"
-                  data-selected={values.broker === broker}
-                  role="radio"
-                  aria-checked={values.broker === broker}
-                  onClick={() => updateValue("broker", broker)}
-                  disabled={isDisabled}
-                >
-                  {broker === "DIME" ? "Dime" : "Webull"}
-                </button>
-              ))}
-            </div>
-            <input type="hidden" name="broker" value={values.broker} />
-          </label>
-
-          <label className="field-group">
-            <span className="field-label">{copy.transactions.form.quantity}</span>
-            <input
-              type="number"
-              name="quantity"
-              value={values.quantity}
-              onChange={(event) => updateValue("quantity", event.target.value)}
-              min="0.000001"
-              step="0.000001"
-              inputMode="decimal"
-              placeholder="0.000000"
-              disabled={isDisabled}
-              required
-            />
-          </label>
-
-          <label className="field-group">
-            <span className="field-label">{copy.transactions.form.price}</span>
-            <input
-              type="number"
-              name="price"
-              value={values.price}
-              onChange={(event) => updateValue("price", event.target.value)}
-              min="0.0001"
-              step="0.0001"
-              inputMode="decimal"
-              placeholder="0.0000"
-              disabled={isDisabled}
-              required
-            />
-          </label>
-
-          <label className="field-group">
-            <span className="field-label">{copy.transactions.form.fee}</span>
-            <input
-              type="number"
-              name="fee"
-              value={values.fee}
-              onChange={(event) => updateValue("fee", event.target.value)}
-              min="0"
-              step="0.01"
-              inputMode="decimal"
-              placeholder="0.00"
-              disabled={isDisabled}
-              required
-            />
-          </label>
-
-          <label className="field-group field-group-wide">
-            <span className="field-label">{copy.transactions.form.notes}</span>
-            <textarea
-              name="notes"
-              value={values.notes}
-              onChange={(event) => updateValue("notes", event.target.value)}
-              rows={4}
-              maxLength={500}
-              placeholder={copy.transactions.form.notesPlaceholder}
-              disabled={isDisabled}
-            />
-          </label>
-
-          {errorMessage ? <p className="form-banner form-banner-error">{errorMessage}</p> : null}
-          {successMessage ? (
-            <p className="form-banner form-banner-success">{successMessage}</p>
-          ) : null}
+          <TransactionFormFields
+            copy={copy}
+            disabled={isDisabled}
+            errorMessage={errorMessage}
+            onValueChange={updateValue}
+            successMessage={successMessage}
+            values={values}
+          />
 
           <div className="transaction-form-footer">
             {isEditing ? (
