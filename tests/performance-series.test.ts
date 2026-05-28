@@ -1,7 +1,32 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { calculateOverlayReturnAtDate } from "../src/components/benchmark-chart/chart-data";
+import {
+  calculateAnnualizedReturnPercent,
+  calculateXirr,
+} from "../src/lib/portfolio/money-weighted";
 import { buildPortfolioBenchmarkTimeline } from "../src/lib/portfolio/timeline";
+
+test("money-weighted helpers calculate XIRR and annualized benchmark returns", () => {
+  const xirr = calculateXirr([
+    { date: "2025-01-01T00:00:00.000Z", amount: -100 },
+    { date: "2026-01-01T00:00:00.000Z", amount: 110 },
+  ]);
+
+  assert.ok(xirr != null);
+  assert.ok(Math.abs(xirr - 0.1) < 0.0001);
+  assert.equal(calculateXirr([{ date: "2025-01-01T00:00:00.000Z", amount: 100 }]), null);
+  assert.ok(
+    Math.abs(
+      (calculateAnnualizedReturnPercent({
+        endDate: "2026-01-01T00:00:00.000Z",
+        endValue: 121,
+        startDate: "2025-01-01T00:00:00.000Z",
+        startValue: 100,
+      }) ?? 0) - 21,
+    ) < 0.0001,
+  );
+});
 
 test("money-weighted comparison skips short annualized windows", () => {
   const timeline = buildPortfolioBenchmarkTimeline({
