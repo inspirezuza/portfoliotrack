@@ -32,6 +32,15 @@ import {
   calculateSelectionChange,
   selectVisibleTimeframePoints,
 } from "@/components/benchmark-chart/chart-data";
+import {
+  getComparisonColor,
+  getInitialSelectedComparisonSymbols,
+  getOverlayDataKey,
+  getRoundedPercentAxis,
+  getVisibleOverlayPoints,
+  mergeOverlays,
+  mergeQuotes,
+} from "@/components/benchmark-chart/chart-helpers";
 import type {
   ActivePerformancePoint,
   ChartPoint,
@@ -99,7 +108,6 @@ const TIMEFRAME_OPTIONS: TimeframeKey[] = ["1D", "5D", "1W", "1M", "3M", "YTD", 
 
 const PERFORMANCE_MODE_OPTIONS: PerformanceMode[] = ["INDEXED", "GAP", "DRAWDOWN"];
 const RETURN_BASIS_OPTIONS: ReturnBasis[] = ["TWR", "MWR", "ABSOLUTE"];
-const OVERLAY_COLORS = ["#3f82ff", "#8f5cf7", "#009b8e", "#d66b24", "#5965d8", "#c14f8b"];
 
 function formatChartDate(value: string, locale: string) {
   const hasTime = isIntradayDate(value);
@@ -271,89 +279,6 @@ function getUnavailableMessage({
 
 function getVisibleSeries(series: ActivePerformancePoint[], timeframe: TimeframeKey) {
   return selectVisibleTimeframePoints({ points: series, timeframe });
-}
-
-function getRoundedPercentAxis(values: number[]) {
-  const finiteValues = values.filter((value) => Number.isFinite(value));
-
-  if (finiteValues.length === 0) {
-    return undefined;
-  }
-
-  const min = Math.min(0, ...finiteValues);
-  const max = Math.max(0, ...finiteValues);
-  const spread = max - min;
-  const step = spread <= 4 ? 1 : spread <= 20 ? 5 : 10;
-  let lower = Math.floor(min / step) * step;
-  let upper = Math.ceil(max / step) * step;
-
-  if (lower === upper) {
-    lower -= step;
-    upper += step;
-  }
-
-  const ticks: number[] = [];
-
-  for (let tick = lower; tick <= upper; tick += step) {
-    ticks.push(tick);
-  }
-
-  if (!ticks.includes(0)) {
-    ticks.push(0);
-    ticks.sort((left, right) => left - right);
-  }
-
-  return {
-    domain: [lower, upper] satisfies [number, number],
-    ticks,
-  };
-}
-
-function getOverlayDataKey(symbol: string) {
-  return `overlay_${symbol.replace(/[^a-zA-Z0-9]/g, "_")}`;
-}
-
-function getComparisonColor(symbol: string, index: number, benchmarkSymbol: string | null) {
-  return symbol === benchmarkSymbol ? "var(--warm)" : OVERLAY_COLORS[index % OVERLAY_COLORS.length];
-}
-
-function getInitialSelectedComparisonSymbols(
-  overlays: DashboardBenchmarkOverlay[],
-  benchmarkSymbol: string | null,
-) {
-  return benchmarkSymbol == null ||
-    !overlays.some((overlay) => overlay.symbol === benchmarkSymbol && overlay.points.length > 0)
-    ? []
-    : [benchmarkSymbol];
-}
-
-function mergeOverlays(overlays: DashboardBenchmarkOverlay[], overlay: DashboardBenchmarkOverlay) {
-  return [
-    ...overlays.filter(
-      (currentOverlay) => currentOverlay.providerSymbol !== overlay.providerSymbol,
-    ),
-    overlay,
-  ];
-}
-
-function mergeQuotes(quotes: DashboardBenchmarkQuote[], quote: DashboardBenchmarkQuote) {
-  return [
-    ...quotes.filter((currentQuote) => currentQuote.providerSymbol !== quote.providerSymbol),
-    quote,
-  ];
-}
-
-function getVisibleOverlayPoints(
-  points: DashboardBenchmarkOverlay["points"],
-  timeframe: TimeframeKey,
-  latestDate: string,
-) {
-  return selectVisibleTimeframePoints({
-    anchorDate: latestDate,
-    includeBaselinePoint: true,
-    points,
-    timeframe,
-  });
 }
 
 function getSelectionPoints(data: ChartPoint[], selection: SelectionRange | null) {
