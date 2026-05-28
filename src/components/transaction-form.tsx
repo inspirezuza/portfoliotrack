@@ -9,7 +9,6 @@ import {
 import { formatQuantity } from "@/lib/format";
 import {
   findExactInstrumentSearchMatch,
-  normalizeInstrumentSearchValue,
   sortInstrumentOptions,
 } from "@/lib/transactions/instrument-selection";
 import { getUiCopy } from "@/lib/ui/copy";
@@ -17,7 +16,9 @@ import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
 import type { TransactionInstrumentOption, TransactionListItem } from "@/server/transactions";
 import {
   createInitialValues,
+  createTransactionRequestBody,
   createValuesFromTransaction,
+  findExistingInstrumentForLookup,
   getErrorMessage,
   getInitialInstrumentSearch,
   getInstrumentLookupLabel,
@@ -260,30 +261,12 @@ export function TransactionForm({
     setSuccessMessage(null);
 
     try {
-      const transactionPayload = {
-        instrumentId: Number(values.instrumentId),
-        tradeDate: values.tradeDate,
-        side: values.side,
-        broker: values.broker,
-        quantity: Number(values.quantity),
-        price: Number(values.price),
-        fee: Number(values.fee || "0"),
-        notes: values.notes,
-      };
       const response = await fetch("/api/transactions", {
         method: editingTransaction ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(
-          editingTransaction
-            ? {
-                id: editingTransaction.id,
-                portfolioId: editingTransaction.portfolioId,
-                ...transactionPayload,
-              }
-            : transactionPayload,
-        ),
+        body: JSON.stringify(createTransactionRequestBody(values, editingTransaction)),
       });
 
       const payload = (await response.json()) as ApiErrorResponse;
@@ -398,16 +381,6 @@ export function TransactionForm({
     }
   }
 
-  function findExistingInstrumentForLookup(instrumentValues: NewInstrumentFormValues) {
-    return instrumentOptions.find(
-      (instrument) =>
-        normalizeInstrumentSearchValue(instrument.symbol) ===
-          normalizeInstrumentSearchValue(instrumentValues.symbol) ||
-        normalizeInstrumentSearchValue(instrument.providerSymbol ?? "") ===
-          normalizeInstrumentSearchValue(instrumentValues.providerSymbol),
-    );
-  }
-
   function handleInstrumentLookupSelect(instrumentValues: InstrumentSearchResult) {
     setSelectedInstrumentLookupResult(instrumentValues);
     setInstrumentLookupQuery(getInstrumentLookupLabel(instrumentValues));
@@ -423,7 +396,10 @@ export function TransactionForm({
       return;
     }
 
-    const existingInstrument = findExistingInstrumentForLookup(selectedInstrumentLookupResult);
+    const existingInstrument = findExistingInstrumentForLookup(
+      instrumentOptions,
+      selectedInstrumentLookupResult,
+    );
 
     if (existingInstrument) {
       setInstrumentSuccessMessage(null);
@@ -573,12 +549,9 @@ export function TransactionForm({
                 </div>
               ) : instrumentLookupResults.length > 0 ? (
                 instrumentLookupResults.map((instrument) => {
-                  const existingInstrument = instrumentOptions.find(
-                    (option) =>
-                      normalizeInstrumentSearchValue(option.symbol) ===
-                        normalizeInstrumentSearchValue(instrument.symbol) ||
-                      normalizeInstrumentSearchValue(option.providerSymbol ?? "") ===
-                        normalizeInstrumentSearchValue(instrument.providerSymbol),
+                  const existingInstrument = findExistingInstrumentForLookup(
+                    instrumentOptions,
+                    instrument,
                   );
                   const isSelected =
                     selectedInstrumentLookupResult?.providerSymbol === instrument.providerSymbol;

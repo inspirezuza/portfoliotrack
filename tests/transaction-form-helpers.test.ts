@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  createTransactionRequestBody,
   createValuesFromTransaction,
+  findExistingInstrumentForLookup,
   getErrorMessage,
   getInitialInstrumentSearch,
   getSynchronizedInstrumentId,
@@ -100,6 +102,66 @@ test("transaction form helpers preserve edit values and instrument search labels
   assert.equal(
     getTransactionInstrumentLabel(createTransaction({ instrumentId: 30 }), instruments),
     "AAPL - Apple Inc. - NASDAQ - USD",
+  );
+});
+
+test("transaction form helpers preserve request body and lookup duplicate matching", () => {
+  const instruments = [
+    createInstrument({ id: 20, symbol: "MSFT", providerSymbol: "MSFT" }),
+    createInstrument(),
+  ];
+  const transaction = createTransaction({ id: 42, portfolioId: 7 });
+
+  assert.deepEqual(
+    createTransactionRequestBody(
+      {
+        instrumentId: "10",
+        tradeDate: "2026-05-28",
+        side: "BUY",
+        broker: "DIME",
+        quantity: "4.5",
+        price: "88.25",
+        fee: "",
+        notes: "trim stays in caller",
+      },
+      transaction,
+    ),
+    {
+      id: 42,
+      portfolioId: 7,
+      instrumentId: 10,
+      tradeDate: "2026-05-28",
+      side: "BUY",
+      broker: "DIME",
+      quantity: 4.5,
+      price: 88.25,
+      fee: 0,
+      notes: "trim stays in caller",
+    },
+  );
+  assert.equal(
+    findExistingInstrumentForLookup(instruments, {
+      symbol: "aapl",
+      displayName: "Apple Inc.",
+      market: "NASDAQ",
+      instrumentType: "EQUITY",
+      currency: "USD",
+      providerSymbol: "AAPL",
+      exchangeName: "Nasdaq",
+    })?.id,
+    10,
+  );
+  assert.equal(
+    findExistingInstrumentForLookup(instruments, {
+      symbol: "META",
+      displayName: "Meta Platforms",
+      market: "NASDAQ",
+      instrumentType: "EQUITY",
+      currency: "USD",
+      providerSymbol: "META",
+      exchangeName: "Nasdaq",
+    }),
+    undefined,
   );
 });
 

@@ -1,5 +1,8 @@
 import { formatQuantity } from "@/lib/format";
-import { getInstrumentSearchScore } from "@/lib/transactions/instrument-selection";
+import {
+  getInstrumentSearchScore,
+  normalizeInstrumentSearchValue,
+} from "@/lib/transactions/instrument-selection";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
 import type { TransactionBroker } from "@/lib/validation/transaction";
@@ -51,6 +54,19 @@ export type InstrumentSearchApiResponse = ApiErrorResponse & {
   results?: InstrumentSearchResult[];
 };
 
+export type TransactionRequestBody = {
+  id?: number;
+  portfolioId?: number;
+  instrumentId: number;
+  tradeDate: string;
+  side: TransactionFormValues["side"];
+  broker: TransactionBroker;
+  quantity: number;
+  price: number;
+  fee: number;
+  notes: string;
+};
+
 export function getTodayDate() {
   const today = new Date();
   const year = today.getFullYear();
@@ -88,6 +104,30 @@ export function createValuesFromTransaction(
     fee: String(transaction.fee),
     notes: transaction.notes ?? "",
   };
+}
+
+export function createTransactionRequestBody(
+  values: TransactionFormValues,
+  editingTransaction?: TransactionListItem | null,
+): TransactionRequestBody {
+  const transactionPayload = {
+    instrumentId: Number(values.instrumentId),
+    tradeDate: values.tradeDate,
+    side: values.side,
+    broker: values.broker,
+    quantity: Number(values.quantity),
+    price: Number(values.price),
+    fee: Number(values.fee || "0"),
+    notes: values.notes,
+  };
+
+  return editingTransaction
+    ? {
+        id: editingTransaction.id,
+        portfolioId: editingTransaction.portfolioId,
+        ...transactionPayload,
+      }
+    : transactionPayload;
 }
 
 export function getInitialInstrumentSearch(instruments: TransactionInstrumentOption[]) {
@@ -131,6 +171,19 @@ export function getTransactionInstrumentLabel(
   return (
     instruments.find((instrument) => instrument.id === transaction.instrumentId)?.label ??
     `${transaction.instrument.symbol} - ${transaction.instrument.displayName} - ${transaction.instrument.market} - ${transaction.instrument.currency}`
+  );
+}
+
+export function findExistingInstrumentForLookup(
+  instruments: TransactionInstrumentOption[],
+  instrumentValues: NewInstrumentFormValues | InstrumentSearchResult,
+) {
+  return instruments.find(
+    (instrument) =>
+      normalizeInstrumentSearchValue(instrument.symbol) ===
+        normalizeInstrumentSearchValue(instrumentValues.symbol) ||
+      normalizeInstrumentSearchValue(instrument.providerSymbol ?? "") ===
+        normalizeInstrumentSearchValue(instrumentValues.providerSymbol),
   );
 }
 
