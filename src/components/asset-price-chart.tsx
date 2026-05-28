@@ -19,14 +19,19 @@ import {
   getTimeAxisDomain,
   getUtcDateTime,
   isDailyPoint,
-  isIntradayDate,
   isIntradayPoint,
   parseChartDate,
   type TimeAxisPoint,
 } from "@/lib/charts/time-axis";
 import { getRechartsPayloadPoint, type RechartsMouseState } from "@/lib/charts/recharts-state";
-import { formatCurrency } from "@/lib/format";
 import { useChartVisibilityKey } from "@/hooks/use-chart-visibility-key";
+import {
+  formatAxisPrice,
+  formatChartDate,
+  formatPrice,
+  formatSignedPercent,
+} from "@/components/asset-price-chart/formatting";
+import { AssetPriceSelectionReadout } from "@/components/asset-price-chart/selection-readout";
 import type { AssetDetail } from "@/server/assets";
 
 type AssetPriceChartProps = {
@@ -68,47 +73,6 @@ const TIMEFRAME_OPTIONS: Array<{
   { key: "START", label: "Start" },
   { key: "ALL", label: "All" },
 ];
-
-function formatChartDate(value: string) {
-  const hasTime = isIntradayDate(value);
-
-  return new Intl.DateTimeFormat("en-GB", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    ...(hasTime ? { hour: "2-digit", minute: "2-digit" } : {}),
-    timeZone: "UTC",
-  }).format(parseChartDate(value));
-}
-
-function formatCompactChartDate(value: string) {
-  const hasTime = isIntradayDate(value);
-
-  return new Intl.DateTimeFormat("en-GB", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    ...(hasTime ? { hour: "2-digit", minute: "2-digit" } : {}),
-    timeZone: "UTC",
-  }).format(parseChartDate(value));
-}
-
-function formatPrice(value: number, currency: string) {
-  return formatCurrency(value, {
-    currency,
-    maximumFractionDigits: value >= 100 ? 2 : 4,
-  });
-}
-
-function formatAxisPrice(value: number) {
-  return new Intl.NumberFormat(undefined, {
-    maximumFractionDigits: value >= 100 ? 2 : 4,
-  }).format(value);
-}
-
-function formatSignedPercent(value: number) {
-  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
-}
 
 function getUnavailableMessage(asset: AssetDetail) {
   return (
@@ -529,31 +493,12 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
                 />
               </AreaChart>
             </ResponsiveContainer>
-            <div
-              className={
-                hasActiveSelection && selectionPoints != null && selectionPercent != null
-                  ? "chart-selection-readout"
-                  : "chart-selection-readout chart-selection-readout-idle"
-              }
-            >
-              {!hasActiveSelection || selectionPoints == null || selectionPercent == null ? (
-                <span>Drag across the chart to compare</span>
-              ) : (
-                <>
-                  <span>
-                    {formatCompactChartDate(selectionPoints.startPoint.date)} to{" "}
-                    {formatCompactChartDate(selectionPoints.endPoint.date)}
-                  </span>
-                  <strong className={selectionPercent >= 0 ? "value-positive" : "value-negative"}>
-                    {formatSignedPercent(selectionPercent)}
-                  </strong>
-                  <span>
-                    {formatPrice(selectionPoints.startPoint.close, asset.instrument.currency)} to{" "}
-                    {formatPrice(selectionPoints.endPoint.close, asset.instrument.currency)}
-                  </span>
-                </>
-              )}
-            </div>
+            <AssetPriceSelectionReadout
+              currency={asset.instrument.currency}
+              hasActiveSelection={hasActiveSelection}
+              selectionPercent={selectionPercent}
+              selectionPoints={selectionPoints}
+            />
           </div>
         </div>
       ) : (
