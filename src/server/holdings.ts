@@ -33,6 +33,7 @@ import {
   type HoldingLotTransaction,
 } from "@/server/holdings-performance";
 import { buildCurrencyBreakdown, buildRealizedBreakdown } from "@/server/holdings/breakdowns";
+import { buildHoldingsSnapshotTotals } from "@/server/holdings/totals";
 
 export type HoldingJoinedRow = {
   instrument: Instrument;
@@ -566,132 +567,22 @@ export function buildHoldingsSnapshotFromSource({
     ),
     positions: positions.values(),
   });
-  const openPositionCurrency =
-    currencyBreakdown.length === 1 ? currencyBreakdown[0].currency : null;
-  const singleCurrencyBreakdown = openPositionCurrency == null ? null : currencyBreakdown[0];
-  const canUseValuationTotals = holdings.every(
-    (holding) =>
-      holding.totalCostInValuationCurrency != null &&
-      (holding.marketValue == null || holding.marketValueInValuationCurrency != null),
-  );
-  const totalCostBasisInValuationCurrency =
-    holdings.length === 0
-      ? 0
-      : canUseValuationTotals
-        ? normalizeMoney(
-            holdings.reduce(
-              (total, holding) => total + (holding.totalCostInValuationCurrency ?? 0),
-              0,
-            ),
-          )
-        : null;
-  const totalMarketValueInValuationCurrency =
-    holdings.length === 0
-      ? 0
-      : canUseValuationTotals &&
-          holdings.every((holding) => holding.marketValueInValuationCurrency != null)
-        ? normalizeMoney(
-            holdings.reduce(
-              (total, holding) => total + (holding.marketValueInValuationCurrency ?? 0),
-              0,
-            ),
-          )
-        : null;
-  const totalUnrealizedPnlInValuationCurrency =
-    holdings.length === 0
-      ? 0
-      : canUseValuationTotals &&
-          holdings.every((holding) => holding.unrealizedPnlInValuationCurrency != null)
-        ? normalizeMoney(
-            holdings.reduce(
-              (total, holding) => total + (holding.unrealizedPnlInValuationCurrency ?? 0),
-              0,
-            ),
-          )
-        : null;
-  const totalMarketValue =
-    singleCurrencyBreakdown == null && totalMarketValueInValuationCurrency == null
-      ? holdings.length === 0
-        ? 0
-        : null
-      : (singleCurrencyBreakdown?.totalMarketValue ?? totalMarketValueInValuationCurrency);
-  const totalUnrealizedPnl =
-    singleCurrencyBreakdown == null && totalUnrealizedPnlInValuationCurrency == null
-      ? holdings.length === 0
-        ? 0
-        : null
-      : (singleCurrencyBreakdown?.totalUnrealizedPnl ?? totalUnrealizedPnlInValuationCurrency);
-  const totalCostBasis =
-    singleCurrencyBreakdown == null && totalCostBasisInValuationCurrency == null
-      ? holdings.length === 0
-        ? 0
-        : null
-      : (singleCurrencyBreakdown?.totalCostBasis ?? totalCostBasisInValuationCurrency);
-  const totalRealizedPnl =
-    realizedBreakdown.length === 1
-      ? realizedBreakdown[0].totalRealizedPnl
-      : positions.size === 0
-        ? 0
-        : realizedBreakdown.every(
-              (entry) =>
-                getFxRateToValuationCurrency({
-                  currency: entry.currency,
-                  fxSnapshotsByProviderSymbol,
-                  valuationCurrency,
-                }) != null,
-            )
-          ? normalizeMoney(
-              realizedBreakdown.reduce((total, entry) => {
-                const rate =
-                  getFxRateToValuationCurrency({
-                    currency: entry.currency,
-                    fxSnapshotsByProviderSymbol,
-                    valuationCurrency,
-                  }) ?? 0;
-
-                return total + entry.totalRealizedPnl * rate;
-              }, 0),
-            )
-          : null;
-  const totalFees =
-    realizedBreakdown.length === 1
-      ? realizedBreakdown[0].totalFees
-      : positions.size === 0
-        ? 0
-        : realizedBreakdown.every(
-              (entry) =>
-                getFxRateToValuationCurrency({
-                  currency: entry.currency,
-                  fxSnapshotsByProviderSymbol,
-                  valuationCurrency,
-                }) != null,
-            )
-          ? normalizeMoney(
-              realizedBreakdown.reduce((total, entry) => {
-                const rate =
-                  getFxRateToValuationCurrency({
-                    currency: entry.currency,
-                    fxSnapshotsByProviderSymbol,
-                    valuationCurrency,
-                  }) ?? 0;
-
-                return total + entry.totalFees * rate;
-              }, 0),
-            )
-          : null;
-  const holdingsWithWeights = holdings.map((holding) => ({
-    ...holding,
-    portfolioWeight:
-      totalMarketValue != null &&
-      totalMarketValue > 0 &&
-      (singleCurrencyBreakdown != null
-        ? holding.marketValue != null
-        : holding.marketValueInValuationCurrency != null)
-        ? (singleCurrencyBreakdown != null
-            ? (holding.marketValue ?? 0)
-            : (holding.marketValueInValuationCurrency ?? 0)) / totalMarketValue
-        : null,
-  }));
+  const {
+    holdingsWithWeights,
+    openPositionCurrency,
+    totalCostBasis,
+    totalFees,
+    totalMarketValue,
+    totalRealizedPnl,
+    totalUnrealizedPnl,
+  } = buildHoldingsSnapshotTotals({
+    currencyBreakdown,
+    fxSnapshotsByProviderSymbol,
+    holdings,
+    positionCount: positions.size,
+    realizedBreakdown,
+    valuationCurrency,
+  });
 
   return {
     holdings: holdingsWithWeights,
@@ -699,8 +590,7 @@ export function buildHoldingsSnapshotFromSource({
     closedPositionCount: Array.from(positions.values()).filter(
       (position) => position.quantity === 0,
     ).length,
-    openPositionCurrency:
-      openPositionCurrency ?? (totalCostBasis == null ? null : valuationCurrency),
+    openPositionCurrency,
     valuationCurrency,
     totalCostBasis,
     totalRealizedPnl,
