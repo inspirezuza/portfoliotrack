@@ -4,12 +4,11 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/runtime";
 import { normalizeInstrumentType } from "@/lib/instruments/instrument-types";
 import { getKnownDrMetadata } from "@/lib/instruments/dr-metadata";
-import { instruments, portfolios, transactions, type Transaction } from "@/lib/db/schema";
+import { instruments, portfolios, transactions } from "@/lib/db/schema";
 import {
   InsufficientQuantityError,
   calculatePositionForInstrument,
   calculatePositions,
-  type PositionTransaction,
 } from "@/lib/portfolio/positions";
 import { parsePortfolioId } from "@/server/portfolios";
 import { InstrumentServiceError, TransactionServiceError } from "@/server/transactions/errors";
@@ -25,6 +24,11 @@ import {
   mapTransactionListItem,
   type TransactionInstrumentOption,
 } from "@/server/transactions/mappers";
+import {
+  getInsufficientQuantityDetails,
+  getPendingTransactionOrderMarker,
+  toChronologicalPositionTransaction,
+} from "@/server/transactions/position-validation";
 import { buildTransactionWorkspaceModel } from "@/server/transactions/workspace";
 export type {
   TransactionInstrumentOption,
@@ -32,26 +36,9 @@ export type {
 } from "@/server/transactions/mappers";
 export { InstrumentServiceError, TransactionServiceError } from "@/server/transactions/errors";
 export { isTransactionInstrumentSelectable } from "@/server/transactions/mappers";
+export { toChronologicalPositionTransaction } from "@/server/transactions/position-validation";
 
 export type TransactionListOrder = "asc" | "desc";
-
-export function toChronologicalPositionTransaction(
-  row: Pick<
-    Transaction,
-    "instrumentId" | "tradeDate" | "side" | "quantity" | "price" | "fee" | "createdAt" | "id"
-  >,
-): PositionTransaction {
-  return {
-    instrumentId: row.instrumentId,
-    tradeDate: row.tradeDate,
-    side: row.side as "BUY" | "SELL",
-    quantity: row.quantity,
-    price: row.price,
-    fee: row.fee,
-    createdAt: row.createdAt,
-    id: row.id,
-  };
-}
 
 function isUniqueConstraintError(error: unknown) {
   return error instanceof Error && "code" in error && error.code === "23505";
@@ -71,18 +58,6 @@ function getTransactionOrder(order: TransactionListOrder) {
     desc(transactions.createdAt),
     desc(transactions.id),
   ] as const;
-}
-
-function getInsufficientQuantityDetails(error: InsufficientQuantityError) {
-  return {
-    instrumentId: error.instrumentId,
-    availableQuantity: error.availableQuantity,
-    attemptedQuantity: error.attemptedQuantity,
-  };
-}
-
-function getPendingTransactionOrderMarker() {
-  return new Date().toISOString().replace("T", " ").slice(0, 19);
 }
 
 async function getJoinedTransactionById(id: number, portfolioId: number) {
