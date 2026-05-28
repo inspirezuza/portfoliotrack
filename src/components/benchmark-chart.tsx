@@ -46,15 +46,13 @@ import {
 import { BenchmarkChartTooltip } from "@/components/benchmark-chart/chart-tooltip";
 import { BenchmarkSeriesReadout } from "@/components/benchmark-chart/series-readout";
 import {
-  formatChartDate,
   formatModeValue,
-  formatPercentagePoint,
-  formatSignedPercent,
   getAbsoluteSummaryMessage,
   getBasisLabel,
   getUnavailableMessage,
 } from "@/components/benchmark-chart/formatting";
 import { BenchmarkRangeSummaryStrip } from "@/components/benchmark-chart/range-summary-strip";
+import { BenchmarkSelectionReadout } from "@/components/benchmark-chart/selection-readout";
 import type {
   ChartPoint,
   PerformanceMode,
@@ -590,51 +588,17 @@ export function BenchmarkChart({
                 shouldShowOverlayComparisons={shouldShowOverlayComparisons}
               />
             )}
-            <div
-              className={
-                hasActiveSelection &&
-                selectionPoints != null &&
-                selectedPortfolioChange != null &&
-                selectedBenchmarkChange != null
-                  ? "chart-selection-readout"
-                  : "chart-selection-readout chart-selection-readout-idle"
-              }
-            >
-              {!hasActiveSelection ||
-              selectionPoints == null ||
-              selectedPortfolioChange == null ||
-              selectedBenchmarkChange == null ? (
-                <span>{copy.charts.common.dragToCompare}</span>
-              ) : (
-                <>
-                  <span>
-                    {formatChartDate(selectionPoints.startPoint.date, locale)}{" "}
-                    {copy.charts.common.to} {formatChartDate(selectionPoints.endPoint.date, locale)}
-                  </span>
-                  <strong
-                    className={selectedPortfolioChange >= 0 ? "value-positive" : "value-negative"}
-                  >
-                    {copy.charts.benchmark.portfolio}{" "}
-                    {returnBasis === "TWR"
-                      ? formatSignedPercent(selectedPortfolioChange)
-                      : formatPercentagePoint(selectedPortfolioChange)}
-                  </strong>
-                  <span
-                    className={selectedBenchmarkChange >= 0 ? "value-positive" : "value-negative"}
-                  >
-                    {benchmarkSymbol ?? copy.charts.benchmark.benchmark}{" "}
-                    {returnBasis === "TWR"
-                      ? formatSignedPercent(selectedBenchmarkChange)
-                      : formatPercentagePoint(selectedBenchmarkChange)}
-                  </span>
-                  {selectedGap == null ? null : (
-                    <span className={selectedGap >= 0 ? "value-positive" : "value-negative"}>
-                      {copy.charts.benchmark.gap} {formatPercentagePoint(selectedGap)}
-                    </span>
-                  )}
-                </>
-              )}
-            </div>
+            <BenchmarkSelectionReadout
+              benchmarkSymbol={benchmarkSymbol}
+              copy={copy.charts}
+              hasActiveSelection={hasActiveSelection}
+              locale={locale}
+              returnBasis={returnBasis}
+              selectedBenchmarkChange={selectedBenchmarkChange}
+              selectedGap={selectedGap}
+              selectedPortfolioChange={selectedPortfolioChange}
+              selectionPoints={selectionPoints}
+            />
             {shouldShowOverlayComparisons ? (
               <BenchmarkComparisonPicker
                 items={comparisonItems}
