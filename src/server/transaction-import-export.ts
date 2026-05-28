@@ -17,18 +17,11 @@ import {
   type ParsedTransactionExcelRow,
 } from "@/lib/transactions/excel";
 import { instrumentInputSchema, type InstrumentInput } from "@/lib/validation/instrument";
-import {
-  transactionInputSchema,
-  type TransactionBroker,
-  type TransactionInput,
-} from "@/lib/validation/transaction";
+import { transactionInputSchema, type TransactionBroker } from "@/lib/validation/transaction";
 import { listTransactions, toChronologicalPositionTransaction } from "@/server/transactions";
 import { parsePortfolioId } from "@/server/portfolios";
 import { getImportPositionValidationErrors } from "@/server/transaction-import-export/position-validation";
-import {
-  resolveImportInstrument,
-  type ImportInstrument,
-} from "@/server/transaction-import-export/instrument-resolution";
+import { resolveImportInstrument } from "@/server/transaction-import-export/instrument-resolution";
 import {
   getCreateInstrumentKey,
   getErrorMessage,
@@ -49,8 +42,21 @@ import {
   buildTransactionInsertValue,
 } from "@/server/transaction-import-export/commit-helpers";
 import { TransactionImportExportError } from "@/server/transaction-import-export/errors";
+import type {
+  ImportTransactionInput,
+  PendingImportInstrument,
+  PreparedPendingImportInstrument,
+  ReadyImportRow,
+  ResolvedImportInstrument,
+  TransactionImportPreview,
+  TransactionImportPreviewRow,
+} from "@/server/transaction-import-export/types";
 
 export { TransactionImportExportError } from "@/server/transaction-import-export/errors";
+export type {
+  TransactionImportPreview,
+  TransactionImportPreviewRow,
+} from "@/server/transaction-import-export/types";
 
 export const MAX_TRANSACTION_IMPORT_FILE_SIZE = 5 * 1024 * 1024;
 export const MAX_TRANSACTION_IMPORT_ROWS = 5000;
@@ -59,59 +65,6 @@ const INSTRUMENT_CREATE_QUOTE_TIMEOUT_MS = 4000;
 const yahooFinance = new YahooFinance({
   suppressNotices: ["yahooSurvey"],
 });
-
-type ImportRowStatus = "ready" | "skipped_duplicate" | "error";
-
-export type TransactionImportPreviewRow = {
-  rowNumber: number;
-  status: ImportRowStatus;
-  message: string;
-  symbol: string | null;
-  tradeDate: string | null;
-  side: "BUY" | "SELL" | null;
-  broker: TransactionBroker | null;
-  quantity: number | null;
-  price: number | null;
-  fee: number | null;
-  notes: string | null;
-};
-
-export type TransactionImportPreview = {
-  counts: {
-    totalRows: number;
-    readyRows: number;
-    skippedRows: number;
-    errorRows: number;
-  };
-  rows: TransactionImportPreviewRow[];
-};
-
-type ReadyImportRow = TransactionImportPreviewRow & {
-  status: "ready";
-  input: ImportTransactionInput;
-  duplicateKey: string;
-  instrumentKey: string;
-  positionInstrumentId: number;
-  createInstrumentInput?: InstrumentInput;
-  createInstrumentKey?: string;
-};
-
-type PendingImportInstrument = Omit<ImportInstrument, "id"> & {
-  id: null;
-  createInstrumentInput: InstrumentInput;
-  createInstrumentKey: string;
-  positionInstrumentId: null;
-};
-
-type PreparedPendingImportInstrument = Omit<PendingImportInstrument, "positionInstrumentId"> & {
-  positionInstrumentId: number;
-};
-
-type ResolvedImportInstrument = ImportInstrument | PreparedPendingImportInstrument;
-
-type ImportTransactionInput = Omit<TransactionInput, "instrumentId"> & {
-  instrumentId: number | null;
-};
 
 function getTodayIsoDate() {
   const now = new Date();
