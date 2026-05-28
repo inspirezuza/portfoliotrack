@@ -6,6 +6,7 @@ import {
   findExistingInstrumentForLookup,
   getErrorMessage,
   getInitialInstrumentSearch,
+  getInstrumentSearchKeyAction,
   getNextHighlightedInstrumentId,
   getNextTransactionFormSyncState,
   getSynchronizedInstrumentId,
@@ -289,6 +290,78 @@ test("transaction form helper preserves instrument keyboard highlight wrapping",
       visibleInstrumentOptions: [],
     }),
     null,
+  );
+});
+
+test("transaction form helper preserves instrument search keyboard actions", () => {
+  const apple = createInstrument({ id: 1, label: "AAPL - Apple Inc. - NASDAQ - USD" });
+  const microsoft = createInstrument({
+    id: 2,
+    label: "MSFT - Microsoft - NASDAQ - USD",
+    symbol: "MSFT",
+  });
+  const instruments = [apple, microsoft];
+
+  assert.deepEqual(
+    getInstrumentSearchKeyAction({
+      currentHighlightedInstrumentId: null,
+      isInstrumentComboboxOpen: false,
+      key: "ArrowDown",
+      selectedInstrumentLabel: apple.label,
+      visibleInstrumentOptions: instruments,
+    }),
+    {
+      highlightedInstrumentId: "1",
+      isInstrumentComboboxOpen: true,
+      preventDefault: true,
+      selectedInstrument: null,
+    },
+  );
+  assert.deepEqual(
+    getInstrumentSearchKeyAction({
+      currentHighlightedInstrumentId: "1",
+      isInstrumentComboboxOpen: true,
+      key: "Enter",
+      selectedInstrumentLabel: apple.label,
+      visibleInstrumentOptions: instruments,
+    }),
+    {
+      highlightedInstrumentId: "1",
+      isInstrumentComboboxOpen: false,
+      preventDefault: true,
+      selectedInstrument: apple,
+    },
+  );
+  assert.deepEqual(
+    getInstrumentSearchKeyAction({
+      currentHighlightedInstrumentId: null,
+      isInstrumentComboboxOpen: false,
+      key: "Enter",
+      selectedInstrumentLabel: apple.label,
+      visibleInstrumentOptions: instruments,
+    }),
+    {
+      highlightedInstrumentId: null,
+      isInstrumentComboboxOpen: true,
+      preventDefault: false,
+      selectedInstrument: null,
+    },
+  );
+  assert.deepEqual(
+    getInstrumentSearchKeyAction({
+      currentHighlightedInstrumentId: "2",
+      isInstrumentComboboxOpen: true,
+      key: "Escape",
+      selectedInstrumentLabel: apple.label,
+      visibleInstrumentOptions: instruments,
+    }),
+    {
+      highlightedInstrumentId: "2",
+      instrumentSearch: apple.label,
+      isInstrumentComboboxOpen: false,
+      preventDefault: false,
+      selectedInstrument: null,
+    },
   );
 });
 

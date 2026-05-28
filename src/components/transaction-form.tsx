@@ -16,8 +16,8 @@ import {
   findExistingInstrumentForLookup,
   getErrorMessage,
   getInitialInstrumentSearch,
+  getInstrumentSearchKeyAction,
   getInstrumentLookupLabel,
-  getNextHighlightedInstrumentId,
   getNextTransactionFormSyncState,
   getTransactionSubmitButtonLabel,
   getTransactionInstrumentLabel,
@@ -435,39 +435,35 @@ export function TransactionForm({
   }
 
   function handleInstrumentSearchKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (!isInstrumentComboboxOpen && ["ArrowDown", "ArrowUp", "Enter"].includes(event.key)) {
-      setIsInstrumentComboboxOpen(true);
+    const action = getInstrumentSearchKeyAction({
+      currentHighlightedInstrumentId: highlightedInstrumentId,
+      isInstrumentComboboxOpen,
+      key: event.key,
+      selectedInstrumentLabel: selectedInstrument?.label ?? "",
+      visibleInstrumentOptions,
+    });
+
+    if (action == null) {
+      return;
     }
 
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    setIsInstrumentComboboxOpen(action.isInstrumentComboboxOpen);
+
+    if (action.highlightedInstrumentId !== highlightedInstrumentId) {
+      setHighlightedInstrumentId(action.highlightedInstrumentId);
+    }
+
+    if (action.preventDefault) {
       event.preventDefault();
+    }
 
-      setHighlightedInstrumentId(
-        getNextHighlightedInstrumentId({
-          currentHighlightedInstrumentId: highlightedInstrumentId,
-          direction: event.key === "ArrowDown" ? "down" : "up",
-          visibleInstrumentOptions,
-        }),
-      );
+    if (action.selectedInstrument) {
+      selectInstrument(action.selectedInstrument);
       return;
     }
 
-    if (event.key === "Enter" && isInstrumentComboboxOpen) {
-      const highlightedInstrument =
-        visibleInstrumentOptions.find(
-          (instrument) => String(instrument.id) === highlightedInstrumentId,
-        ) ?? visibleInstrumentOptions[0];
-
-      if (highlightedInstrument) {
-        event.preventDefault();
-        selectInstrument(highlightedInstrument);
-      }
-      return;
-    }
-
-    if (event.key === "Escape") {
-      setIsInstrumentComboboxOpen(false);
-      setInstrumentSearch(selectedInstrument?.label ?? "");
+    if (action.instrumentSearch != null) {
+      setInstrumentSearch(action.instrumentSearch);
     }
   }
 

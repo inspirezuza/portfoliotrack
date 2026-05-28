@@ -159,6 +159,73 @@ export function getNextHighlightedInstrumentId({
   return String(visibleInstrumentOptions[nextIndex].id);
 }
 
+export function getInstrumentSearchKeyAction({
+  currentHighlightedInstrumentId,
+  isInstrumentComboboxOpen,
+  key,
+  selectedInstrumentLabel,
+  visibleInstrumentOptions,
+}: {
+  currentHighlightedInstrumentId: string | null;
+  isInstrumentComboboxOpen: boolean;
+  key: string;
+  selectedInstrumentLabel: string;
+  visibleInstrumentOptions: TransactionInstrumentOption[];
+}) {
+  const opensCombobox = ["ArrowDown", "ArrowUp", "Enter"].includes(key);
+  const nextIsInstrumentComboboxOpen = opensCombobox ? true : isInstrumentComboboxOpen;
+
+  if (key === "ArrowDown" || key === "ArrowUp") {
+    return {
+      highlightedInstrumentId: getNextHighlightedInstrumentId({
+        currentHighlightedInstrumentId,
+        direction: key === "ArrowDown" ? "down" : "up",
+        visibleInstrumentOptions,
+      }),
+      isInstrumentComboboxOpen: nextIsInstrumentComboboxOpen,
+      preventDefault: true,
+      selectedInstrument: null,
+    };
+  }
+
+  if (key === "Enter" && isInstrumentComboboxOpen) {
+    const selectedInstrument =
+      visibleInstrumentOptions.find(
+        (instrument) => String(instrument.id) === currentHighlightedInstrumentId,
+      ) ?? visibleInstrumentOptions[0];
+
+    if (selectedInstrument) {
+      return {
+        highlightedInstrumentId: String(selectedInstrument.id),
+        isInstrumentComboboxOpen: false,
+        preventDefault: true,
+        selectedInstrument,
+      };
+    }
+  }
+
+  if (key === "Escape") {
+    return {
+      highlightedInstrumentId: currentHighlightedInstrumentId,
+      instrumentSearch: selectedInstrumentLabel,
+      isInstrumentComboboxOpen: false,
+      preventDefault: false,
+      selectedInstrument: null,
+    };
+  }
+
+  if (opensCombobox) {
+    return {
+      highlightedInstrumentId: currentHighlightedInstrumentId,
+      isInstrumentComboboxOpen: nextIsInstrumentComboboxOpen,
+      preventDefault: false,
+      selectedInstrument: null,
+    };
+  }
+
+  return null;
+}
+
 export function getTodayDate() {
   const today = new Date();
   const year = today.getFullYear();
