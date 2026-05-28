@@ -32,7 +32,11 @@ import {
 import { TransactionFormFields } from "@/components/transaction-form/form-fields";
 import { TransactionInstrumentCombobox } from "@/components/transaction-form/instrument-combobox";
 import { InstrumentLookupPanel } from "@/components/transaction-form/instrument-lookup";
-import { TransactionSubmitButton } from "@/components/transaction-form/submit-button";
+import {
+  TransactionFormEmptyState,
+  TransactionFormFooter,
+  TransactionFormHeader,
+} from "@/components/transaction-form/panel-sections";
 
 type TransactionFormProps = {
   instruments: TransactionInstrumentOption[];
@@ -472,16 +476,7 @@ export function TransactionForm({
       className="surface-card transaction-panel"
       aria-busy={isFormBusy || isCreatingInstrument}
     >
-      <div className="transaction-panel-header">
-        <div>
-          <p className="eyebrow">
-            {isEditing ? copy.transactions.form.editEyebrow : copy.transactions.form.newEyebrow}
-          </p>
-          <h2 className="section-title">
-            {isEditing ? copy.transactions.form.updateTitle : copy.transactions.form.recordTitle}
-          </h2>
-        </div>
-      </div>
+      <TransactionFormHeader copy={copy} isEditing={isEditing} />
 
       <InstrumentLookupPanel
         copy={copy}
@@ -512,9 +507,7 @@ export function TransactionForm({
       />
 
       {instrumentOptions.length === 0 ? (
-        <div className="transaction-empty-state">
-          <p>{copy.transactions.form.noInstruments}</p>
-        </div>
+        <TransactionFormEmptyState copy={copy} />
       ) : (
         <form className="transaction-form" onSubmit={handleSubmit} aria-busy={isFormBusy}>
           {isFormBusy ? <PendingBanner label={submitButtonLabel} /> : null}
@@ -567,24 +560,16 @@ export function TransactionForm({
             values={values}
           />
 
-          <div className="transaction-form-footer">
-            {isEditing ? (
-              <button
-                type="button"
-                className="compact-button"
-                onClick={handleCancelEdit}
-                disabled={isSubmitting || isRefreshing}
-              >
-                {copy.transactions.form.cancelEdit}
-              </button>
-            ) : null}
-            <TransactionSubmitButton
-              buttonLabel={submitButtonLabel}
-              idleLabel={submitIdleButtonLabel}
-              isFormBusy={isFormBusy}
-              isSubmitDisabled={isSubmitDisabled}
-            />
-          </div>
+          <TransactionFormFooter
+            buttonLabel={submitButtonLabel}
+            copy={copy}
+            idleLabel={submitIdleButtonLabel}
+            isCancelDisabled={isSubmitting || isRefreshing}
+            isEditing={isEditing}
+            isFormBusy={isFormBusy}
+            isSubmitDisabled={isSubmitDisabled}
+            onCancelEdit={handleCancelEdit}
+          />
         </form>
       )}
     </article>
