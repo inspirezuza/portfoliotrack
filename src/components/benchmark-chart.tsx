@@ -42,13 +42,13 @@ import {
   type SelectionRange,
 } from "@/components/benchmark-chart/chart-selection";
 import { BenchmarkChartTooltip } from "@/components/benchmark-chart/chart-tooltip";
+import { BenchmarkSeriesReadoutRow } from "@/components/benchmark-chart/series-readout-row";
 import {
   formatAbsoluteReturn,
   formatChartDate,
   formatModeValue,
   formatPercentagePoint,
   formatPerformanceMoney,
-  formatSeriesPointValue,
   formatSignedPercent,
   getAbsoluteSummaryMessage,
   getBasisLabel,
@@ -369,52 +369,6 @@ export function BenchmarkChart({
   function handleChartMouseLeave() {
     isDraggingRef.current = false;
     setHoverPoint(null);
-  }
-
-  function renderSeriesReadoutRow({
-    change,
-    markerClassName,
-    markerColor,
-    name,
-    onRemove,
-    removeLabel,
-    value,
-  }: {
-    change: number;
-    markerClassName?: string;
-    markerColor?: string;
-    name: string;
-    onRemove?: () => void;
-    removeLabel?: string;
-    value: number;
-  }) {
-    const toneClassName = getValueClassName(change);
-
-    return (
-      <div className="chart-series-readout-row">
-        <span
-          className={["chart-series-marker", markerClassName].filter(Boolean).join(" ")}
-          style={markerColor == null ? undefined : { backgroundColor: markerColor }}
-          aria-hidden="true"
-        />
-        <strong>{name}</strong>
-        <span className={`chart-series-percent-chip ${toneClassName}`}>
-          {formatSeriesPointValue(value, mode, locale)}
-        </span>
-        {onRemove == null ? (
-          <span className="chart-series-remove-spacer" aria-hidden="true" />
-        ) : (
-          <button
-            aria-label={removeLabel}
-            className="chart-series-remove-button"
-            onClick={onRemove}
-            type="button"
-          >
-            x
-          </button>
-        )}
-      </div>
-    );
   }
 
   function renderChartControls(className: string) {
@@ -757,43 +711,52 @@ export function BenchmarkChart({
                 <span className="chart-series-readout-date">
                   {formatChartDate(readoutPoint.date, locale)}
                 </span>
-                {renderSeriesReadoutRow({
-                  change: getSeriesChangeValue(readoutPoint, "portfolio", mode),
-                  markerClassName: "chart-series-marker-portfolio",
-                  name: modeCopy.portfolioName,
-                  value: readoutPoint.portfolioDisplay,
-                })}
-                {shouldShowOverlayComparisons
-                  ? selectedOverlays.map((overlay) => {
-                      const value = readoutPoint[getOverlayDataKey(overlay.symbol)];
-                      const comparisonItem = comparisonItems.find(
-                        (item) => item.symbol === overlay.symbol,
-                      );
+                <BenchmarkSeriesReadoutRow
+                  change={getSeriesChangeValue(readoutPoint, "portfolio", mode)}
+                  locale={locale}
+                  markerClassName="chart-series-marker-portfolio"
+                  mode={mode}
+                  name={modeCopy.portfolioName}
+                  value={readoutPoint.portfolioDisplay}
+                />
+                {shouldShowOverlayComparisons ? (
+                  selectedOverlays.map((overlay) => {
+                    const value = readoutPoint[getOverlayDataKey(overlay.symbol)];
+                    const comparisonItem = comparisonItems.find(
+                      (item) => item.symbol === overlay.symbol,
+                    );
 
-                      return typeof value !== "number" ? null : (
-                        <div key={overlay.symbol}>
-                          {renderSeriesReadoutRow({
-                            change: value,
-                            markerColor: comparisonItem?.color ?? "var(--ink)",
-                            name: overlay.symbol,
-                            onRemove: () => handleComparisonToggle(overlay.symbol),
-                            removeLabel: copy.charts.benchmark.comparisonPicker.remove(
-                              overlay.symbol,
-                            ),
-                            value,
-                          })}
-                        </div>
-                      );
-                    })
-                  : renderSeriesReadoutRow({
-                      change: getSeriesChangeValue(readoutPoint, "benchmark", mode),
-                      markerClassName: "chart-series-marker-benchmark",
-                      name:
-                        mode === "GAP"
-                          ? modeCopy.benchmarkName
-                          : (benchmarkSymbol ?? modeCopy.benchmarkName),
-                      value: readoutPoint.benchmarkDisplay,
-                    })}
+                    return typeof value !== "number" ? null : (
+                      <div key={overlay.symbol}>
+                        <BenchmarkSeriesReadoutRow
+                          change={value}
+                          locale={locale}
+                          markerColor={comparisonItem?.color ?? "var(--ink)"}
+                          mode={mode}
+                          name={overlay.symbol}
+                          onRemove={() => handleComparisonToggle(overlay.symbol)}
+                          removeLabel={copy.charts.benchmark.comparisonPicker.remove(
+                            overlay.symbol,
+                          )}
+                          value={value}
+                        />
+                      </div>
+                    );
+                  })
+                ) : (
+                  <BenchmarkSeriesReadoutRow
+                    change={getSeriesChangeValue(readoutPoint, "benchmark", mode)}
+                    locale={locale}
+                    markerClassName="chart-series-marker-benchmark"
+                    mode={mode}
+                    name={
+                      mode === "GAP"
+                        ? modeCopy.benchmarkName
+                        : (benchmarkSymbol ?? modeCopy.benchmarkName)
+                    }
+                    value={readoutPoint.benchmarkDisplay}
+                  />
+                )}
               </div>
             )}
             <div
