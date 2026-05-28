@@ -15,28 +15,22 @@ import {
 } from "@/lib/transactions/instrument-selection";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
-import type { TransactionBroker } from "@/lib/validation/transaction";
 import type { TransactionInstrumentOption, TransactionListItem } from "@/server/transactions";
-
-type TransactionFormValues = {
-  instrumentId: string;
-  tradeDate: string;
-  side: "BUY" | "SELL";
-  broker: TransactionBroker;
-  quantity: string;
-  price: string;
-  fee: string;
-  notes: string;
-};
-
-type NewInstrumentFormValues = {
-  symbol: string;
-  displayName: string;
-  market: string;
-  instrumentType: string;
-  currency: string;
-  providerSymbol: string;
-};
+import {
+  createInitialValues,
+  createValuesFromTransaction,
+  getErrorMessage,
+  getInitialInstrumentSearch,
+  getInstrumentLookupLabel,
+  getSynchronizedInstrumentId,
+  getTransactionInstrumentLabel,
+  type ApiErrorResponse,
+  type InstrumentApiResponse,
+  type InstrumentSearchApiResponse,
+  type InstrumentSearchResult,
+  type NewInstrumentFormValues,
+  type TransactionFormValues,
+} from "@/components/transaction-form/form-helpers";
 
 type TransactionFormProps = {
   instruments: TransactionInstrumentOption[];
@@ -45,145 +39,6 @@ type TransactionFormProps = {
   onCloseEdit?: () => void;
   onWorkspaceRefresh?: () => Promise<void> | void;
 };
-
-type ApiErrorResponse = {
-  error?: {
-    code?: string;
-    message?: string;
-    details?: {
-      availableQuantity?: number;
-      issues?: {
-        fieldErrors?: Record<string, string[] | undefined>;
-        formErrors?: string[];
-      };
-    } | null;
-  };
-};
-
-type InstrumentApiResponse = ApiErrorResponse & {
-  instrument?: TransactionInstrumentOption;
-};
-
-type InstrumentSearchResult = NewInstrumentFormValues & {
-  exchangeName: string | null;
-};
-
-type InstrumentSearchApiResponse = ApiErrorResponse & {
-  results?: InstrumentSearchResult[];
-};
-
-function getTodayDate() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function createInitialValues(instruments: TransactionInstrumentOption[]): TransactionFormValues {
-  return {
-    instrumentId: getSynchronizedInstrumentId("", instruments),
-    tradeDate: getTodayDate(),
-    side: "BUY",
-    broker: "DIME",
-    quantity: "",
-    price: "",
-    fee: "0",
-    notes: "",
-  };
-}
-
-function createValuesFromTransaction(transaction: TransactionListItem): TransactionFormValues {
-  return {
-    instrumentId: String(transaction.instrumentId),
-    tradeDate: transaction.tradeDate,
-    side: transaction.side,
-    broker: transaction.broker,
-    quantity: String(transaction.quantity),
-    price: String(transaction.price),
-    fee: String(transaction.fee),
-    notes: transaction.notes ?? "",
-  };
-}
-
-function getInitialInstrumentSearch(instruments: TransactionInstrumentOption[]) {
-  const initialInstrumentId = getSynchronizedInstrumentId("", instruments);
-  const initialInstrument = instruments.find(
-    (instrument) => String(instrument.id) === initialInstrumentId,
-  );
-
-  return initialInstrument?.label ?? "";
-}
-
-function getInstrumentLookupLabel(instrument: InstrumentSearchResult) {
-  return `${instrument.symbol} - ${instrument.displayName} - ${instrument.market} - ${instrument.currency}`;
-}
-
-function getTransactionInstrumentLabel(
-  transaction: TransactionListItem,
-  instruments: TransactionInstrumentOption[],
-) {
-  return (
-    instruments.find((instrument) => instrument.id === transaction.instrumentId)?.label ??
-    `${transaction.instrument.symbol} - ${transaction.instrument.displayName} - ${transaction.instrument.market} - ${transaction.instrument.currency}`
-  );
-}
-
-function getErrorMessage(
-  error: ApiErrorResponse["error"],
-  fallbackMessage: string,
-  language: UiLanguage,
-) {
-  if (!error) {
-    return fallbackMessage;
-  }
-
-  const fieldErrors = error.details?.issues?.fieldErrors;
-  const firstFieldError = fieldErrors
-    ? Object.values(fieldErrors)
-        .flatMap((messages) => messages ?? [])
-        .find(Boolean)
-    : null;
-
-  if (firstFieldError) {
-    return firstFieldError;
-  }
-
-  const firstFormError = error.details?.issues?.formErrors?.find(Boolean);
-
-  if (firstFormError) {
-    return firstFormError;
-  }
-
-  if (error.code === "INSUFFICIENT_QUANTITY") {
-    const availableQuantity = error.details?.availableQuantity;
-
-    if (typeof availableQuantity === "number") {
-      const copy = getUiCopy(language).transactions.form;
-      return copy.insufficientQuantity(
-        formatQuantity(availableQuantity, { locale: getUiLocale(language) }),
-      );
-    }
-  }
-
-  return error.message ?? fallbackMessage;
-}
-
-function getSynchronizedInstrumentId(
-  instrumentId: string,
-  instruments: TransactionInstrumentOption[],
-) {
-  if (instruments.length === 0) {
-    return "";
-  }
-
-  const hasMatchingInstrument = instruments.some(
-    (instrument) => String(instrument.id) === instrumentId,
-  );
-
-  return hasMatchingInstrument ? instrumentId : "";
-}
 
 export function TransactionForm({
   instruments,
