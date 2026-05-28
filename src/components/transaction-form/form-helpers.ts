@@ -133,6 +133,32 @@ export function getNextTransactionFormSyncState({
   };
 }
 
+export function getNextHighlightedInstrumentId({
+  currentHighlightedInstrumentId,
+  direction,
+  visibleInstrumentOptions,
+}: {
+  currentHighlightedInstrumentId: string | null;
+  direction: "down" | "up";
+  visibleInstrumentOptions: TransactionInstrumentOption[];
+}) {
+  if (visibleInstrumentOptions.length === 0) {
+    return null;
+  }
+
+  const currentIndex = visibleInstrumentOptions.findIndex(
+    (instrument) => String(instrument.id) === currentHighlightedInstrumentId,
+  );
+  const fallbackIndex = direction === "down" ? -1 : 0;
+  const nextIndex =
+    direction === "down"
+      ? (currentIndex + 1) % visibleInstrumentOptions.length
+      : (currentIndex === -1 ? fallbackIndex : currentIndex - 1 + visibleInstrumentOptions.length) %
+        visibleInstrumentOptions.length;
+
+  return String(visibleInstrumentOptions[nextIndex].id);
+}
+
 export function getTodayDate() {
   const today = new Date();
   const year = today.getFullYear();

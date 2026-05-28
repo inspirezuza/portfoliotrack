@@ -6,6 +6,7 @@ import {
   findExistingInstrumentForLookup,
   getErrorMessage,
   getInitialInstrumentSearch,
+  getNextHighlightedInstrumentId,
   getNextTransactionFormSyncState,
   getSynchronizedInstrumentId,
   getTransactionSubmitButtonLabel,
@@ -240,6 +241,54 @@ test("transaction form sync helper preserves edit hydration and instrument resyn
     {
       values: { ...currentValues, instrumentId: "" },
     },
+  );
+});
+
+test("transaction form helper preserves instrument keyboard highlight wrapping", () => {
+  const apple = createInstrument({ id: 1, symbol: "AAPL" });
+  const microsoft = createInstrument({ id: 2, symbol: "MSFT" });
+  const tesla = createInstrument({ id: 3, symbol: "TSLA" });
+  const instruments = [apple, microsoft, tesla];
+
+  assert.equal(
+    getNextHighlightedInstrumentId({
+      currentHighlightedInstrumentId: null,
+      direction: "down",
+      visibleInstrumentOptions: instruments,
+    }),
+    "1",
+  );
+  assert.equal(
+    getNextHighlightedInstrumentId({
+      currentHighlightedInstrumentId: "3",
+      direction: "down",
+      visibleInstrumentOptions: instruments,
+    }),
+    "1",
+  );
+  assert.equal(
+    getNextHighlightedInstrumentId({
+      currentHighlightedInstrumentId: null,
+      direction: "up",
+      visibleInstrumentOptions: instruments,
+    }),
+    "1",
+  );
+  assert.equal(
+    getNextHighlightedInstrumentId({
+      currentHighlightedInstrumentId: "1",
+      direction: "up",
+      visibleInstrumentOptions: instruments,
+    }),
+    "3",
+  );
+  assert.equal(
+    getNextHighlightedInstrumentId({
+      currentHighlightedInstrumentId: "2",
+      direction: "up",
+      visibleInstrumentOptions: [],
+    }),
+    null,
   );
 });
 

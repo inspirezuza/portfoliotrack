@@ -22,6 +22,7 @@ import {
   getErrorMessage,
   getInitialInstrumentSearch,
   getInstrumentLookupLabel,
+  getNextHighlightedInstrumentId,
   getNextTransactionFormSyncState,
   getTransactionSubmitButtonLabel,
   getTransactionInstrumentLabel,
@@ -439,24 +440,13 @@ export function TransactionForm({
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
 
-      if (visibleInstrumentOptions.length === 0) {
-        setHighlightedInstrumentId(null);
-        return;
-      }
-
-      const currentIndex = visibleInstrumentOptions.findIndex(
-        (instrument) => String(instrument.id) === highlightedInstrumentId,
+      setHighlightedInstrumentId(
+        getNextHighlightedInstrumentId({
+          currentHighlightedInstrumentId: highlightedInstrumentId,
+          direction: event.key === "ArrowDown" ? "down" : "up",
+          visibleInstrumentOptions,
+        }),
       );
-      const fallbackIndex = event.key === "ArrowDown" ? -1 : 0;
-      const nextIndex =
-        event.key === "ArrowDown"
-          ? (currentIndex + 1) % visibleInstrumentOptions.length
-          : (currentIndex === -1
-              ? fallbackIndex
-              : currentIndex - 1 + visibleInstrumentOptions.length) %
-            visibleInstrumentOptions.length;
-
-      setHighlightedInstrumentId(String(visibleInstrumentOptions[nextIndex].id));
       return;
     }
 
