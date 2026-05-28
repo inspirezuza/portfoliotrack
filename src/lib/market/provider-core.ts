@@ -25,6 +25,7 @@ import {
   type RefreshContext,
   type RefreshTarget,
 } from "@/lib/market/refresh-context";
+import { classifyRefreshPayloads } from "@/lib/market/refresh-classification";
 import { getMarketSettings } from "@/lib/market/settings";
 import type {
   MarketDataProvider,
@@ -620,89 +621,24 @@ async function performRefreshMarketDataCache(
       ),
     ),
   );
-  const issues: MarketRefreshIssue[] = [];
-  const validQuotes = new Map<number, MarketQuoteSnapshot>();
-  const validHistories = new Map<number, MarketHistoricalSeries>();
-  const validIntradaySeries = new Map<
-    string,
-    { instrumentId: number; series: MarketIntradaySeries }
-  >();
-
-  for (const target of refreshTargets) {
-    const quote = quoteByProviderSymbol.get(target.instrument.providerSymbol);
-
-    if (quote == null) {
-      issues.push({
-        symbol: target.instrument.symbol,
-        providerSymbol: target.instrument.providerSymbol,
-        reason: "missing_quote",
-      });
-    } else if (quote.currency !== target.instrument.currency) {
-      issues.push({
-        symbol: target.instrument.symbol,
-        providerSymbol: target.instrument.providerSymbol,
-        reason: "quote_currency_mismatch",
-      });
-    } else {
-      validQuotes.set(target.instrument.id, quote);
-    }
-
-    for (const window of INTRADAY_REFRESH_WINDOWS) {
-      const intraday = intradayResults.find(
-        ([instrumentId, interval]) =>
-          instrumentId === target.instrument.id && interval === window.interval,
-      )?.[2];
-
-      if (intraday == null) {
-        issues.push({
-          symbol: target.instrument.symbol,
-          providerSymbol: target.instrument.providerSymbol,
-          reason: "missing_intraday",
-        });
-        continue;
-      }
-
-      if (intraday.currency !== target.instrument.currency) {
-        issues.push({
-          symbol: target.instrument.symbol,
-          providerSymbol: target.instrument.providerSymbol,
-          reason: "intraday_currency_mismatch",
-        });
-        continue;
-      }
-
-      validIntradaySeries.set(`${target.instrument.id}:${window.interval}`, {
-        instrumentId: target.instrument.id,
-        series: intraday,
-      });
-    }
-
-    if (target.historyStartDate == null) {
-      continue;
-    }
-
-    const history = historyByInstrumentId.get(target.instrument.id);
-
-    if (history == null) {
-      issues.push({
-        symbol: target.instrument.symbol,
-        providerSymbol: target.instrument.providerSymbol,
-        reason: "missing_history",
-      });
-      continue;
-    }
-
-    if (history.currency !== target.instrument.currency) {
-      issues.push({
-        symbol: target.instrument.symbol,
-        providerSymbol: target.instrument.providerSymbol,
-        reason: "history_currency_mismatch",
-      });
-      continue;
-    }
-
-    validHistories.set(target.instrument.id, history);
-  }
+  const intradayByInstrumentIdAndInterval = new Map(
+    intradayResults
+      .filter(
+        (row): row is readonly [number, MarketIntradayInterval, MarketIntradaySeries] =>
+          row[2] != null,
+      )
+      .map(
+        ([instrumentId, interval, result]) =>
+          [`${instrumentId}:${interval}`, result] satisfies [string, MarketIntradaySeries],
+      ),
+  );
+  const { issues, validHistories, validIntradaySeries, validQuotes } = classifyRefreshPayloads({
+    historyByInstrumentId,
+    intradayByInstrumentIdAndInterval,
+    intradayWindows: INTRADAY_REFRESH_WINDOWS,
+    quoteByProviderSymbol,
+    targets: refreshTargets,
+  });
 
   let historicalBarCount = 0;
   let intradayBarCount = 0;
