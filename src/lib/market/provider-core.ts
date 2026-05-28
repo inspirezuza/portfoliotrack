@@ -26,6 +26,10 @@ import {
   type RefreshTarget,
 } from "@/lib/market/refresh-context";
 import { classifyRefreshPayloads } from "@/lib/market/refresh-classification";
+import {
+  buildEmptyMarketDataRefreshBatchResult,
+  getMarketDataRefreshBatchTargets,
+} from "@/lib/market/refresh-batch";
 import { getMarketSettings } from "@/lib/market/settings";
 import type {
   MarketDataProvider,
@@ -508,37 +512,16 @@ export async function refreshMarketDataCacheBatch({
   maxTargets: number;
 }): Promise<MarketDataRefreshBatchResult> {
   const context = await buildRefreshContext({ portfolioId });
-  const sortedTargets = [...context.targets].sort(
-    (left, right) => left.instrument.id - right.instrument.id,
-  );
-  const remainingTargets = sortedTargets.filter((target) =>
-    afterInstrumentId == null ? true : target.instrument.id > afterInstrumentId,
-  );
-  const batchTargets = remainingTargets.slice(0, Math.max(1, maxTargets));
-  const lastProcessedInstrumentId =
-    batchTargets[batchTargets.length - 1]?.instrument.id ?? afterInstrumentId ?? null;
-  const hasMore =
-    lastProcessedInstrumentId == null
-      ? false
-      : sortedTargets.some((target) => target.instrument.id > lastProcessedInstrumentId);
+  const { batchTargets, hasMore, lastProcessedInstrumentId, sortedTargets } =
+    getMarketDataRefreshBatchTargets(context.targets, afterInstrumentId, maxTargets);
 
   if (batchTargets.length === 0) {
-    return {
-      refreshedAt: new Date().toISOString(),
-      benchmarkSymbol: context.benchmarkSymbol,
-      marketRefreshMinutes: context.marketRefreshMinutes,
-      requestedSymbols: [],
-      quoteRefreshCount: 0,
-      historicalBarCount: 0,
-      intradayBarCount: 0,
-      latestSuccessfulAsOf: null,
-      issues: [],
-      currentSymbol: null,
+    return buildEmptyMarketDataRefreshBatchResult({
+      context,
       hasMore,
       lastProcessedInstrumentId,
-      processedTargetCount: 0,
-      targetCount: sortedTargets.length,
-    };
+      sortedTargetCount: sortedTargets.length,
+    });
   }
 
   const result = await performRefreshMarketDataCache(
