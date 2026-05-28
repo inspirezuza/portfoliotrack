@@ -7,6 +7,7 @@ import type {
 } from "@/server/holdings";
 import type { TransactionInstrumentOption, TransactionListItem } from "@/server/transactions";
 import type { TransactionBroker } from "@/lib/validation/transaction";
+import type { getUiCopy } from "@/lib/ui/copy";
 
 export type HoldingSortKey =
   | "symbol"
@@ -82,6 +83,31 @@ export function getPerformanceKey({
   timeframe: HoldingPerformanceTimeframe;
 }): HoldingPerformanceKey {
   return basis === "cost" ? `COST_${timeframe}` : timeframe;
+}
+
+export function getPricePerformanceTimeframeLabel(
+  copy: ReturnType<typeof getUiCopy>,
+  timeframe: HoldingPerformanceTimeframe,
+) {
+  return copy.holdings.table.timeframes[timeframe];
+}
+
+export function getPerformanceColumnLabel({
+  basis,
+  copy,
+  timeframe,
+}: {
+  basis: PerformanceBasis;
+  copy: ReturnType<typeof getUiCopy>;
+  timeframe: HoldingPerformanceTimeframe;
+}) {
+  const timeframeLabel = getPricePerformanceTimeframeLabel(copy, timeframe);
+
+  return basis === "cost"
+    ? copy.holdings.table.columns.performance(
+        `${copy.holdings.table.performanceBasis.cost} ${timeframeLabel}`,
+      )
+    : copy.holdings.table.columns.performance(timeframeLabel);
 }
 
 export function getValuationPerformanceAmount(

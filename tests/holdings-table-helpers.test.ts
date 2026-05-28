@@ -7,7 +7,9 @@ import {
   getHoldingLotInstrumentOption,
   getHoldingLotTransaction,
   getHoldingSearchText,
+  getPerformanceColumnLabel,
   getPerformanceKey,
+  getPricePerformanceTimeframeLabel,
   getValuationAverageCost,
   getValuationLastPrice,
   isNativeCurrencyVisible,
@@ -15,6 +17,7 @@ import {
   type SortState,
 } from "../src/components/holdings-table/table-helpers";
 import type { HoldingLot, HoldingRow } from "../src/server/holdings";
+import { getUiCopy } from "../src/lib/ui/copy";
 
 const EMPTY_PERFORMANCE = {
   amount: null,
@@ -130,6 +133,28 @@ test("valuation helpers use valuation currency only when native currency differs
 test("performance key switches between price and cost bases", () => {
   assert.equal(getPerformanceKey({ basis: "price", timeframe: "1D" }), "1D");
   assert.equal(getPerformanceKey({ basis: "cost", timeframe: "1D" }), "COST_1D");
+});
+
+test("performance label helpers preserve timeframe and cost-basis copy", () => {
+  const copy = getUiCopy("EN");
+
+  assert.equal(getPricePerformanceTimeframeLabel(copy, "1M"), "1M");
+  assert.equal(
+    getPerformanceColumnLabel({
+      basis: "price",
+      copy,
+      timeframe: "1M",
+    }),
+    "Performance 1M",
+  );
+  assert.equal(
+    getPerformanceColumnLabel({
+      basis: "cost",
+      copy,
+      timeframe: "1M",
+    }),
+    "Performance Cost basis 1M",
+  );
 });
 
 test("holding sort and filters use valuation values for mixed-currency rows", () => {

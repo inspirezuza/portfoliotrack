@@ -37,7 +37,9 @@ import {
   getHoldingLotInstrumentOption,
   getHoldingLotTransaction,
   getHoldingPerformance,
+  getPerformanceColumnLabel,
   getPerformanceKey,
+  getPricePerformanceTimeframeLabel,
   getValuationAverageCost,
   getValuationLastPrice,
   PERFORMANCE_TIMEFRAMES,
@@ -71,31 +73,6 @@ type ApiErrorResponse = {
     message?: string;
   };
 };
-
-function getPricePerformanceTimeframeLabel(
-  copy: ReturnType<typeof getUiCopy>,
-  timeframe: HoldingPerformanceTimeframe,
-) {
-  return copy.holdings.table.timeframes[timeframe];
-}
-
-function getPerformanceColumnLabel({
-  basis,
-  copy,
-  timeframe,
-}: {
-  basis: PerformanceBasis;
-  copy: ReturnType<typeof getUiCopy>;
-  timeframe: HoldingPerformanceTimeframe;
-}) {
-  const timeframeLabel = getPricePerformanceTimeframeLabel(copy, timeframe);
-
-  return basis === "cost"
-    ? copy.holdings.table.columns.performance(
-        `${copy.holdings.table.performanceBasis.cost} ${timeframeLabel}`,
-      )
-    : copy.holdings.table.columns.performance(timeframeLabel);
-}
 
 function shouldIgnoreHoldingRowToggle(event: MouseEvent<HTMLTableRowElement>) {
   const target = event.target;
