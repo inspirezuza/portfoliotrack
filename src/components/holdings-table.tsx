@@ -19,17 +19,27 @@ import {
 } from "@/components/market-refresh-status";
 import { TransactionDeleteDialog } from "@/components/transaction-delete-dialog";
 import { TransactionEditModal } from "@/components/transaction-edit-modal";
+import {
+  compareHoldings,
+  getHoldingLotInstrumentOption,
+  getHoldingLotTransaction,
+  getHoldingPerformance,
+  getHoldingSearchText,
+  getPerformanceKey,
+  getValuationAverageCost,
+  getValuationLastPrice,
+  isNativeCurrencyVisible,
+  matchesHoldingFilter,
+  PERFORMANCE_TIMEFRAMES,
+  type HoldingFilter,
+  type HoldingSortKey,
+  type PerformanceBasis,
+  type SortState,
+} from "@/components/holdings-table/table-helpers";
 import { formatCurrency, formatPercentRatio, formatQuantity } from "@/lib/format";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
-import type { TransactionBroker } from "@/lib/validation/transaction";
-import type {
-  HoldingPerformance,
-  HoldingPerformanceKey,
-  HoldingPerformanceTimeframe,
-  HoldingLot,
-  HoldingRow,
-} from "@/server/holdings";
+import type { HoldingPerformanceTimeframe, HoldingLot, HoldingRow } from "@/server/holdings";
 import type { TransactionInstrumentOption, TransactionListItem } from "@/server/transactions";
 
 type HoldingsTableProps = {
@@ -38,27 +48,6 @@ type HoldingsTableProps = {
   canEdit?: boolean;
   canRefresh?: boolean;
 };
-
-type HoldingSortKey =
-  | "symbol"
-  | "quantity"
-  | "averageCost"
-  | "totalCost"
-  | "lastPrice"
-  | "oneDayGain"
-  | "marketValue"
-  | "unrealizedPnl"
-  | "portfolioWeight";
-
-type SortDirection = "asc" | "desc";
-type HoldingFilter = "all" | "gain" | "loss" | "missing";
-
-type SortState = {
-  key: HoldingSortKey;
-  direction: SortDirection;
-};
-
-type PerformanceBasis = "price" | "cost";
 
 type RefreshResponse = {
   run?: MarketRefreshStatusRun;
@@ -73,58 +62,11 @@ type ApiErrorResponse = {
   };
 };
 
-const PERFORMANCE_TIMEFRAMES: HoldingPerformanceTimeframe[] = [
-  "1D",
-  "1W",
-  "1M",
-  "YTD",
-  "1Y",
-  "3Y",
-  "5Y",
-  "MAX",
-];
-
-const EMPTY_PERFORMANCE: HoldingPerformance = {
-  amount: null,
-  percent: null,
-  amountInValuationCurrency: null,
-};
-
-function isNativeCurrencyVisible(holding: HoldingRow) {
-  return holding.currency !== holding.valuationCurrency;
-}
-
-function getValuationAverageCost(holding: HoldingRow) {
-  return holding.fxRateToValuationCurrency == null
-    ? null
-    : holding.averageCost * holding.fxRateToValuationCurrency;
-}
-
-function getValuationLastPrice(holding: HoldingRow) {
-  return holding.lastPrice == null || holding.fxRateToValuationCurrency == null
-    ? null
-    : holding.lastPrice * holding.fxRateToValuationCurrency;
-}
-
-function getHoldingPerformance(holding: HoldingRow, performanceKey: HoldingPerformanceKey) {
-  return holding.performance?.[performanceKey] ?? EMPTY_PERFORMANCE;
-}
-
 function getPricePerformanceTimeframeLabel(
   copy: ReturnType<typeof getUiCopy>,
   timeframe: HoldingPerformanceTimeframe,
 ) {
   return copy.holdings.table.timeframes[timeframe];
-}
-
-function getPerformanceKey({
-  basis,
-  timeframe,
-}: {
-  basis: PerformanceBasis;
-  timeframe: HoldingPerformanceTimeframe;
-}): HoldingPerformanceKey {
-  return basis === "cost" ? `COST_${timeframe}` : timeframe;
 }
 
 function getPerformanceColumnLabel({
@@ -143,14 +85,6 @@ function getPerformanceColumnLabel({
         `${copy.holdings.table.performanceBasis.cost} ${timeframeLabel}`,
       )
     : copy.holdings.table.columns.performance(timeframeLabel);
-}
-
-function getValuationPerformanceAmount(holding: HoldingRow, performanceKey: HoldingPerformanceKey) {
-  const performance = getHoldingPerformance(holding, performanceKey);
-
-  return isNativeCurrencyVisible(holding)
-    ? performance.amountInValuationCurrency
-    : performance.amount;
 }
 
 function formatHoldingValuationMoney({
@@ -273,66 +207,6 @@ function formatParentMoney(value: number | null, currency: string | null, locale
   });
 }
 
-function compareNullableNumber(left: number | null, right: number | null) {
-  if (left == null && right == null) {
-    return 0;
-  }
-
-  if (left == null) {
-    return 1;
-  }
-
-  if (right == null) {
-    return -1;
-  }
-
-  return left - right;
-}
-
-function getHoldingSortValue(
-  holding: HoldingRow,
-  key: HoldingSortKey,
-  performanceKey: HoldingPerformanceKey,
-) {
-  if (key === "symbol") {
-    return `${holding.symbol} ${holding.displayName} ${holding.market}`;
-  }
-
-  if (key === "averageCost") {
-    return isNativeCurrencyVisible(holding)
-      ? getValuationAverageCost(holding)
-      : holding.averageCost;
-  }
-
-  if (key === "totalCost") {
-    return isNativeCurrencyVisible(holding)
-      ? holding.totalCostInValuationCurrency
-      : holding.totalCost;
-  }
-
-  if (key === "lastPrice") {
-    return isNativeCurrencyVisible(holding) ? getValuationLastPrice(holding) : holding.lastPrice;
-  }
-
-  if (key === "oneDayGain") {
-    return getValuationPerformanceAmount(holding, performanceKey);
-  }
-
-  if (key === "marketValue") {
-    return isNativeCurrencyVisible(holding)
-      ? holding.marketValueInValuationCurrency
-      : holding.marketValue;
-  }
-
-  if (key === "unrealizedPnl") {
-    return isNativeCurrencyVisible(holding)
-      ? holding.unrealizedPnlInValuationCurrency
-      : holding.unrealizedPnl;
-  }
-
-  return holding[key];
-}
-
 function formatHoldingLotMoney({
   emptyLabel,
   holding,
@@ -355,136 +229,12 @@ function formatHoldingLotMoney({
   });
 }
 
-function compareHoldings(
-  left: HoldingRow,
-  right: HoldingRow,
-  sort: SortState,
-  performanceKey: HoldingPerformanceKey,
-) {
-  const leftValue = getHoldingSortValue(left, sort.key, performanceKey);
-  const rightValue = getHoldingSortValue(right, sort.key, performanceKey);
-  const comparison = (() => {
-    if (typeof leftValue === "string" && typeof rightValue === "string") {
-      return leftValue.localeCompare(rightValue);
-    }
-
-    if (leftValue == null && rightValue == null) {
-      return 0;
-    }
-
-    if (leftValue == null) {
-      return 1;
-    }
-
-    if (rightValue == null) {
-      return -1;
-    }
-
-    const numericComparison = compareNullableNumber(leftValue as number, rightValue as number);
-
-    return sort.direction === "asc" ? numericComparison : -numericComparison;
-  })();
-
-  if (comparison !== 0) {
-    return typeof leftValue === "string" &&
-      typeof rightValue === "string" &&
-      sort.direction === "desc"
-      ? -comparison
-      : comparison;
-  }
-
-  return left.symbol.localeCompare(right.symbol);
-}
-
-function matchesHoldingFilter(holding: HoldingRow, filter: HoldingFilter) {
-  const unrealizedPnl = isNativeCurrencyVisible(holding)
-    ? holding.unrealizedPnlInValuationCurrency
-    : holding.unrealizedPnl;
-
-  if (filter === "gain") {
-    return unrealizedPnl != null && unrealizedPnl > 0;
-  }
-
-  if (filter === "loss") {
-    return unrealizedPnl != null && unrealizedPnl < 0;
-  }
-
-  if (filter === "missing") {
-    return isNativeCurrencyVisible(holding)
-      ? holding.marketValueInValuationCurrency == null
-      : holding.marketValue == null;
-  }
-
-  return true;
-}
-
-function getHoldingSearchText(holding: HoldingRow) {
-  return [
-    holding.symbol,
-    holding.displayName,
-    holding.market,
-    holding.instrumentType,
-    holding.currency,
-  ]
-    .join(" ")
-    .toLowerCase();
-}
-
 function shouldIgnoreHoldingRowToggle(event: MouseEvent<HTMLTableRowElement>) {
   const target = event.target;
 
   return target instanceof HTMLElement
     ? target.closest("a, button, input, select, textarea, [data-row-toggle-ignore]") != null
     : false;
-}
-
-function getHoldingLotInstrumentOption(holding: HoldingRow): TransactionInstrumentOption {
-  return {
-    id: holding.instrumentId,
-    symbol: holding.symbol,
-    displayName: holding.displayName,
-    market: holding.market,
-    instrumentType: holding.instrumentType,
-    currency: holding.currency,
-    providerSymbol: holding.providerSymbol,
-    isActive: true,
-    currentQuantity: holding.quantity,
-    label: `${holding.symbol} - ${holding.displayName} - ${holding.market} - ${holding.currency}`,
-  };
-}
-
-function getHoldingLotTransaction(holding: HoldingRow, lot: HoldingLot): TransactionListItem {
-  const grossAmount = lot.originalQuantity * lot.price;
-  const netAmount = lot.side === "BUY" ? grossAmount + lot.fee : grossAmount - lot.fee;
-
-  return {
-    id: lot.transactionId,
-    portfolioId: lot.portfolioId,
-    instrumentId: lot.instrumentId,
-    tradeDate: lot.tradeDate,
-    side: lot.side,
-    broker: lot.broker as TransactionBroker,
-    quantity: lot.originalQuantity,
-    price: lot.price,
-    fee: lot.fee,
-    notes: lot.notes,
-    createdAt: lot.createdAt,
-    updatedAt: lot.updatedAt,
-    portfolioName: lot.portfolioName,
-    instrument: {
-      id: holding.instrumentId,
-      symbol: holding.symbol,
-      displayName: holding.displayName,
-      market: holding.market,
-      instrumentType: holding.instrumentType,
-      currency: holding.currency,
-      providerSymbol: holding.providerSymbol,
-      underlyingProviderSymbol: holding.underlyingProviderSymbol,
-    },
-    grossAmount,
-    netAmount,
-    signedQuantity: lot.side === "BUY" ? lot.originalQuantity : -lot.originalQuantity,
-  };
 }
 
 function getDeleteErrorMessage(error: ApiErrorResponse["error"], fallback: string) {
