@@ -21,6 +21,10 @@ import { getRechartsPayloadPoint, type RechartsMouseState } from "@/lib/charts/r
 import { useChartVisibilityKey } from "@/hooks/use-chart-visibility-key";
 import { BenchmarkComparisonPicker } from "@/components/benchmark-comparison-picker";
 import {
+  BenchmarkAbsoluteSummaryStrip,
+  type BenchmarkPerformanceSummary,
+} from "@/components/benchmark-chart/absolute-summary-strip";
+import {
   buildBenchmarkChartDataWithOverlays,
   buildBenchmarkComparisonItems,
   getBenchmarkYAxisValues,
@@ -42,18 +46,14 @@ import {
 import { BenchmarkChartTooltip } from "@/components/benchmark-chart/chart-tooltip";
 import { BenchmarkSeriesReadoutRow } from "@/components/benchmark-chart/series-readout-row";
 import {
-  formatAbsoluteReturn,
   formatChartDate,
   formatModeValue,
   formatPercentagePoint,
-  formatPerformanceMoney,
   formatSignedPercent,
   getAbsoluteSummaryMessage,
   getBasisLabel,
   getSeriesChangeValue,
   getUnavailableMessage,
-  getValueClassName,
-  type BenchmarkPerformanceSummaryStatus,
 } from "@/components/benchmark-chart/formatting";
 import type {
   ChartPoint,
@@ -81,14 +81,6 @@ type BenchmarkChartProps = {
   performanceSummary: BenchmarkPerformanceSummary;
   portfolioCurrency: string | null;
   status: PortfolioBenchmarkTimelineStatus;
-};
-
-type BenchmarkPerformanceSummary = {
-  status: BenchmarkPerformanceSummaryStatus;
-  currency: string | null;
-  totalPnl: number | null;
-  netInvested: number | null;
-  absoluteReturn: number | null;
 };
 
 type BenchmarkComparisonPayload = {
@@ -445,62 +437,15 @@ export function BenchmarkChart({
       {renderChartControls("chart-control-stack chart-control-stack-mobile")}
 
       {shouldShowAbsoluteSummary ? (
-        <div className="chart-stat-strip" aria-label={copy.charts.benchmark.absoluteSummary.label}>
-          <div
-            title={
-              returnBasis === "ABSOLUTE"
-                ? copy.charts.benchmark.absoluteSummary.hints.absoluteReturn
-                : returnBasisCopy.hint
-            }
-          >
-            <span>
-              {returnBasis === "ABSOLUTE"
-                ? copy.charts.benchmark.absoluteSummary.absoluteReturn
-                : returnBasisCopy.summaryLabel}
-            </span>
-            <strong
-              className={getValueClassName(
-                returnBasis === "ABSOLUTE" ? performanceSummary.absoluteReturn : basisReturn,
-              )}
-            >
-              {returnBasis !== "ABSOLUTE"
-                ? basisReturn == null
-                  ? "-"
-                  : formatSignedPercent(basisReturn)
-                : formatAbsoluteReturn(performanceSummary.absoluteReturn, locale)}
-            </strong>
-          </div>
-          <div title={copy.charts.benchmark.absoluteSummary.hints.totalPnl}>
-            <span>{copy.charts.benchmark.absoluteSummary.totalPnl}</span>
-            <strong className={getValueClassName(performanceSummary.totalPnl)}>
-              {formatPerformanceMoney(
-                performanceSummary.totalPnl,
-                performanceSummary.currency,
-                locale,
-              )}
-            </strong>
-          </div>
-          <div title={copy.charts.benchmark.absoluteSummary.hints.netInvested}>
-            <span>{copy.charts.benchmark.absoluteSummary.netInvested}</span>
-            <strong>
-              {formatPerformanceMoney(
-                performanceSummary.netInvested,
-                performanceSummary.currency,
-                locale,
-              )}
-            </strong>
-          </div>
-          <div title={returnBasisCopy.hint}>
-            <span>{copy.charts.benchmark.absoluteSummary.timeWeighted}</span>
-            <strong>{returnBasisCopy.summaryValue}</strong>
-          </div>
-          {absoluteSummaryMessage == null ? null : (
-            <div title={copy.charts.benchmark.absoluteSummary.hints.note}>
-              <span>{copy.charts.benchmark.absoluteSummary.note}</span>
-              <strong>{absoluteSummaryMessage}</strong>
-            </div>
-          )}
-        </div>
+        <BenchmarkAbsoluteSummaryStrip
+          basisReturn={basisReturn}
+          copy={copy.charts.benchmark}
+          locale={locale}
+          message={absoluteSummaryMessage}
+          performanceSummary={performanceSummary}
+          returnBasis={returnBasis}
+          returnBasisCopy={returnBasisCopy}
+        />
       ) : null}
 
       {hasSeries ? (
