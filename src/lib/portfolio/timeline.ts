@@ -18,6 +18,15 @@ import {
   sortTransactionsChronologically,
   type InstrumentPosition,
 } from "@/lib/portfolio/positions";
+import {
+  advancePriceState,
+  buildPriceStates,
+  getTimelineAnchors,
+  toDailyPricePoints,
+  toDayStartTimestamp,
+  toIntradayPricePoints,
+  toTradeDay,
+} from "@/lib/portfolio/timeline-price-points";
 import type { TransactionSide } from "@/lib/validation/transaction";
 
 export type TimelineInstrument = {
@@ -97,24 +106,6 @@ export type PortfolioBenchmarkTimeline = {
   performanceSeries: PortfolioPerformanceSeries;
 };
 
-type PriceState = {
-  rows: Array<{
-    priceAt: string;
-    close: number;
-  }>;
-  index: number;
-  lastClose: number | null;
-  latestPriceAt: string | null;
-};
-
-type TimelinePricePoint = {
-  instrumentId: number;
-  priceAt: string;
-  close: number;
-  currency: string;
-  interval: TimelinePointInterval;
-};
-
 function createEmptyPosition(instrumentId: number): InstrumentPosition {
   return {
     instrumentId,
@@ -140,105 +131,6 @@ function getExternalCashFlow(transaction: TimelineTransaction) {
   return transaction.side === "BUY"
     ? normalizeMoney(grossAmount + transaction.fee)
     : normalizeMoney(-(grossAmount - transaction.fee));
-}
-
-function toDayStartTimestamp(value: string) {
-  return `${value}T00:00:00.000Z`;
-}
-
-function toTradeDay(value: string) {
-  return value.slice(0, 10);
-}
-
-function buildPriceStates(
-  rows: Array<{
-    instrumentId: number;
-    priceAt: string;
-    close: number;
-  }>,
-) {
-  const rowsByInstrument = new Map<number, Array<{ priceAt: string; close: number }>>();
-
-  for (const row of rows) {
-    const instrumentRows = rowsByInstrument.get(row.instrumentId) ?? [];
-    instrumentRows.push({
-      priceAt: row.priceAt,
-      close: row.close,
-    });
-    rowsByInstrument.set(row.instrumentId, instrumentRows);
-  }
-
-  return new Map(
-    Array.from(rowsByInstrument.entries()).map(([instrumentId, instrumentRows]) => {
-      const sortedRows = [...instrumentRows].sort((left, right) =>
-        left.priceAt.localeCompare(right.priceAt),
-      );
-
-      return [
-        instrumentId,
-        {
-          rows: sortedRows,
-          index: 0,
-          lastClose: null,
-          latestPriceAt: sortedRows[sortedRows.length - 1]?.priceAt ?? null,
-        } satisfies PriceState,
-      ];
-    }),
-  );
-}
-
-function advancePriceState(priceState: PriceState | undefined, priceAt: string) {
-  if (priceState == null) {
-    return null;
-  }
-
-  while (
-    priceState.index < priceState.rows.length &&
-    priceState.rows[priceState.index].priceAt <= priceAt
-  ) {
-    priceState.lastClose = priceState.rows[priceState.index].close;
-    priceState.index += 1;
-  }
-
-  return priceState.lastClose;
-}
-
-function toDailyPricePoints(rows: TimelineHistoricalPrice[]): TimelinePricePoint[] {
-  return rows.map((row) => ({
-    instrumentId: row.instrumentId,
-    priceAt: toDayStartTimestamp(row.priceDate),
-    close: row.close,
-    currency: row.currency,
-    interval: "1d",
-  }));
-}
-
-function toIntradayPricePoints(rows: TimelineIntradayPrice[]): TimelinePricePoint[] {
-  return rows.map((row) => ({
-    instrumentId: row.instrumentId,
-    priceAt: row.observedAt,
-    close: row.close,
-    currency: row.currency,
-    interval: row.interval,
-  }));
-}
-
-function getTimelineAnchors(
-  pricePoints: Array<{
-    priceAt: string;
-    interval: TimelinePointInterval;
-  }>,
-) {
-  const anchorsByPriceAt = new Map<string, TimelinePointInterval>();
-
-  for (const point of pricePoints) {
-    anchorsByPriceAt.set(point.priceAt, point.interval);
-  }
-
-  return Array.from(anchorsByPriceAt, ([priceAt, interval]) => ({
-    priceAt,
-    interval,
-  })).sort((left, right) => left.priceAt.localeCompare(right.priceAt));
 }
 
 function buildPortfolioValueSeries({
