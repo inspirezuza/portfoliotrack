@@ -32,6 +32,7 @@ import {
   getUnderlyingFxRateToInstrumentCurrency,
   type HoldingLotTransaction,
 } from "@/server/holdings-performance";
+import { buildCurrencyBreakdown, buildRealizedBreakdown } from "@/server/holdings/breakdowns";
 
 export type HoldingJoinedRow = {
   instrument: Instrument;
@@ -555,72 +556,16 @@ export function buildHoldingsSnapshotFromSource({
     portfolioWeight: null,
   }));
 
-  const currencyBreakdownMap = new Map<string, CurrencyBreakdown>();
-
-  for (const holding of holdings) {
-    const entry = currencyBreakdownMap.get(holding.currency) ?? {
-      currency: holding.currency,
-      openPositionCount: 0,
-      pricedPositionCount: 0,
-      missingPricePositionCount: 0,
-      totalCostBasis: 0,
-      totalRealizedPnl: 0,
-      totalFees: 0,
-      totalMarketValue: 0,
-      totalUnrealizedPnl: 0,
-      awaitingPriceSymbols: [],
-    };
-
-    entry.openPositionCount += 1;
-    entry.totalCostBasis = normalizeMoney(entry.totalCostBasis + holding.totalCost);
-
-    if (holding.marketValue == null) {
-      entry.missingPricePositionCount += 1;
-      entry.totalMarketValue = null;
-      entry.totalUnrealizedPnl = null;
-      entry.awaitingPriceSymbols.push(holding.symbol);
-    } else {
-      entry.pricedPositionCount += 1;
-      entry.totalMarketValue =
-        entry.totalMarketValue == null
-          ? null
-          : normalizeMoney(entry.totalMarketValue + holding.marketValue);
-      entry.totalUnrealizedPnl =
-        entry.totalUnrealizedPnl == null
-          ? null
-          : normalizeMoney(entry.totalUnrealizedPnl + (holding.unrealizedPnl ?? 0));
-    }
-
-    currencyBreakdownMap.set(holding.currency, entry);
-  }
-
-  const realizedBreakdownMap = new Map<string, RealizedBreakdown>();
-
-  for (const position of positions.values()) {
-    const instrumentState = groupedInstruments.get(position.instrumentId);
-
-    if (!instrumentState) {
-      continue;
-    }
-
-    const currency = instrumentState.instrument.currency;
-    const entry = realizedBreakdownMap.get(currency) ?? {
-      currency,
-      totalRealizedPnl: 0,
-      totalFees: 0,
-    };
-
-    entry.totalRealizedPnl = normalizeMoney(entry.totalRealizedPnl + position.realizedPnl);
-    entry.totalFees = normalizeMoney(entry.totalFees + position.totalFees);
-    realizedBreakdownMap.set(currency, entry);
-  }
-
-  const currencyBreakdown = Array.from(currencyBreakdownMap.values()).sort((left, right) =>
-    left.currency.localeCompare(right.currency),
-  );
-  const realizedBreakdown = Array.from(realizedBreakdownMap.values()).sort((left, right) =>
-    left.currency.localeCompare(right.currency),
-  );
+  const currencyBreakdown = buildCurrencyBreakdown(holdings);
+  const realizedBreakdown = buildRealizedBreakdown({
+    instrumentCurrencyById: new Map(
+      Array.from(groupedInstruments, ([instrumentId, { instrument }]) => [
+        instrumentId,
+        instrument.currency,
+      ]),
+    ),
+    positions: positions.values(),
+  });
   const openPositionCurrency =
     currencyBreakdown.length === 1 ? currencyBreakdown[0].currency : null;
   const singleCurrencyBreakdown = openPositionCurrency == null ? null : currencyBreakdown[0];
