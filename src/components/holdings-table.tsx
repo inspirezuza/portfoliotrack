@@ -32,6 +32,7 @@ import {
 } from "@/components/holdings-table/display-helpers";
 import { HoldingLotsPanel } from "@/components/holdings-table/holding-lots-panel";
 import { SortableHeader } from "@/components/holdings-table/sortable-header";
+import { HoldingsTableToolbar } from "@/components/holdings-table/table-toolbar";
 import {
   buildVisibleHoldings,
   getHoldingsSummary,
@@ -41,11 +42,9 @@ import {
   getNextHoldingSortState,
   getPerformanceColumnLabel,
   getPerformanceKey,
-  getPricePerformanceTimeframeLabel,
   getToggledExpandedHoldingIds,
   getValuationAverageCost,
   getValuationLastPrice,
-  PERFORMANCE_TIMEFRAMES,
   type HoldingFilter,
   type HoldingSortKey,
   type PerformanceBasis,
@@ -116,12 +115,6 @@ export function HoldingsTable({
   const [expandedHoldingIds, setExpandedHoldingIds] = useState<Set<number>>(() => new Set());
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
   const [refreshTone, setRefreshTone] = useState<"success" | "warning">("success");
-  const filterOptions: Array<{ value: HoldingFilter; label: string }> = [
-    { value: "all", label: copy.holdings.table.filter.all },
-    { value: "gain", label: copy.holdings.table.filter.gain },
-    { value: "loss", label: copy.holdings.table.filter.loss },
-    { value: "missing", label: copy.holdings.table.filter.missing },
-  ];
   const selectedPerformanceKey = getPerformanceKey({
     basis: performanceBasis,
     timeframe: performanceTimeframe,
@@ -348,71 +341,17 @@ export function HoldingsTable({
         </div>
       ) : (
         <>
-          <div className="table-toolbar" aria-label={copy.holdings.table.toolsLabel}>
-            <label className="table-search">
-              <span>{copy.shared.search}</span>
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder={copy.holdings.table.searchPlaceholder}
-              />
-            </label>
-            <div className="table-toolbar-controls holdings-performance-controls">
-              <div className="holdings-performance-cluster">
-                <div
-                  className="table-filter-group holdings-basis-group"
-                  aria-label={copy.holdings.table.performanceBasisLabel}
-                >
-                  <button
-                    type="button"
-                    className="table-filter-button holdings-basis-button"
-                    aria-pressed={performanceBasis === "price"}
-                    onClick={() => setPerformanceBasis("price")}
-                  >
-                    {copy.holdings.table.performanceBasis.price}
-                  </button>
-                  <button
-                    type="button"
-                    className="table-filter-button holdings-basis-button"
-                    aria-pressed={performanceBasis === "cost"}
-                    onClick={() => setPerformanceBasis("cost")}
-                  >
-                    {copy.holdings.table.performanceBasis.cost}
-                  </button>
-                </div>
-                <div
-                  className="table-filter-group holdings-timeframe-group"
-                  aria-label={copy.holdings.table.performanceTimeframesLabel}
-                >
-                  {PERFORMANCE_TIMEFRAMES.map((timeframe) => (
-                    <button
-                      key={timeframe}
-                      type="button"
-                      className="table-filter-button holdings-timeframe-button"
-                      aria-pressed={performanceTimeframe === timeframe}
-                      onClick={() => setPerformanceTimeframe(timeframe)}
-                    >
-                      {getPricePerformanceTimeframeLabel(copy, timeframe)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="table-filter-group" aria-label={copy.holdings.table.filtersLabel}>
-                {filterOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className="table-filter-button"
-                    aria-pressed={filter === option.value}
-                    onClick={() => setFilter(option.value)}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+          <HoldingsTableToolbar
+            copy={copy}
+            filter={filter}
+            onFilterChange={setFilter}
+            onPerformanceBasisChange={setPerformanceBasis}
+            onPerformanceTimeframeChange={setPerformanceTimeframe}
+            onSearchQueryChange={setSearchQuery}
+            performanceBasis={performanceBasis}
+            performanceTimeframe={performanceTimeframe}
+            searchQuery={searchQuery}
+          />
 
           {refreshMessage ? (
             <p className={`table-status table-status-${refreshTone}`}>{refreshMessage}</p>
