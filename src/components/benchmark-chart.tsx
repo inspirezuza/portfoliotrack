@@ -31,10 +31,8 @@ import {
   mergeOverlays,
   mergeQuotes,
 } from "@/components/benchmark-chart/chart-helpers";
+import { BenchmarkChartControls } from "@/components/benchmark-chart/chart-controls";
 import {
-  PERFORMANCE_MODE_OPTIONS,
-  RETURN_BASIS_OPTIONS,
-  TIMEFRAME_OPTIONS,
   getSelectionChangeSummary,
   getSelectionPoints,
   getVisibleSeries,
@@ -312,6 +310,11 @@ export function BenchmarkChart({
     setSelection(null);
   }
 
+  function resetPointerState() {
+    setHoverPoint(null);
+    setSelection(null);
+  }
+
   function ensurePrimaryBenchmarkSelected() {
     if (
       benchmarkSymbol == null ||
@@ -325,6 +328,34 @@ export function BenchmarkChart({
         ? currentSymbols
         : [...currentSymbols, benchmarkSymbol],
     );
+  }
+
+  function handleModeChange(nextMode: PerformanceMode) {
+    if (returnBasis !== "TWR" && nextMode === "DRAWDOWN") {
+      return;
+    }
+
+    if (nextMode !== "INDEXED") {
+      ensurePrimaryBenchmarkSelected();
+    }
+
+    setMode(nextMode);
+    resetPointerState();
+  }
+
+  function handleReturnBasisChange(nextReturnBasis: ReturnBasis) {
+    setReturnBasis(nextReturnBasis);
+
+    if (nextReturnBasis !== "TWR" && mode === "DRAWDOWN") {
+      setMode("INDEXED");
+    }
+
+    resetPointerState();
+  }
+
+  function handleTimeframeChange(nextTimeframe: TimeframeKey) {
+    setTimeframe(nextTimeframe);
+    resetPointerState();
   }
 
   function handleChartMouseDown(state: RechartsMouseState | undefined) {
@@ -373,76 +404,17 @@ export function BenchmarkChart({
 
   function renderChartControls(className: string) {
     return (
-      <div className={className}>
-        <div className="chart-mode-row">
-          <div className="chart-view-modes" aria-label={copy.charts.benchmark.performanceMode}>
-            {PERFORMANCE_MODE_OPTIONS.map((option) => (
-              <button
-                aria-pressed={mode === option}
-                className={mode === option ? "active" : ""}
-                disabled={returnBasis !== "TWR" && option === "DRAWDOWN"}
-                key={option}
-                onClick={() => {
-                  if (returnBasis !== "TWR" && option === "DRAWDOWN") {
-                    return;
-                  }
-                  if (option !== "INDEXED") {
-                    ensurePrimaryBenchmarkSelected();
-                  }
-                  setMode(option);
-                  setHoverPoint(null);
-                  setSelection(null);
-                }}
-                type="button"
-              >
-                {copy.charts.benchmark.modes[option]}
-              </button>
-            ))}
-          </div>
-          <div className="chart-return-basis-group">
-            <div
-              className="chart-view-modes chart-return-basis"
-              aria-label={copy.charts.benchmark.returnBasis.label}
-            >
-              {RETURN_BASIS_OPTIONS.map((option) => (
-                <button
-                  aria-pressed={returnBasis === option}
-                  className={returnBasis === option ? "active" : ""}
-                  key={option}
-                  onClick={() => {
-                    setReturnBasis(option);
-                    if (option !== "TWR" && mode === "DRAWDOWN") {
-                      setMode("INDEXED");
-                    }
-                    setHoverPoint(null);
-                    setSelection(null);
-                  }}
-                  type="button"
-                >
-                  {copy.charts.benchmark.returnBasis.options[option]}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="chart-timeframes" aria-label={copy.charts.benchmark.timeframe}>
-          {TIMEFRAME_OPTIONS.map((option) => (
-            <button
-              aria-pressed={timeframe === option}
-              className={timeframe === option ? "active" : ""}
-              key={option}
-              onClick={() => {
-                setTimeframe(option);
-                setHoverPoint(null);
-                setSelection(null);
-              }}
-              type="button"
-            >
-              {copy.charts.common.timeframes[option]}
-            </button>
-          ))}
-        </div>
-      </div>
+      <BenchmarkChartControls
+        className={className}
+        copy={copy.charts.benchmark}
+        mode={mode}
+        onModeChange={handleModeChange}
+        onReturnBasisChange={handleReturnBasisChange}
+        onTimeframeChange={handleTimeframeChange}
+        returnBasis={returnBasis}
+        timeframe={timeframe}
+        timeframeLabels={copy.charts.common.timeframes}
+      />
     );
   }
 
