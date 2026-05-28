@@ -44,7 +44,7 @@ import {
   type SelectionRange,
 } from "@/components/benchmark-chart/chart-selection";
 import { BenchmarkChartTooltip } from "@/components/benchmark-chart/chart-tooltip";
-import { BenchmarkSeriesReadoutRow } from "@/components/benchmark-chart/series-readout-row";
+import { BenchmarkSeriesReadout } from "@/components/benchmark-chart/series-readout";
 import {
   formatChartDate,
   formatModeValue,
@@ -52,7 +52,6 @@ import {
   formatSignedPercent,
   getAbsoluteSummaryMessage,
   getBasisLabel,
-  getSeriesChangeValue,
   getUnavailableMessage,
 } from "@/components/benchmark-chart/formatting";
 import { BenchmarkRangeSummaryStrip } from "@/components/benchmark-chart/range-summary-strip";
@@ -577,57 +576,19 @@ export function BenchmarkChart({
               </LineChart>
             </ResponsiveContainer>
             {readoutPoint == null ? null : (
-              <div className="chart-series-readout" aria-label={copy.charts.benchmark.rangeSummary}>
-                <span className="chart-series-readout-date">
-                  {formatChartDate(readoutPoint.date, locale)}
-                </span>
-                <BenchmarkSeriesReadoutRow
-                  change={getSeriesChangeValue(readoutPoint, "portfolio", mode)}
-                  locale={locale}
-                  markerClassName="chart-series-marker-portfolio"
-                  mode={mode}
-                  name={modeCopy.portfolioName}
-                  value={readoutPoint.portfolioDisplay}
-                />
-                {shouldShowOverlayComparisons ? (
-                  selectedOverlays.map((overlay) => {
-                    const value = readoutPoint[getOverlayDataKey(overlay.symbol)];
-                    const comparisonItem = comparisonItems.find(
-                      (item) => item.symbol === overlay.symbol,
-                    );
-
-                    return typeof value !== "number" ? null : (
-                      <div key={overlay.symbol}>
-                        <BenchmarkSeriesReadoutRow
-                          change={value}
-                          locale={locale}
-                          markerColor={comparisonItem?.color ?? "var(--ink)"}
-                          mode={mode}
-                          name={overlay.symbol}
-                          onRemove={() => handleComparisonToggle(overlay.symbol)}
-                          removeLabel={copy.charts.benchmark.comparisonPicker.remove(
-                            overlay.symbol,
-                          )}
-                          value={value}
-                        />
-                      </div>
-                    );
-                  })
-                ) : (
-                  <BenchmarkSeriesReadoutRow
-                    change={getSeriesChangeValue(readoutPoint, "benchmark", mode)}
-                    locale={locale}
-                    markerClassName="chart-series-marker-benchmark"
-                    mode={mode}
-                    name={
-                      mode === "GAP"
-                        ? modeCopy.benchmarkName
-                        : (benchmarkSymbol ?? modeCopy.benchmarkName)
-                    }
-                    value={readoutPoint.benchmarkDisplay}
-                  />
-                )}
-              </div>
+              <BenchmarkSeriesReadout
+                benchmarkSymbol={benchmarkSymbol}
+                comparisonItems={comparisonItems}
+                locale={locale}
+                mode={mode}
+                modeCopy={modeCopy}
+                onComparisonToggle={handleComparisonToggle}
+                rangeSummaryLabel={copy.charts.benchmark.rangeSummary}
+                readoutPoint={readoutPoint}
+                removeComparisonLabel={copy.charts.benchmark.comparisonPicker.remove}
+                selectedOverlays={selectedOverlays}
+                shouldShowOverlayComparisons={shouldShowOverlayComparisons}
+              />
             )}
             <div
               className={
