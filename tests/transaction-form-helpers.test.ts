@@ -7,11 +7,13 @@ import {
   getErrorMessage,
   getInitialInstrumentSearch,
   getSynchronizedInstrumentId,
+  getTransactionSubmitButtonLabel,
   getTransactionInstrumentLabel,
   getVisibleInstrumentOptions,
   type ApiErrorResponse,
 } from "../src/components/transaction-form/form-helpers";
 import type { TransactionInstrumentOption, TransactionListItem } from "../src/server/transactions";
+import { getUiCopy } from "../src/lib/ui/copy";
 
 function createInstrument(
   overrides: Partial<TransactionInstrumentOption> = {},
@@ -162,6 +164,38 @@ test("transaction form helpers preserve request body and lookup duplicate matchi
       exchangeName: "Nasdaq",
     }),
     undefined,
+  );
+});
+
+test("transaction form helper preserves submit button labels", () => {
+  const copy = getUiCopy("EN");
+
+  assert.equal(
+    getTransactionSubmitButtonLabel({
+      copy,
+      isEditing: false,
+      isRefreshing: false,
+      isSubmitting: false,
+    }),
+    "Save transaction",
+  );
+  assert.equal(
+    getTransactionSubmitButtonLabel({
+      copy,
+      isEditing: true,
+      isRefreshing: false,
+      isSubmitting: true,
+    }),
+    "Updating...",
+  );
+  assert.equal(
+    getTransactionSubmitButtonLabel({
+      copy,
+      isEditing: false,
+      isRefreshing: true,
+      isSubmitting: false,
+    }),
+    "Refreshing...",
   );
 });
 

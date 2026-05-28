@@ -67,6 +67,30 @@ export type TransactionRequestBody = {
   notes: string;
 };
 
+export function getTransactionSubmitButtonLabel({
+  copy,
+  isEditing,
+  isRefreshing,
+  isSubmitting,
+}: {
+  copy: ReturnType<typeof getUiCopy>;
+  isEditing: boolean;
+  isRefreshing: boolean;
+  isSubmitting: boolean;
+}) {
+  if (isSubmitting) {
+    return isEditing ? copy.transactions.form.updating : copy.transactions.form.saving;
+  }
+
+  if (isRefreshing) {
+    return copy.transactions.form.refreshing;
+  }
+
+  return isEditing
+    ? copy.transactions.form.updateTransaction
+    : copy.transactions.form.saveTransaction;
+}
+
 export function getTodayDate() {
   const today = new Date();
   const year = today.getFullYear();

@@ -23,6 +23,7 @@ import {
   getInitialInstrumentSearch,
   getInstrumentLookupLabel,
   getSynchronizedInstrumentId,
+  getTransactionSubmitButtonLabel,
   getTransactionInstrumentLabel,
   getVisibleInstrumentOptions,
   type ApiErrorResponse,
@@ -91,20 +92,18 @@ export function TransactionForm({
 
   const isDisabled = instrumentOptions.length === 0 || isSubmitting || isRefreshing;
   const isSubmitDisabled = isDisabled || selectedInstrument == null;
-  const submitIdleLabel = isEditing
-    ? copy.transactions.form.updateTransaction
-    : copy.transactions.form.saveTransaction;
-  const submitButtonLabel = (() => {
-    if (isSubmitting) {
-      return isEditing ? copy.transactions.form.updating : copy.transactions.form.saving;
-    }
-
-    if (isRefreshing) {
-      return copy.transactions.form.refreshing;
-    }
-
-    return submitIdleLabel;
-  })();
+  const submitIdleButtonLabel = getTransactionSubmitButtonLabel({
+    copy,
+    isEditing,
+    isRefreshing: false,
+    isSubmitting: false,
+  });
+  const submitButtonLabel = getTransactionSubmitButtonLabel({
+    copy,
+    isEditing,
+    isRefreshing,
+    isSubmitting,
+  });
   const isFormBusy = isSubmitting || isRefreshing;
 
   useEffect(() => {
@@ -867,7 +866,7 @@ export function TransactionForm({
             >
               {isFormBusy ? (
                 <ButtonLoadingContent label={submitButtonLabel}>
-                  {submitIdleLabel}
+                  {submitIdleButtonLabel}
                 </ButtonLoadingContent>
               ) : (
                 submitButtonLabel
