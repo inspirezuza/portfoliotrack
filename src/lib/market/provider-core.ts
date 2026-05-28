@@ -10,6 +10,11 @@ import {
   transactions,
 } from "@/lib/db/schema";
 import { applyKnownDrMetadata } from "@/lib/instruments/dr-metadata";
+import {
+  getCurrentLocalIsoDate,
+  getExpectedHistoryTailDate,
+  isMarketDataStale,
+} from "@/lib/market/freshness";
 import type {
   MarketDataProvider,
   MarketHistoricalSeries,
@@ -19,6 +24,8 @@ import type {
 } from "@/lib/market/types";
 import { yahooProvider } from "@/lib/market/yahoo-provider-core";
 import { parsePortfolioId } from "@/lib/portfolio/portfolio-id";
+
+export { getPriceAgeMinutes, isMarketDataStale } from "@/lib/market/freshness";
 
 const DEFAULT_BENCHMARK_SYMBOL = "SPYM";
 const DEFAULT_BASE_CURRENCY = "THB";
@@ -169,26 +176,6 @@ export async function getMarketSettings(): Promise<MarketSettings> {
   };
 }
 
-export function getPriceAgeMinutes(asOf: string | null, now = new Date()) {
-  if (asOf == null) {
-    return null;
-  }
-
-  const timestamp = Date.parse(asOf);
-
-  if (Number.isNaN(timestamp)) {
-    return null;
-  }
-
-  return Math.max(0, Math.floor((now.getTime() - timestamp) / 60000));
-}
-
-export function isMarketDataStale(asOf: string | null, refreshMinutes: number, now = new Date()) {
-  const ageMinutes = getPriceAgeMinutes(asOf, now);
-
-  return ageMinutes != null && ageMinutes > refreshMinutes;
-}
-
 function compareIsoTimestampsDescending(left: string, right: string) {
   return right.localeCompare(left);
 }
@@ -223,41 +210,6 @@ export async function ensureBenchmarkWatchlistInstruments() {
       })),
     )
     .onConflictDoNothing();
-}
-
-function toIsoDate(value: Date) {
-  return value.toISOString().slice(0, 10);
-}
-
-function getCurrentLocalIsoDate(now = new Date()) {
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function getExpectedHistoryTailDate(asOf: string) {
-  const snapshotDate = new Date(`${asOf.slice(0, 10)}T00:00:00.000Z`);
-  const utcDay = snapshotDate.getUTCDay();
-
-  if (Number.isNaN(snapshotDate.getTime())) {
-    return null;
-  }
-
-  if (utcDay === 1) {
-    return toIsoDate(addDays(snapshotDate, -3));
-  }
-
-  if (utcDay === 0) {
-    return toIsoDate(addDays(snapshotDate, -2));
-  }
-
-  if (utcDay === 6) {
-    return toIsoDate(addDays(snapshotDate, -1));
-  }
-
-  return toIsoDate(addDays(snapshotDate, -1));
 }
 
 async function getHistoryCoverageByInstrument(targets: RefreshTarget[]) {
