@@ -5,7 +5,7 @@ import YahooFinance from "yahoo-finance2";
 import { withOperationTimeout } from "@/lib/async/timeout";
 import { db } from "@/lib/db/runtime";
 import { instruments, transactions, type Instrument, type NewTransaction } from "@/lib/db/schema";
-import { normalizeMoney, normalizePrice, normalizeQuantity } from "@/lib/db/precision";
+import { normalizeQuantity } from "@/lib/db/precision";
 import {
   getInstrumentTypeFromYahooQuoteType,
   normalizeInstrumentType,
@@ -22,7 +22,6 @@ import {
 import {
   buildTransactionExcelWorkbook,
   parseTransactionExcelWorkbook,
-  TransactionExcelError,
   type ParsedTransactionExcelRow,
 } from "@/lib/transactions/excel";
 import { instrumentInputSchema, type InstrumentInput } from "@/lib/validation/instrument";
@@ -33,6 +32,20 @@ import {
 } from "@/lib/validation/transaction";
 import { listTransactions, toChronologicalPositionTransaction } from "@/server/transactions";
 import { parsePortfolioId } from "@/server/portfolios";
+import {
+  getCreateInstrumentKey,
+  getErrorMessage,
+  getFallbackInstrumentInput,
+  getImportTransactionKey,
+  getMarket,
+  getOptionalCellString,
+  getOptionalNumber,
+  getProviderSymbolCandidates,
+  getValidationMessage,
+  normalizeDisplaySymbol,
+  normalizeLookupValue,
+  parseInstrumentAction,
+} from "@/server/transaction-import-export/import-helpers";
 
 export const MAX_TRANSACTION_IMPORT_FILE_SIZE = 5 * 1024 * 1024;
 export const MAX_TRANSACTION_IMPORT_ROWS = 5000;
@@ -43,7 +56,6 @@ const yahooFinance = new YahooFinance({
 });
 
 type ImportRowStatus = "ready" | "skipped_duplicate" | "error";
-type ImportInstrumentAction = "MATCH" | "CREATE";
 
 export type TransactionImportPreviewRow = {
   rowNumber: number;
@@ -150,154 +162,6 @@ function getTodayIsoDate() {
   return `${year}-${month}-${day}`;
 }
 
-function normalizeLookupValue(value: unknown) {
-  return typeof value === "string"
-    ? value.trim().toUpperCase()
-    : String(value ?? "")
-        .trim()
-        .toUpperCase();
-}
-
-function normalizeDisplaySymbol(value: string) {
-  const normalizedValue = value.trim().toUpperCase();
-
-  return normalizedValue.endsWith(".BK") ? normalizedValue.slice(0, -3) : normalizedValue;
-}
-
-function getOptionalCellString(value: unknown) {
-  if (value == null) {
-    return "";
-  }
-
-  return String(value).trim();
-}
-
-function getOptionalNumber(value: unknown) {
-  if (value == null || String(value).trim().length === 0) {
-    return null;
-  }
-
-  const numberValue = Number(value);
-  return Number.isFinite(numberValue) ? numberValue : null;
-}
-
-function getImportTransactionKey(
-  input: Pick<
-    ImportTransactionInput,
-    "tradeDate" | "side" | "broker" | "quantity" | "price" | "fee" | "notes"
-  >,
-  instrumentKey: string | number,
-) {
-  return [
-    instrumentKey,
-    input.tradeDate,
-    input.side,
-    input.broker ?? "DIME",
-    normalizeQuantity(input.quantity),
-    normalizePrice(input.price),
-    normalizeMoney(input.fee),
-    input.notes ?? "",
-  ].join("|");
-}
-
-function getErrorMessage(error: unknown) {
-  if (error instanceof TransactionExcelError) {
-    return error.message;
-  }
-
-  return error instanceof Error ? error.message : "Excel file could not be imported.";
-}
-
-function getValidationMessage(error: ReturnType<typeof transactionInputSchema.safeParse>) {
-  if (error.success) {
-    return null;
-  }
-
-  const flattened = error.error.flatten();
-  const fieldError = Object.values(flattened.fieldErrors)
-    .flatMap((messages) => messages ?? [])
-    .find(Boolean);
-  const formError = flattened.formErrors.find(Boolean);
-
-  return fieldError ?? formError ?? "Transaction row is invalid.";
-}
-
-function parseInstrumentAction(row: ParsedTransactionExcelRow): {
-  action: ImportInstrumentAction | null;
-  error: string | null;
-} {
-  const action = normalizeLookupValue(row.values.instrumentAction);
-
-  if (action.length === 0 || action === "MATCH") {
-    return { action: "MATCH", error: null };
-  }
-
-  if (action === "CREATE" || action === "ADD") {
-    return { action: "CREATE", error: null };
-  }
-
-  if (action === "UPDATE" || action === "DELETE") {
-    return {
-      action: null,
-      error:
-        "Instrument Action UPDATE/DELETE is not supported in transaction import. Use a separate instrument maintenance flow.",
-    };
-  }
-
-  return {
-    action: null,
-    error: "Instrument Action must be blank, MATCH, or CREATE.",
-  };
-}
-
-function getMarket(providerSymbol: string, exchange?: string, market?: string) {
-  if (
-    providerSymbol.toUpperCase().endsWith(".BK") ||
-    exchange === "SET" ||
-    market === "th_market"
-  ) {
-    return "TH";
-  }
-
-  if (
-    market === "us_market" ||
-    ["ASE", "NCM", "NGM", "NMS", "NYQ", "PCX"].includes(exchange ?? "")
-  ) {
-    return "US";
-  }
-
-  return exchange ?? "OTHER";
-}
-
-function getProviderSymbolCandidates({
-  symbol,
-  providerSymbol,
-  market,
-}: {
-  symbol: string;
-  providerSymbol: string;
-  market: string;
-}) {
-  if (providerSymbol.length > 0) {
-    return [providerSymbol.toUpperCase()];
-  }
-
-  const displaySymbol = normalizeDisplaySymbol(symbol);
-  const knownDrMetadata = getKnownDrMetadata({ symbol: displaySymbol });
-  const symbolLooksThai =
-    symbol.toUpperCase().endsWith(".BK") || knownDrMetadata != null || /\d$/.test(displaySymbol);
-
-  if (market === "TH" || symbolLooksThai) {
-    return [`${displaySymbol}.BK`, displaySymbol];
-  }
-
-  if (market === "US") {
-    return [displaySymbol];
-  }
-
-  return [displaySymbol, `${displaySymbol}.BK`];
-}
-
 async function getYahooInstrumentInput({
   symbol,
   displayName,
@@ -364,48 +228,6 @@ async function getYahooInstrumentInput({
   }
 
   return null;
-}
-
-function getFallbackInstrumentInput({
-  symbol,
-  displayName,
-  market,
-  instrumentType,
-  currency,
-  providerSymbol,
-}: {
-  symbol: string;
-  displayName: string;
-  market: string;
-  instrumentType: string;
-  currency: string;
-  providerSymbol: string;
-}): InstrumentInput {
-  const displaySymbol = normalizeDisplaySymbol(symbol || providerSymbol);
-  const knownDrMetadata = getKnownDrMetadata({ symbol: displaySymbol, providerSymbol });
-  const inferredMarket =
-    market ||
-    (providerSymbol.toUpperCase().endsWith(".BK") ||
-    symbol.toUpperCase().endsWith(".BK") ||
-    knownDrMetadata != null ||
-    /\d$/.test(displaySymbol)
-      ? "TH"
-      : "US");
-
-  return {
-    symbol: displaySymbol,
-    displayName: displayName || displaySymbol,
-    market: inferredMarket,
-    instrumentType:
-      normalizeInstrumentType(instrumentType) || knownDrMetadata?.instrumentType || "EQUITY",
-    currency: currency || (inferredMarket === "TH" ? "THB" : "USD"),
-    providerSymbol:
-      providerSymbol || (inferredMarket === "TH" ? `${displaySymbol}.BK` : displaySymbol),
-  };
-}
-
-function getCreateInstrumentKey(input: InstrumentInput) {
-  return normalizeLookupValue(input.providerSymbol || input.symbol);
 }
 
 async function buildCreateInstrument(row: ParsedTransactionExcelRow) {
