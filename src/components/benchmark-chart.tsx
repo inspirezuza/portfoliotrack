@@ -55,6 +55,7 @@ import {
   getSeriesChangeValue,
   getUnavailableMessage,
 } from "@/components/benchmark-chart/formatting";
+import { BenchmarkRangeSummaryStrip } from "@/components/benchmark-chart/range-summary-strip";
 import type {
   ChartPoint,
   PerformanceMode,
@@ -451,62 +452,14 @@ export function BenchmarkChart({
       {hasSeries ? (
         <div className="chart-workspace">
           {rangeStats == null ? null : (
-            <div className="chart-stat-strip" aria-label={copy.charts.benchmark.rangeSummary}>
-              <div>
-                <span>{copy.charts.benchmark.portfolio}</span>
-                <strong
-                  className={
-                    rangeStats.portfolioChange == null
-                      ? ""
-                      : rangeStats.portfolioChange >= 0
-                        ? "value-positive"
-                        : "value-negative"
-                  }
-                >
-                  {rangeStats.portfolioChange == null
-                    ? "-"
-                    : formatSignedPercent(rangeStats.portfolioChange)}
-                </strong>
-              </div>
-              <div>
-                <span>{benchmarkSymbol ?? copy.charts.benchmark.benchmark}</span>
-                <strong
-                  className={
-                    rangeStats.benchmarkChange == null
-                      ? ""
-                      : rangeStats.benchmarkChange >= 0
-                        ? "value-positive"
-                        : "value-negative"
-                  }
-                >
-                  {rangeStats.benchmarkChange == null
-                    ? "-"
-                    : formatSignedPercent(rangeStats.benchmarkChange)}
-                </strong>
-              </div>
-              <div>
-                <span>
-                  {mode === "GAP" ? copy.charts.benchmark.latestGap : copy.charts.benchmark.gap}
-                </span>
-                <strong
-                  className={
-                    rangeStats.gap == null
-                      ? ""
-                      : rangeStats.gap >= 0
-                        ? "value-positive"
-                        : "value-negative"
-                  }
-                >
-                  {rangeStats.gap == null ? "-" : formatPercentagePoint(rangeStats.gap)}
-                </strong>
-              </div>
-              <div>
-                <span>{modeCopy.yAxisLabel}</span>
-                <strong>
-                  {formatModeValue(rangeStats.latestPoint.portfolioDisplay, mode, locale)}
-                </strong>
-              </div>
-            </div>
+            <BenchmarkRangeSummaryStrip
+              benchmarkSymbol={benchmarkSymbol}
+              copy={copy.charts.benchmark}
+              locale={locale}
+              mode={mode}
+              modeCopy={modeCopy}
+              rangeStats={rangeStats}
+            />
           )}
 
           <div className="chart-shell" ref={chartContainerRef}>
