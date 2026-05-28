@@ -7,9 +7,11 @@ import {
   getHoldingLotInstrumentOption,
   getHoldingLotTransaction,
   getHoldingSearchText,
+  getNextHoldingSortState,
   getPerformanceColumnLabel,
   getPerformanceKey,
   getPricePerformanceTimeframeLabel,
+  getToggledExpandedHoldingIds,
   getValuationAverageCost,
   getValuationLastPrice,
   isNativeCurrencyVisible,
@@ -178,6 +180,29 @@ test("holding sort and filters use valuation values for mixed-currency rows", ()
   assert.equal(matchesHoldingFilter(gain, "gain"), true);
   assert.equal(matchesHoldingFilter(gain, "loss"), false);
   assert.equal(matchesHoldingFilter(loss, "loss"), true);
+});
+
+test("holding table state helpers preserve sort and expanded row toggles", () => {
+  assert.deepEqual(
+    getNextHoldingSortState({ direction: "desc", key: "marketValue" }, "marketValue"),
+    { direction: "asc", key: "marketValue" },
+  );
+  assert.deepEqual(getNextHoldingSortState({ direction: "asc", key: "symbol" }, "marketValue"), {
+    direction: "desc",
+    key: "marketValue",
+  });
+  assert.deepEqual(getNextHoldingSortState({ direction: "desc", key: "marketValue" }, "symbol"), {
+    direction: "asc",
+    key: "symbol",
+  });
+
+  const expandedIds = new Set([1, 2]);
+  const afterCollapse = getToggledExpandedHoldingIds(expandedIds, 1);
+  const afterExpand = getToggledExpandedHoldingIds(expandedIds, 3);
+
+  assert.deepEqual([...afterCollapse], [2]);
+  assert.deepEqual([...afterExpand], [1, 2, 3]);
+  assert.deepEqual([...expandedIds], [1, 2]);
 });
 
 test("visible holdings and summary preserve filter, search, sort, and null rollups", () => {

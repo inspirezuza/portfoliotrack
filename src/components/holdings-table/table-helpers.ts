@@ -110,6 +110,33 @@ export function getPerformanceColumnLabel({
     : copy.holdings.table.columns.performance(timeframeLabel);
 }
 
+export function getNextHoldingSortState(
+  currentSort: SortState,
+  sortKey: HoldingSortKey,
+): SortState {
+  return currentSort.key === sortKey
+    ? {
+        key: sortKey,
+        direction: currentSort.direction === "asc" ? "desc" : "asc",
+      }
+    : {
+        key: sortKey,
+        direction: sortKey === "symbol" ? "asc" : "desc",
+      };
+}
+
+export function getToggledExpandedHoldingIds(currentIds: Set<number>, instrumentId: number) {
+  const nextIds = new Set(currentIds);
+
+  if (nextIds.has(instrumentId)) {
+    nextIds.delete(instrumentId);
+  } else {
+    nextIds.add(instrumentId);
+  }
+
+  return nextIds;
+}
+
 export function getValuationPerformanceAmount(
   holding: HoldingRow,
   performanceKey: HoldingPerformanceKey,

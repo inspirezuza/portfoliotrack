@@ -37,9 +37,11 @@ import {
   getHoldingLotInstrumentOption,
   getHoldingLotTransaction,
   getHoldingPerformance,
+  getNextHoldingSortState,
   getPerformanceColumnLabel,
   getPerformanceKey,
   getPricePerformanceTimeframeLabel,
+  getToggledExpandedHoldingIds,
   getValuationAverageCost,
   getValuationLastPrice,
   PERFORMANCE_TIMEFRAMES,
@@ -182,31 +184,11 @@ export function HoldingsTable({
   );
 
   function handleSort(sortKey: HoldingSortKey) {
-    setSort((currentSort) =>
-      currentSort.key === sortKey
-        ? {
-            key: sortKey,
-            direction: currentSort.direction === "asc" ? "desc" : "asc",
-          }
-        : {
-            key: sortKey,
-            direction: sortKey === "symbol" ? "asc" : "desc",
-          },
-    );
+    setSort((currentSort) => getNextHoldingSortState(currentSort, sortKey));
   }
 
   function toggleHoldingLots(instrumentId: number) {
-    setExpandedHoldingIds((currentIds) => {
-      const nextIds = new Set(currentIds);
-
-      if (nextIds.has(instrumentId)) {
-        nextIds.delete(instrumentId);
-      } else {
-        nextIds.add(instrumentId);
-      }
-
-      return nextIds;
-    });
+    setExpandedHoldingIds((currentIds) => getToggledExpandedHoldingIds(currentIds, instrumentId));
   }
 
   function handleHoldingRowClick(event: MouseEvent<HTMLTableRowElement>, instrumentId: number) {
