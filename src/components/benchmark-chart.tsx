@@ -36,6 +36,7 @@ import {
   mergeQuotes,
 } from "@/components/benchmark-chart/chart-helpers";
 import { BenchmarkChartControls } from "@/components/benchmark-chart/chart-controls";
+import { BenchmarkChartHeader } from "@/components/benchmark-chart/chart-header";
 import {
   getSelectionChangeSummary,
   getSelectionPoints,
@@ -410,27 +411,18 @@ export function BenchmarkChart({
 
   return (
     <article className="surface-card chart-card benchmark-chart-card">
-      <div className="chart-card-header">
-        <div>
-          <p className="eyebrow">{copy.charts.benchmark.eyebrow}</p>
-          <h2 className="section-title">
-            {benchmarkSymbol == null
-              ? copy.charts.benchmark.titleDefault
-              : copy.charts.benchmark.titleWithSymbol(benchmarkSymbol)}
-          </h2>
-          {hasAnySeries ? (
-            <p className="chart-subtitle">
-              {getBasisLabel({
-                benchmarkCurrency,
-                comparisonBasis,
-                copy: copy.charts.benchmark,
-                portfolioCurrency,
-              })}
-            </p>
-          ) : null}
-        </div>
-        {renderChartControls("chart-control-stack chart-control-stack-desktop")}
-      </div>
+      <BenchmarkChartHeader
+        benchmarkSymbol={benchmarkSymbol}
+        controls={renderChartControls("chart-control-stack chart-control-stack-desktop")}
+        copy={copy.charts.benchmark}
+        hasAnySeries={hasAnySeries}
+        subtitle={getBasisLabel({
+          benchmarkCurrency,
+          comparisonBasis,
+          copy: copy.charts.benchmark,
+          portfolioCurrency,
+        })}
+      />
 
       {renderChartControls("chart-control-stack chart-control-stack-mobile")}
 
