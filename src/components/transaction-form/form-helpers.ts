@@ -67,6 +67,15 @@ export type TransactionRequestBody = {
   notes: string;
 };
 
+export type TransactionFormSyncState = {
+  values: TransactionFormValues;
+  instrumentSearch?: string;
+  highlightedInstrumentId?: string | null;
+  isInstrumentComboboxOpen?: boolean;
+  errorMessage?: string | null;
+  successMessage?: string | null;
+};
+
 export function getTransactionSubmitButtonLabel({
   copy,
   isEditing,
@@ -89,6 +98,39 @@ export function getTransactionSubmitButtonLabel({
   return isEditing
     ? copy.transactions.form.updateTransaction
     : copy.transactions.form.saveTransaction;
+}
+
+export function getNextTransactionFormSyncState({
+  currentValues,
+  editingTransaction,
+  instruments,
+}: {
+  currentValues: TransactionFormValues;
+  editingTransaction?: TransactionListItem | null;
+  instruments: TransactionInstrumentOption[];
+}): TransactionFormSyncState {
+  if (editingTransaction) {
+    return {
+      values: createValuesFromTransaction(editingTransaction),
+      instrumentSearch: getTransactionInstrumentLabel(editingTransaction, instruments),
+      highlightedInstrumentId: String(editingTransaction.instrumentId),
+      isInstrumentComboboxOpen: false,
+      errorMessage: null,
+      successMessage: null,
+    };
+  }
+
+  const instrumentId = getSynchronizedInstrumentId(currentValues.instrumentId, instruments);
+
+  return {
+    values:
+      instrumentId === currentValues.instrumentId
+        ? currentValues
+        : {
+            ...currentValues,
+            instrumentId,
+          },
+  };
 }
 
 export function getTodayDate() {

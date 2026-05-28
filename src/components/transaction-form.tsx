@@ -22,7 +22,7 @@ import {
   getErrorMessage,
   getInitialInstrumentSearch,
   getInstrumentLookupLabel,
-  getSynchronizedInstrumentId,
+  getNextTransactionFormSyncState,
   getTransactionSubmitButtonLabel,
   getTransactionInstrumentLabel,
   getVisibleInstrumentOptions,
@@ -33,6 +33,7 @@ import {
   type NewInstrumentFormValues,
   type TransactionFormValues,
 } from "@/components/transaction-form/form-helpers";
+import { TransactionSubmitButton } from "@/components/transaction-form/submit-button";
 
 type TransactionFormProps = {
   instruments: TransactionInstrumentOption[];
@@ -110,26 +111,29 @@ export function TransactionForm({
     setInstrumentOptions(instruments);
 
     if (editingTransaction) {
-      setValues(createValuesFromTransaction(editingTransaction));
-      setInstrumentSearch(getTransactionInstrumentLabel(editingTransaction, instruments));
-      setHighlightedInstrumentId(String(editingTransaction.instrumentId));
-      setIsInstrumentComboboxOpen(false);
-      setErrorMessage(null);
-      setSuccessMessage(null);
+      const nextState = getNextTransactionFormSyncState({
+        currentValues: createValuesFromTransaction(editingTransaction),
+        editingTransaction,
+        instruments,
+      });
+
+      setValues(nextState.values);
+      setInstrumentSearch(nextState.instrumentSearch ?? "");
+      setHighlightedInstrumentId(nextState.highlightedInstrumentId ?? null);
+      setIsInstrumentComboboxOpen(nextState.isInstrumentComboboxOpen ?? false);
+      setErrorMessage(nextState.errorMessage ?? null);
+      setSuccessMessage(nextState.successMessage ?? null);
       return;
     }
 
     setValues((currentValues) => {
-      const instrumentId = getSynchronizedInstrumentId(currentValues.instrumentId, instruments);
+      const nextState = getNextTransactionFormSyncState({
+        currentValues,
+        editingTransaction: null,
+        instruments,
+      });
 
-      if (instrumentId === currentValues.instrumentId) {
-        return currentValues;
-      }
-
-      return {
-        ...currentValues,
-        instrumentId,
-      };
+      return nextState.values;
     });
   }, [editingTransaction, instruments]);
 
@@ -858,20 +862,12 @@ export function TransactionForm({
                 {copy.transactions.form.cancelEdit}
               </button>
             ) : null}
-            <button
-              type="submit"
-              className="primary-button"
-              disabled={isSubmitDisabled}
-              aria-busy={isFormBusy}
-            >
-              {isFormBusy ? (
-                <ButtonLoadingContent label={submitButtonLabel}>
-                  {submitIdleButtonLabel}
-                </ButtonLoadingContent>
-              ) : (
-                submitButtonLabel
-              )}
-            </button>
+            <TransactionSubmitButton
+              buttonLabel={submitButtonLabel}
+              idleLabel={submitIdleButtonLabel}
+              isFormBusy={isFormBusy}
+              isSubmitDisabled={isSubmitDisabled}
+            />
           </div>
         </form>
       )}

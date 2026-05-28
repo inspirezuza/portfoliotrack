@@ -6,6 +6,7 @@ import {
   findExistingInstrumentForLookup,
   getErrorMessage,
   getInitialInstrumentSearch,
+  getNextTransactionFormSyncState,
   getSynchronizedInstrumentId,
   getTransactionSubmitButtonLabel,
   getTransactionInstrumentLabel,
@@ -196,6 +197,49 @@ test("transaction form helper preserves submit button labels", () => {
       isSubmitting: false,
     }),
     "Refreshing...",
+  );
+});
+
+test("transaction form sync helper preserves edit hydration and instrument resync", () => {
+  const instruments = [
+    createInstrument({ id: 20, symbol: "MSFT", label: "MSFT - Microsoft - NASDAQ - USD" }),
+    createInstrument(),
+  ];
+  const currentValues = {
+    instrumentId: "999",
+    tradeDate: "2026-05-29",
+    side: "BUY" as const,
+    broker: "DIME" as const,
+    quantity: "1",
+    price: "10",
+    fee: "0",
+    notes: "draft",
+  };
+
+  assert.deepEqual(
+    getNextTransactionFormSyncState({
+      currentValues,
+      editingTransaction: createTransaction(),
+      instruments,
+    }),
+    {
+      values: createValuesFromTransaction(createTransaction()),
+      instrumentSearch: "AAPL - Apple Inc. - NASDAQ - USD",
+      highlightedInstrumentId: "10",
+      isInstrumentComboboxOpen: false,
+      errorMessage: null,
+      successMessage: null,
+    },
+  );
+  assert.deepEqual(
+    getNextTransactionFormSyncState({
+      currentValues,
+      editingTransaction: null,
+      instruments,
+    }),
+    {
+      values: { ...currentValues, instrumentId: "" },
+    },
   );
 });
 
