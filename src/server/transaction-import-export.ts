@@ -29,6 +29,7 @@ import {
   buildInstrumentInsertValue,
   buildTransactionInsertValue,
 } from "@/server/transaction-import-export/commit-helpers";
+import { buildTransactionExportFileName } from "@/server/transaction-import-export/export-helpers";
 import { TransactionImportExportError } from "@/server/transaction-import-export/errors";
 import { buildCreateInstrument } from "@/server/transaction-import-export/instrument-create";
 import type {
@@ -48,15 +49,6 @@ export type {
 
 export const MAX_TRANSACTION_IMPORT_FILE_SIZE = 5 * 1024 * 1024;
 export const MAX_TRANSACTION_IMPORT_ROWS = 5000;
-
-function getTodayIsoDate() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
 
 async function getImportContext(portfolioId: number) {
   const instrumentRows = db
@@ -358,9 +350,7 @@ export async function buildTransactionExport({
   const portfolioId = parsePortfolioId(portfolioIdInput);
   const transactionRows = template ? [] : await listTransactions({ portfolioId, order: "asc" });
   const buffer = await buildTransactionExcelWorkbook(transactionRows);
-  const fileName = template
-    ? "PortfolioTrack-transaction-template.xlsx"
-    : `PortfolioTrack-transactions-${getTodayIsoDate()}.xlsx`;
+  const fileName = buildTransactionExportFileName({ template });
 
   return {
     buffer,
