@@ -1,11 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  ButtonLoadingContent,
-  LoadingIndicator,
-  PendingBanner,
-} from "@/components/loading-indicator";
+import { PendingBanner } from "@/components/loading-indicator";
 import { formatQuantity } from "@/lib/format";
 import {
   findExactInstrumentSearchMatch,
@@ -34,6 +30,7 @@ import {
   type NewInstrumentFormValues,
   type TransactionFormValues,
 } from "@/components/transaction-form/form-helpers";
+import { InstrumentLookupPanel } from "@/components/transaction-form/instrument-lookup";
 import { TransactionSubmitButton } from "@/components/transaction-form/submit-button";
 
 type TransactionFormProps = {
@@ -485,126 +482,33 @@ export function TransactionForm({
         </div>
       </div>
 
-      <div className="instrument-manager">
-        <div className="instrument-manager-header">
-          <div>
-            <span className="field-label">{copy.transactions.form.instrument}</span>
-            <p className="field-hint">{copy.transactions.form.instrumentHint}</p>
-          </div>
-        </div>
-
-        <form
-          className="instrument-lookup"
-          onSubmit={handleInstrumentLookupSubmit}
-          aria-busy={isCreatingInstrument || isSearchingInstruments}
-        >
-          <label className="field-group">
-            <span className="field-label">{copy.transactions.form.searchInstrument}</span>
-            <span className="instrument-lookup-search">
-              <input
-                type="text"
-                value={instrumentLookupQuery}
-                onChange={(event) => {
-                  setInstrumentLookupQuery(event.target.value);
-                  setIsInstrumentLookupMenuOpen(event.target.value.trim().length >= 2);
-                  setSelectedInstrumentLookupResult(null);
-                  setInstrumentErrorMessage(null);
-                  setInstrumentSuccessMessage(null);
-                }}
-                onFocus={() => {
-                  if (!selectedInstrumentLookupResult && instrumentLookupQuery.trim().length >= 2) {
-                    setIsInstrumentLookupMenuOpen(true);
-                  }
-                }}
-                placeholder={copy.transactions.form.searchInstrumentPlaceholder}
-                autoComplete="off"
-                disabled={isCreatingInstrument}
-              />
-              {instrumentLookupQuery.trim().length > 0 ? (
-                <button
-                  type="button"
-                  className="instrument-lookup-clear"
-                  onClick={clearInstrumentLookup}
-                  aria-label={copy.transactions.form.clearInstrumentSearch}
-                  disabled={isCreatingInstrument}
-                >
-                  x
-                </button>
-              ) : null}
-            </span>
-          </label>
-
-          {isInstrumentLookupMenuOpen && instrumentLookupQuery.trim().length >= 2 ? (
-            <div className="instrument-lookup-menu">
-              {isSearchingInstruments ? (
-                <div className="instrument-combobox-empty" role="status">
-                  <LoadingIndicator label={copy.transactions.form.searching} size="sm" />
-                </div>
-              ) : instrumentLookupResults.length > 0 ? (
-                instrumentLookupResults.map((instrument) => {
-                  const existingInstrument = findExistingInstrumentForLookup(
-                    instrumentOptions,
-                    instrument,
-                  );
-                  const isSelected =
-                    selectedInstrumentLookupResult?.providerSymbol === instrument.providerSymbol;
-
-                  return (
-                    <button
-                      key={instrument.providerSymbol}
-                      type="button"
-                      className="instrument-combobox-option"
-                      data-selected={isSelected}
-                      onClick={() => handleInstrumentLookupSelect(instrument)}
-                      disabled={isCreatingInstrument}
-                    >
-                      <span className="instrument-combobox-symbol">{instrument.symbol}</span>
-                      <span className="instrument-combobox-name">{instrument.displayName}</span>
-                      <span className="instrument-combobox-meta">
-                        {existingInstrument
-                          ? copy.transactions.form.saved
-                          : copy.transactions.form.add}
-                        {copy.shared.separator}
-                        {instrument.instrumentType}
-                        {copy.shared.separator}
-                        {instrument.market}
-                        {copy.shared.separator}
-                        {instrument.currency}
-                        {copy.shared.separator}
-                        {instrument.providerSymbol}
-                      </span>
-                    </button>
-                  );
-                })
-              ) : (
-                <div className="instrument-combobox-empty" role="status">
-                  {copy.transactions.form.noMatchingInstruments}
-                </div>
-              )}
-            </div>
-          ) : null}
-
-          <button
-            type="submit"
-            className="compact-button instrument-lookup-submit"
-            disabled={!selectedInstrumentLookupResult || isCreatingInstrument}
-          >
-            {isCreatingInstrument ? (
-              <ButtonLoadingContent label={copy.transactions.form.addingInstrument}>
-                {copy.transactions.form.addInstrument}
-              </ButtonLoadingContent>
-            ) : (
-              copy.transactions.form.addInstrument
-            )}
-          </button>
-          {instrumentErrorMessage ? (
-            <p className="form-banner form-banner-error">{instrumentErrorMessage}</p>
-          ) : null}
-          {instrumentSuccessMessage ? (
-            <p className="form-banner form-banner-success">{instrumentSuccessMessage}</p>
-          ) : null}
-        </form>
-      </div>
+      <InstrumentLookupPanel
+        copy={copy}
+        instrumentErrorMessage={instrumentErrorMessage}
+        instrumentLookupQuery={instrumentLookupQuery}
+        instrumentLookupResults={instrumentLookupResults}
+        instrumentOptions={instrumentOptions}
+        instrumentSuccessMessage={instrumentSuccessMessage}
+        isCreatingInstrument={isCreatingInstrument}
+        isInstrumentLookupMenuOpen={isInstrumentLookupMenuOpen}
+        isSearchingInstruments={isSearchingInstruments}
+        onClear={clearInstrumentLookup}
+        onFocus={() => {
+          if (!selectedInstrumentLookupResult && instrumentLookupQuery.trim().length >= 2) {
+            setIsInstrumentLookupMenuOpen(true);
+          }
+        }}
+        onQueryChange={(nextQuery) => {
+          setInstrumentLookupQuery(nextQuery);
+          setIsInstrumentLookupMenuOpen(nextQuery.trim().length >= 2);
+          setSelectedInstrumentLookupResult(null);
+          setInstrumentErrorMessage(null);
+          setInstrumentSuccessMessage(null);
+        }}
+        onSelect={handleInstrumentLookupSelect}
+        onSubmit={handleInstrumentLookupSubmit}
+        selectedInstrumentLookupResult={selectedInstrumentLookupResult}
+      />
 
       {instrumentOptions.length === 0 ? (
         <div className="transaction-empty-state">
