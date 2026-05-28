@@ -29,6 +29,14 @@ export type SortState = {
 
 export type PerformanceBasis = "price" | "cost";
 
+export type HoldingsSummary = {
+  totalCost: number | null;
+  marketValue: number | null;
+  unrealizedPnl: number | null;
+  oneDayGain: number | null;
+  portfolioWeight: number | null;
+};
+
 export const PERFORMANCE_TIMEFRAMES: HoldingPerformanceTimeframe[] = [
   "1D",
   "1W",
@@ -220,6 +228,68 @@ export function getHoldingSearchText(holding: HoldingRow) {
   ]
     .join(" ")
     .toLowerCase();
+}
+
+export function buildVisibleHoldings({
+  filter,
+  holdings,
+  performanceKey,
+  searchQuery,
+  sort,
+}: {
+  filter: HoldingFilter;
+  holdings: HoldingRow[];
+  performanceKey: HoldingPerformanceKey;
+  searchQuery: string;
+  sort: SortState;
+}) {
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+
+  return holdings
+    .filter((holding) => matchesHoldingFilter(holding, filter))
+    .filter((holding) =>
+      normalizedQuery.length === 0 ? true : getHoldingSearchText(holding).includes(normalizedQuery),
+    )
+    .sort((left, right) => compareHoldings(left, right, sort, performanceKey));
+}
+
+export function getHoldingsSummary(
+  holdings: HoldingRow[],
+  performanceKey: HoldingPerformanceKey,
+): HoldingsSummary {
+  return holdings.reduce<HoldingsSummary>(
+    (summary, holding) => ({
+      totalCost:
+        summary.totalCost == null || holding.totalCostInValuationCurrency == null
+          ? null
+          : summary.totalCost + holding.totalCostInValuationCurrency,
+      marketValue:
+        summary.marketValue == null || holding.marketValueInValuationCurrency == null
+          ? null
+          : summary.marketValue + holding.marketValueInValuationCurrency,
+      unrealizedPnl:
+        summary.unrealizedPnl == null || holding.unrealizedPnlInValuationCurrency == null
+          ? null
+          : summary.unrealizedPnl + holding.unrealizedPnlInValuationCurrency,
+      oneDayGain:
+        summary.oneDayGain == null ||
+        getHoldingPerformance(holding, performanceKey).amountInValuationCurrency == null
+          ? null
+          : summary.oneDayGain +
+            (getHoldingPerformance(holding, performanceKey).amountInValuationCurrency ?? 0),
+      portfolioWeight:
+        summary.portfolioWeight == null || holding.portfolioWeight == null
+          ? null
+          : summary.portfolioWeight + holding.portfolioWeight,
+    }),
+    {
+      totalCost: 0,
+      marketValue: 0,
+      unrealizedPnl: 0,
+      oneDayGain: 0,
+      portfolioWeight: 0,
+    },
+  );
 }
 
 export function getHoldingLotInstrumentOption(holding: HoldingRow): TransactionInstrumentOption {

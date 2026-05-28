@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildVisibleHoldings,
   compareHoldings,
+  getHoldingsSummary,
   getHoldingLotInstrumentOption,
   getHoldingLotTransaction,
   getHoldingSearchText,
@@ -151,6 +153,55 @@ test("holding sort and filters use valuation values for mixed-currency rows", ()
   assert.equal(matchesHoldingFilter(gain, "gain"), true);
   assert.equal(matchesHoldingFilter(gain, "loss"), false);
   assert.equal(matchesHoldingFilter(loss, "loss"), true);
+});
+
+test("visible holdings and summary preserve filter, search, sort, and null rollups", () => {
+  const performanceKey = getPerformanceKey({ basis: "price", timeframe: "1D" });
+  const gain = createHolding({
+    symbol: "GAIN",
+    displayName: "Gain Corp",
+    marketValue: 20,
+    marketValueInValuationCurrency: 700,
+    oneDayGain: 2,
+    oneDayGainInValuationCurrency: 70,
+    portfolioWeight: 0.25,
+    unrealizedPnl: 5,
+    unrealizedPnlInValuationCurrency: 175,
+    valuationCurrency: "THB",
+    performance: {
+      ...createHolding().performance,
+      "1D": { amount: 2, amountInValuationCurrency: 70, percent: 0.02 },
+    },
+  });
+  const loss = createHolding({
+    symbol: "LOSS",
+    displayName: "Loss Corp",
+    marketValue: 10,
+    oneDayGain: null,
+    portfolioWeight: 0.1,
+    totalCostInValuationCurrency: null,
+    unrealizedPnl: -2,
+  });
+
+  const visibleHoldings = buildVisibleHoldings({
+    filter: "gain",
+    holdings: [loss, gain],
+    performanceKey,
+    searchQuery: "gain",
+    sort: { direction: "desc", key: "marketValue" },
+  });
+
+  assert.deepEqual(
+    visibleHoldings.map((holding) => holding.symbol),
+    ["GAIN"],
+  );
+  assert.deepEqual(getHoldingsSummary(visibleHoldings, performanceKey), {
+    totalCost: null,
+    marketValue: 700,
+    unrealizedPnl: 175,
+    oneDayGain: 70,
+    portfolioWeight: 0.25,
+  });
 });
 
 test("holding search text includes core identifying fields", () => {

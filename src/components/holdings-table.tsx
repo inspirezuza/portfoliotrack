@@ -32,15 +32,14 @@ import {
 } from "@/components/holdings-table/display-helpers";
 import { HoldingLotsPanel } from "@/components/holdings-table/holding-lots-panel";
 import {
-  compareHoldings,
+  buildVisibleHoldings,
+  getHoldingsSummary,
   getHoldingLotInstrumentOption,
   getHoldingLotTransaction,
   getHoldingPerformance,
-  getHoldingSearchText,
   getPerformanceKey,
   getValuationAverageCost,
   getValuationLastPrice,
-  matchesHoldingFilter,
   PERFORMANCE_TIMEFRAMES,
   type HoldingFilter,
   type HoldingSortKey,
@@ -187,64 +186,21 @@ export function HoldingsTable({
     basis: performanceBasis,
     timeframe: performanceTimeframe,
   });
-  const searchableHoldings = useMemo(
+  const visibleHoldings = useMemo(
     () =>
-      holdings.map((holding) => ({
-        holding,
-        searchText: getHoldingSearchText(holding),
-      })),
-    [holdings],
+      buildVisibleHoldings({
+        filter,
+        holdings,
+        performanceKey: selectedPerformanceKey,
+        searchQuery,
+        sort,
+      }),
+    [filter, holdings, searchQuery, selectedPerformanceKey, sort],
   );
-
-  const visibleHoldings = useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLowerCase();
-
-    return searchableHoldings
-      .filter(({ holding }) => matchesHoldingFilter(holding, filter))
-      .filter(({ searchText }) =>
-        normalizedQuery.length === 0 ? true : searchText.includes(normalizedQuery),
-      )
-      .map(({ holding }) => holding)
-      .sort((left, right) => compareHoldings(left, right, sort, selectedPerformanceKey));
-  }, [filter, searchQuery, searchableHoldings, selectedPerformanceKey, sort]);
   const visibleSummaryCurrency = visibleHoldings[0]?.valuationCurrency ?? null;
 
   const visibleSummary = useMemo(
-    () =>
-      visibleHoldings.reduce(
-        (summary, holding) => ({
-          totalCost:
-            summary.totalCost == null || holding.totalCostInValuationCurrency == null
-              ? null
-              : summary.totalCost + holding.totalCostInValuationCurrency,
-          marketValue:
-            summary.marketValue == null || holding.marketValueInValuationCurrency == null
-              ? null
-              : summary.marketValue + holding.marketValueInValuationCurrency,
-          unrealizedPnl:
-            summary.unrealizedPnl == null || holding.unrealizedPnlInValuationCurrency == null
-              ? null
-              : summary.unrealizedPnl + holding.unrealizedPnlInValuationCurrency,
-          oneDayGain:
-            summary.oneDayGain == null ||
-            getHoldingPerformance(holding, selectedPerformanceKey).amountInValuationCurrency == null
-              ? null
-              : summary.oneDayGain +
-                (getHoldingPerformance(holding, selectedPerformanceKey).amountInValuationCurrency ??
-                  0),
-          portfolioWeight:
-            summary.portfolioWeight == null || holding.portfolioWeight == null
-              ? null
-              : summary.portfolioWeight + holding.portfolioWeight,
-        }),
-        {
-          totalCost: 0 as number | null,
-          marketValue: 0 as number | null,
-          unrealizedPnl: 0 as number | null,
-          oneDayGain: 0 as number | null,
-          portfolioWeight: 0 as number | null,
-        },
-      ),
+    () => getHoldingsSummary(visibleHoldings, selectedPerformanceKey),
     [selectedPerformanceKey, visibleHoldings],
   );
 
