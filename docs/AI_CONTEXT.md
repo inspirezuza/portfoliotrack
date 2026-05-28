@@ -60,6 +60,7 @@ Important directories:
 - `src/lib/validation/`: Zod schemas for incoming payloads.
 - `drizzle/`: Postgres SQL baseline.
 - `docs/DEPLOYMENT.md`: Vercel + Neon deployment workflow.
+- `docs/QUALITY_AND_OPERATIONS.md`: quality gates, dependency policy, migration safety, and improvement checklist.
 
 ## Database
 
@@ -93,7 +94,7 @@ Schema deployment:
 pnpm run db:migrate:local
 ```
 
-This runs `drizzle-kit push` against `LOCAL_DATABASE_URL` when set, then `DATABASE_URL`, with a machine-level local Postgres fallback in development. For production handoff, run `pnpm run db:generate`, review the generated SQL in `drizzle/`, then use `pnpm run db:migrate:prod` with `DATABASE_URL` set. The baseline SQL is `drizzle/0000_initial_postgres.sql`; `drizzle/0001_multi_portfolios.sql` adds portfolio support and migrates existing transactions into `Main Portfolio`; `drizzle/0002_transaction_broker.sql` adds the broker field; `drizzle/0003_market_refresh_runs.sql` adds refresh run tracking; `drizzle/0004_market_refresh_progress.sql` adds worker progress fields for async refresh batches.
+This runs `drizzle-kit push` against `LOCAL_DATABASE_URL` when set, then `DATABASE_URL`, with a machine-level local Postgres fallback in development. `pnpm run db:migrate` is only a compatibility alias for this local command. For production handoff, run `pnpm run db:generate`, optionally run `pnpm run db:check`, review the generated SQL in `drizzle/`, then use `pnpm run db:migrate:prod` with `DATABASE_URL` set. The baseline SQL is `drizzle/0000_initial_postgres.sql`; `drizzle/0001_multi_portfolios.sql` adds portfolio support and migrates existing transactions into `Main Portfolio`; `drizzle/0002_transaction_broker.sql` adds the broker field; `drizzle/0003_market_refresh_runs.sql` adds refresh run tracking; `drizzle/0004_market_refresh_progress.sql` adds worker progress fields for async refresh batches.
 
 Seed:
 
@@ -196,6 +197,7 @@ pnpm run build
 pnpm run db:migrate
 pnpm run db:migrate:local
 pnpm run db:migrate:prod
+pnpm run db:check
 pnpm run config:check
 pnpm run config:check:prod
 pnpm run db:seed
@@ -205,9 +207,9 @@ pnpm run auth:hash
 Notes:
 
 - `pnpm run build` also performs Next.js type/lint checks.
-- `pnpm run verify` runs lint, typecheck, unit tests, and production build.
+- `pnpm run verify` runs format check, lint, typecheck, unit tests, and production build.
 - GitHub Actions runs `pnpm run verify` on `main` and pull requests. Pull requests also run Playwright smoke tests.
-- Dependabot opens conservative weekly package-manager PRs. Major framework/library upgrades remain manual review work, not automatic PR churn.
+- Dependabot opens conservative weekly package-manager PRs. Major framework/library/tooling upgrades remain manual review work, not automatic PR churn.
 - `pnpm run test` uses Node's built-in test runner with `tsx`.
 - Add or update tests only when they materially improve confidence for the current change.
 - The development server may print a Windows SWC DLL warning and still work.

@@ -25,7 +25,7 @@ export function getInstrumentSearchText(instrument: InstrumentSearchOption) {
     instrument.currency,
     instrument.instrumentType,
     instrument.providerSymbol ?? "",
-    instrument.label
+    instrument.label,
   ].join(" ");
 }
 
@@ -74,7 +74,7 @@ export function getInstrumentSearchScore(instrument: InstrumentSearchOption, que
 
 export function findExactInstrumentSearchMatch<T extends InstrumentSearchOption>(
   instruments: T[],
-  query: string
+  query: string,
 ) {
   const normalizedQuery = normalizeInstrumentSearchValue(query);
 
@@ -86,7 +86,7 @@ export function findExactInstrumentSearchMatch<T extends InstrumentSearchOption>
     instruments.find(
       (instrument) =>
         normalizeInstrumentSearchValue(instrument.symbol) === normalizedQuery ||
-        normalizeInstrumentSearchValue(instrument.providerSymbol ?? "") === normalizedQuery
+        normalizeInstrumentSearchValue(instrument.providerSymbol ?? "") === normalizedQuery,
     ) ?? null
   );
 }

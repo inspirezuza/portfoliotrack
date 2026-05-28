@@ -17,24 +17,28 @@ function jsonErrorResponse(
   code: string,
   message: string,
   status: number,
-  details?: Record<string, unknown> | null
+  details?: Record<string, unknown> | null,
 ) {
   return NextResponse.json(
     {
       error: {
         code,
         message,
-        details: details ?? null
-      }
+        details: details ?? null,
+      },
     },
-    { status }
+    { status },
   );
 }
 
 export async function POST(request: Request) {
   try {
     if (!(await isAdminAuthenticated())) {
-      return jsonErrorResponse("ADMIN_REQUIRED", "Admin login is required to add instruments.", 401);
+      return jsonErrorResponse(
+        "ADMIN_REQUIRED",
+        "Admin login is required to add instruments.",
+        401,
+      );
     }
 
     const payload = await request.json();

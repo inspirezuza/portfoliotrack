@@ -1,14 +1,21 @@
 import { asc, eq, inArray } from "drizzle-orm";
 import { OperationTimeoutError, withOperationTimeout } from "@/lib/async/timeout";
 import { db } from "@/lib/db/runtime-core";
-import { appSettings, historicalPrices, instruments, intradayPrices, priceSnapshots, transactions } from "@/lib/db/schema";
+import {
+  appSettings,
+  historicalPrices,
+  instruments,
+  intradayPrices,
+  priceSnapshots,
+  transactions,
+} from "@/lib/db/schema";
 import { applyKnownDrMetadata } from "@/lib/instruments/dr-metadata";
 import type {
   MarketDataProvider,
   MarketHistoricalSeries,
   MarketIntradayInterval,
   MarketIntradaySeries,
-  MarketQuoteSnapshot
+  MarketQuoteSnapshot,
 } from "@/lib/market/types";
 import { yahooProvider } from "@/lib/market/yahoo-provider-core";
 import { parsePortfolioId } from "@/lib/portfolio/portfolio-id";
@@ -26,7 +33,7 @@ export const BENCHMARK_WATCHLIST = [
     market: "US",
     instrumentType: "ETF",
     currency: "USD",
-    providerSymbol: "SPYM"
+    providerSymbol: "SPYM",
   },
   {
     symbol: "QQQ",
@@ -34,7 +41,7 @@ export const BENCHMARK_WATCHLIST = [
     market: "US",
     instrumentType: "ETF",
     currency: "USD",
-    providerSymbol: "QQQ"
+    providerSymbol: "QQQ",
   },
   {
     symbol: "TDEX",
@@ -42,7 +49,7 @@ export const BENCHMARK_WATCHLIST = [
     market: "TH",
     instrumentType: "ETF",
     currency: "THB",
-    providerSymbol: "TDEX.BK"
+    providerSymbol: "TDEX.BK",
   },
   {
     symbol: "NVDA",
@@ -50,7 +57,7 @@ export const BENCHMARK_WATCHLIST = [
     market: "US",
     instrumentType: "STOCK",
     currency: "USD",
-    providerSymbol: "NVDA"
+    providerSymbol: "NVDA",
   },
   {
     symbol: "GOOGL",
@@ -58,8 +65,8 @@ export const BENCHMARK_WATCHLIST = [
     market: "US",
     instrumentType: "STOCK",
     currency: "USD",
-    providerSymbol: "GOOGL"
-  }
+    providerSymbol: "GOOGL",
+  },
 ] as const;
 
 export type MarketSettings = {
@@ -123,7 +130,7 @@ const INTRADAY_REFRESH_WINDOWS: Array<{
   lookbackDays: number;
 }> = [
   { interval: "5m", lookbackDays: 2 },
-  { interval: "1h", lookbackDays: 35 }
+  { interval: "1h", lookbackDays: 35 },
 ];
 
 export function getMarketDataProvider(): MarketDataProvider {
@@ -150,14 +157,15 @@ export async function getMarketSettings(): Promise<MarketSettings> {
   const settings = await db.select().from(appSettings);
   const settingsMap = new Map(settings.map((setting) => [setting.key, setting.value]));
   const benchmarkSymbol = normalizeBenchmarkSymbol(
-    settingsMap.get("benchmarkSymbol") || DEFAULT_BENCHMARK_SYMBOL
+    settingsMap.get("benchmarkSymbol") || DEFAULT_BENCHMARK_SYMBOL,
   );
-  const baseCurrency = settingsMap.get("baseCurrency")?.trim().toUpperCase() || DEFAULT_BASE_CURRENCY;
+  const baseCurrency =
+    settingsMap.get("baseCurrency")?.trim().toUpperCase() || DEFAULT_BASE_CURRENCY;
 
   return {
     benchmarkSymbol,
     baseCurrency,
-    marketRefreshMinutes: parseRefreshMinutes(settingsMap.get("marketRefreshMinutes"))
+    marketRefreshMinutes: parseRefreshMinutes(settingsMap.get("marketRefreshMinutes")),
   };
 }
 
@@ -262,10 +270,18 @@ async function getHistoryCoverageByInstrument(targets: RefreshTarget[]) {
   const historicalRows = await db
     .select()
     .from(historicalPrices)
-    .where(inArray(historicalPrices.instrumentId, historyTargets.map((target) => target.instrument.id)));
-  const coverageByInstrument = new Map<number, { earliestPriceDate: string | null; latestPriceDate: string | null }>();
+    .where(
+      inArray(
+        historicalPrices.instrumentId,
+        historyTargets.map((target) => target.instrument.id),
+      ),
+    );
+  const coverageByInstrument = new Map<
+    number,
+    { earliestPriceDate: string | null; latestPriceDate: string | null }
+  >();
   const targetByInstrumentId = new Map(
-    historyTargets.map((target) => [target.instrument.id, target] as const)
+    historyTargets.map((target) => [target.instrument.id, target] as const),
   );
 
   for (const row of historicalRows) {
@@ -277,18 +293,19 @@ async function getHistoryCoverageByInstrument(targets: RefreshTarget[]) {
 
     const existingCoverage = coverageByInstrument.get(row.instrumentId) ?? {
       earliestPriceDate: null,
-      latestPriceDate: null
+      latestPriceDate: null,
     };
 
     coverageByInstrument.set(row.instrumentId, {
       earliestPriceDate:
-        existingCoverage.earliestPriceDate == null || row.priceDate < existingCoverage.earliestPriceDate
+        existingCoverage.earliestPriceDate == null ||
+        row.priceDate < existingCoverage.earliestPriceDate
           ? row.priceDate
           : existingCoverage.earliestPriceDate,
       latestPriceDate:
         existingCoverage.latestPriceDate == null || row.priceDate > existingCoverage.latestPriceDate
           ? row.priceDate
-          : existingCoverage.latestPriceDate
+          : existingCoverage.latestPriceDate,
     });
   }
 
@@ -303,7 +320,12 @@ async function hasMissingIntradayData(targets: RefreshTarget[]) {
   const rows = await db
     .select()
     .from(intradayPrices)
-    .where(inArray(intradayPrices.instrumentId, targets.map((target) => target.instrument.id)));
+    .where(
+      inArray(
+        intradayPrices.instrumentId,
+        targets.map((target) => target.instrument.id),
+      ),
+    );
   const intervalsByInstrumentId = new Map<number, Set<string>>();
 
   for (const row of rows) {
@@ -315,7 +337,10 @@ async function hasMissingIntradayData(targets: RefreshTarget[]) {
   return targets.some((target) => {
     const intervals = intervalsByInstrumentId.get(target.instrument.id);
 
-    return intervals == null || INTRADAY_REFRESH_WINDOWS.some((window) => !intervals.has(window.interval));
+    return (
+      intervals == null ||
+      INTRADAY_REFRESH_WINDOWS.some((window) => !intervals.has(window.interval))
+    );
   });
 }
 
@@ -339,7 +364,7 @@ function contextCoversTarget(existingTarget: RefreshTarget, requestedTarget: Ref
 
 function contextCoversRequest(existingContext: RefreshContext, requestedContext: RefreshContext) {
   const existingTargetsByInstrumentId = new Map(
-    existingContext.targets.map((target) => [target.instrument.id, target] as const)
+    existingContext.targets.map((target) => [target.instrument.id, target] as const),
   );
 
   return requestedContext.targets.every((requestedTarget) => {
@@ -362,7 +387,7 @@ async function runRefreshWithDedup(context: RefreshContext) {
 
       inflightRefresh = {
         context,
-        promise: refreshPromise
+        promise: refreshPromise,
       };
 
       return refreshPromise;
@@ -393,7 +418,7 @@ async function runAutoRefreshBestEffort(context: RefreshContext, timeoutMs: numb
   try {
     return await withOperationTimeout(refreshPromise, {
       label: "Market data auto-refresh",
-      timeoutMs
+      timeoutMs,
     });
   } catch (error) {
     if (error instanceof OperationTimeoutError) {
@@ -408,25 +433,26 @@ async function runAutoRefreshBestEffort(context: RefreshContext, timeoutMs: numb
 
 async function buildRefreshContext({
   portfolioId: portfolioIdInput,
-  includeBenchmark = true
+  includeBenchmark = true,
 }: {
   portfolioId: number;
   includeBenchmark?: boolean;
 }): Promise<RefreshContext> {
   const portfolioId = parsePortfolioId(portfolioIdInput);
   await ensureBenchmarkWatchlistInstruments();
-  const [{ baseCurrency, benchmarkSymbol, marketRefreshMinutes }, instrumentRows, transactionRows] = await Promise.all([
-    getMarketSettings(),
-    db.select().from(instruments),
-    db
-      .select({
-        instrumentId: transactions.instrumentId,
-        tradeDate: transactions.tradeDate
-      })
-      .from(transactions)
-      .where(eq(transactions.portfolioId, portfolioId))
-      .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id))
-  ]);
+  const [{ baseCurrency, benchmarkSymbol, marketRefreshMinutes }, instrumentRows, transactionRows] =
+    await Promise.all([
+      getMarketSettings(),
+      db.select().from(instruments),
+      db
+        .select({
+          instrumentId: transactions.instrumentId,
+          tradeDate: transactions.tradeDate,
+        })
+        .from(transactions)
+        .where(eq(transactions.portfolioId, portfolioId))
+        .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id)),
+    ]);
   const today = getCurrentLocalIsoDate();
   const currentTransactionRows = transactionRows.filter((row) => row.tradeDate <= today);
 
@@ -448,13 +474,18 @@ async function buildRefreshContext({
   const benchmarkInstrument =
     benchmarkSymbol == null
       ? null
-      : instrumentRows.find((instrument) => instrument.symbol === benchmarkSymbol) ?? null;
+      : (instrumentRows.find((instrument) => instrument.symbol === benchmarkSymbol) ?? null);
   const refreshTargets = new Map<number, RefreshTarget>();
   const instrumentRowsByProviderSymbol = new Map(
-    instrumentRows.map((instrument) => [instrument.providerSymbol, applyKnownDrMetadata(instrument)] as const)
+    instrumentRows.map(
+      (instrument) => [instrument.providerSymbol, applyKnownDrMetadata(instrument)] as const,
+    ),
   );
 
-  function addRefreshTargetByProviderSymbol(providerSymbol: string | null, historyStartDate: string) {
+  function addRefreshTargetByProviderSymbol(
+    providerSymbol: string | null,
+    historyStartDate: string,
+  ) {
     if (providerSymbol == null) {
       return;
     }
@@ -467,7 +498,7 @@ async function buildRefreshContext({
 
     refreshTargets.set(instrument.id, {
       instrument,
-      historyStartDate
+      historyStartDate,
     });
   }
 
@@ -478,11 +509,14 @@ async function buildRefreshContext({
     if (historyStartDate != null) {
       refreshTargets.set(instrument.id, {
         instrument,
-        historyStartDate
+        historyStartDate,
       });
 
       if (instrument.currency !== baseCurrency) {
-        addRefreshTargetByProviderSymbol(`${instrument.currency}${baseCurrency}=X`, historyStartDate);
+        addRefreshTargetByProviderSymbol(
+          `${instrument.currency}${baseCurrency}=X`,
+          historyStartDate,
+        );
       }
 
       addRefreshTargetByProviderSymbol(instrument.underlyingProviderSymbol, historyStartDate);
@@ -493,13 +527,15 @@ async function buildRefreshContext({
   if (includeBenchmark && benchmarkInstrument != null) {
     refreshTargets.set(benchmarkInstrument.id, {
       instrument: benchmarkInstrument,
-      historyStartDate: earliestPortfolioTradeDate
+      historyStartDate: earliestPortfolioTradeDate,
     });
   }
 
   if (includeBenchmark) {
     for (const benchmark of BENCHMARK_WATCHLIST) {
-      const benchmarkInstrumentRow = instrumentRows.find((instrument) => instrument.symbol === benchmark.symbol);
+      const benchmarkInstrumentRow = instrumentRows.find(
+        (instrument) => instrument.symbol === benchmark.symbol,
+      );
 
       if (benchmarkInstrumentRow == null) {
         continue;
@@ -507,7 +543,7 @@ async function buildRefreshContext({
 
       refreshTargets.set(benchmarkInstrumentRow.id, {
         instrument: benchmarkInstrumentRow,
-        historyStartDate: BENCHMARK_HISTORY_START_DATE
+        historyStartDate: BENCHMARK_HISTORY_START_DATE,
       });
     }
   }
@@ -515,13 +551,13 @@ async function buildRefreshContext({
   return {
     benchmarkSymbol,
     marketRefreshMinutes,
-    targets: Array.from(refreshTargets.values())
+    targets: Array.from(refreshTargets.values()),
   };
 }
 
 async function hasIncompleteHistoricalData({
   targets,
-  snapshotByInstrumentId
+  snapshotByInstrumentId,
 }: {
   targets: RefreshTarget[];
   snapshotByInstrumentId: Map<number, typeof priceSnapshots.$inferSelect>;
@@ -543,7 +579,9 @@ async function hasIncompleteHistoricalData({
       coverage.earliestPriceDate > (target.historyStartDate ?? "");
     const isMissingTailCoverage =
       expectedTailDate != null &&
-      (coverage == null || coverage.latestPriceDate == null || coverage.latestPriceDate < expectedTailDate);
+      (coverage == null ||
+        coverage.latestPriceDate == null ||
+        coverage.latestPriceDate < expectedTailDate);
 
     return isMissingStartCoverage || isMissingTailCoverage;
   });
@@ -570,7 +608,7 @@ async function withIncrementalHistoryStartDates(targets: RefreshTarget[]) {
 
     return {
       ...target,
-      historyStartDate: coverage.latestPriceDate
+      historyStartDate: coverage.latestPriceDate,
     };
   });
 }
@@ -578,7 +616,7 @@ async function withIncrementalHistoryStartDates(targets: RefreshTarget[]) {
 export async function ensureFreshMarketDataCache({
   portfolioId,
   includeBenchmark = true,
-  timeoutMs = DEFAULT_AUTO_REFRESH_TIMEOUT_MS
+  timeoutMs = DEFAULT_AUTO_REFRESH_TIMEOUT_MS,
 }: {
   portfolioId: number;
   includeBenchmark?: boolean;
@@ -597,15 +635,20 @@ export async function ensureFreshMarketDataCache({
     .from(priceSnapshots)
     .where(inArray(priceSnapshots.instrumentId, targetInstrumentIds));
   const snapshotByInstrumentId = new Map(
-    snapshotRows.map((snapshot) => [snapshot.instrumentId, snapshot] as const)
+    snapshotRows.map((snapshot) => [snapshot.instrumentId, snapshot] as const),
   );
-  const hasMissingSnapshot = targets.some((target) => !snapshotByInstrumentId.has(target.instrument.id));
+  const hasMissingSnapshot = targets.some(
+    (target) => !snapshotByInstrumentId.has(target.instrument.id),
+  );
   const hasStaleSnapshot = targets.some((target) =>
-    isMarketDataStale(snapshotByInstrumentId.get(target.instrument.id)?.asOf ?? null, marketRefreshMinutes)
+    isMarketDataStale(
+      snapshotByInstrumentId.get(target.instrument.id)?.asOf ?? null,
+      marketRefreshMinutes,
+    ),
   );
   const missingHistoricalData = await hasIncompleteHistoricalData({
     targets,
-    snapshotByInstrumentId
+    snapshotByInstrumentId,
   });
   const missingIntradayData = await hasMissingIntradayData(targets);
 
@@ -618,7 +661,7 @@ export async function ensureFreshMarketDataCache({
 
 export async function refreshMarketDataCache(
   { portfolioId }: { portfolioId: number },
-  existingContext?: RefreshContext
+  existingContext?: RefreshContext,
 ): Promise<MarketDataRefreshResult> {
   const context = existingContext ?? (await buildRefreshContext({ portfolioId }));
 
@@ -626,7 +669,7 @@ export async function refreshMarketDataCache(
 }
 
 export async function refreshMarketDataTargets({
-  targets
+  targets,
 }: {
   targets: RefreshTarget[];
 }): Promise<MarketDataRefreshResult> {
@@ -635,23 +678,25 @@ export async function refreshMarketDataTargets({
   return runRefreshWithDedup({
     benchmarkSymbol,
     marketRefreshMinutes,
-    targets
+    targets,
   });
 }
 
 export async function refreshMarketDataCacheBatch({
   portfolioId,
   afterInstrumentId = null,
-  maxTargets
+  maxTargets,
 }: {
   portfolioId: number;
   afterInstrumentId?: number | null;
   maxTargets: number;
 }): Promise<MarketDataRefreshBatchResult> {
   const context = await buildRefreshContext({ portfolioId });
-  const sortedTargets = [...context.targets].sort((left, right) => left.instrument.id - right.instrument.id);
+  const sortedTargets = [...context.targets].sort(
+    (left, right) => left.instrument.id - right.instrument.id,
+  );
   const remainingTargets = sortedTargets.filter((target) =>
-    afterInstrumentId == null ? true : target.instrument.id > afterInstrumentId
+    afterInstrumentId == null ? true : target.instrument.id > afterInstrumentId,
   );
   const batchTargets = remainingTargets.slice(0, Math.max(1, maxTargets));
   const lastProcessedInstrumentId =
@@ -676,16 +721,16 @@ export async function refreshMarketDataCacheBatch({
       hasMore,
       lastProcessedInstrumentId,
       processedTargetCount: 0,
-      targetCount: sortedTargets.length
+      targetCount: sortedTargets.length,
     };
   }
 
   const result = await performRefreshMarketDataCache(
     {
       ...context,
-      targets: batchTargets
+      targets: batchTargets,
     },
-    { incrementalHistorical: true }
+    { incrementalHistorical: true },
   );
 
   return {
@@ -694,16 +739,18 @@ export async function refreshMarketDataCacheBatch({
     hasMore,
     lastProcessedInstrumentId,
     processedTargetCount: batchTargets.length,
-    targetCount: sortedTargets.length
+    targetCount: sortedTargets.length,
   };
 }
 
 async function performRefreshMarketDataCache(
   context: RefreshContext,
-  { incrementalHistorical = false }: { incrementalHistorical?: boolean } = {}
+  { incrementalHistorical = false }: { incrementalHistorical?: boolean } = {},
 ): Promise<MarketDataRefreshResult> {
   const { benchmarkSymbol, marketRefreshMinutes, targets } = context;
-  const refreshTargets = incrementalHistorical ? await withIncrementalHistoryStartDates(targets) : targets;
+  const refreshTargets = incrementalHistorical
+    ? await withIncrementalHistoryStartDates(targets)
+    : targets;
   const providerSymbols = refreshTargets.map((target) => target.instrument.providerSymbol);
 
   if (providerSymbols.length === 0) {
@@ -716,44 +763,55 @@ async function performRefreshMarketDataCache(
       historicalBarCount: 0,
       intradayBarCount: 0,
       latestSuccessfulAsOf: null,
-      issues: []
+      issues: [],
     };
   }
 
   const provider = getMarketDataProvider();
   const quoteRows = await provider.getLatestQuotes(providerSymbols);
   const quoteByProviderSymbol = new Map(
-    quoteRows.map((quote) => [quote.providerSymbol, quote] satisfies [string, MarketQuoteSnapshot])
+    quoteRows.map((quote) => [quote.providerSymbol, quote] satisfies [string, MarketQuoteSnapshot]),
   );
   const historyTargets = refreshTargets.filter((target) => target.historyStartDate != null);
   const historicalResults = await Promise.all(
-    historyTargets.map(async (target) => [
-      target.instrument.id,
-      await provider.getHistoricalPrices(target.instrument.providerSymbol, {
-        startDate: target.historyStartDate ?? new Date().toISOString().slice(0, 10)
-      })
-    ] as const)
+    historyTargets.map(
+      async (target) =>
+        [
+          target.instrument.id,
+          await provider.getHistoricalPrices(target.instrument.providerSymbol, {
+            startDate: target.historyStartDate ?? new Date().toISOString().slice(0, 10),
+          }),
+        ] as const,
+    ),
   );
   const historyByInstrumentId = new Map(
-    historicalResults.filter(([, result]) => result != null) as Array<[number, MarketHistoricalSeries]>
+    historicalResults.filter(([, result]) => result != null) as Array<
+      [number, MarketHistoricalSeries]
+    >,
   );
   const now = new Date();
   const intradayResults = await Promise.all(
     refreshTargets.flatMap((target) =>
-      INTRADAY_REFRESH_WINDOWS.map(async (window) => [
-        target.instrument.id,
-        window.interval,
-        await provider.getIntradayPrices(target.instrument.providerSymbol, {
-          interval: window.interval,
-          startAt: addDays(now, -window.lookbackDays).toISOString()
-        })
-      ] as const)
-    )
+      INTRADAY_REFRESH_WINDOWS.map(
+        async (window) =>
+          [
+            target.instrument.id,
+            window.interval,
+            await provider.getIntradayPrices(target.instrument.providerSymbol, {
+              interval: window.interval,
+              startAt: addDays(now, -window.lookbackDays).toISOString(),
+            }),
+          ] as const,
+      ),
+    ),
   );
   const issues: MarketRefreshIssue[] = [];
   const validQuotes = new Map<number, MarketQuoteSnapshot>();
   const validHistories = new Map<number, MarketHistoricalSeries>();
-  const validIntradaySeries = new Map<string, { instrumentId: number; series: MarketIntradaySeries }>();
+  const validIntradaySeries = new Map<
+    string,
+    { instrumentId: number; series: MarketIntradaySeries }
+  >();
 
   for (const target of refreshTargets) {
     const quote = quoteByProviderSymbol.get(target.instrument.providerSymbol);
@@ -762,13 +820,13 @@ async function performRefreshMarketDataCache(
       issues.push({
         symbol: target.instrument.symbol,
         providerSymbol: target.instrument.providerSymbol,
-        reason: "missing_quote"
+        reason: "missing_quote",
       });
     } else if (quote.currency !== target.instrument.currency) {
       issues.push({
         symbol: target.instrument.symbol,
         providerSymbol: target.instrument.providerSymbol,
-        reason: "quote_currency_mismatch"
+        reason: "quote_currency_mismatch",
       });
     } else {
       validQuotes.set(target.instrument.id, quote);
@@ -776,14 +834,15 @@ async function performRefreshMarketDataCache(
 
     for (const window of INTRADAY_REFRESH_WINDOWS) {
       const intraday = intradayResults.find(
-        ([instrumentId, interval]) => instrumentId === target.instrument.id && interval === window.interval
+        ([instrumentId, interval]) =>
+          instrumentId === target.instrument.id && interval === window.interval,
       )?.[2];
 
       if (intraday == null) {
         issues.push({
           symbol: target.instrument.symbol,
           providerSymbol: target.instrument.providerSymbol,
-          reason: "missing_intraday"
+          reason: "missing_intraday",
         });
         continue;
       }
@@ -792,14 +851,14 @@ async function performRefreshMarketDataCache(
         issues.push({
           symbol: target.instrument.symbol,
           providerSymbol: target.instrument.providerSymbol,
-          reason: "intraday_currency_mismatch"
+          reason: "intraday_currency_mismatch",
         });
         continue;
       }
 
       validIntradaySeries.set(`${target.instrument.id}:${window.interval}`, {
         instrumentId: target.instrument.id,
-        series: intraday
+        series: intraday,
       });
     }
 
@@ -813,7 +872,7 @@ async function performRefreshMarketDataCache(
       issues.push({
         symbol: target.instrument.symbol,
         providerSymbol: target.instrument.providerSymbol,
-        reason: "missing_history"
+        reason: "missing_history",
       });
       continue;
     }
@@ -822,7 +881,7 @@ async function performRefreshMarketDataCache(
       issues.push({
         symbol: target.instrument.symbol,
         providerSymbol: target.instrument.providerSymbol,
-        reason: "history_currency_mismatch"
+        reason: "history_currency_mismatch",
       });
       continue;
     }
@@ -835,13 +894,14 @@ async function performRefreshMarketDataCache(
 
   await db.transaction(async (tx) => {
     for (const [instrumentId, quote] of validQuotes) {
-      await tx.insert(priceSnapshots)
+      await tx
+        .insert(priceSnapshots)
         .values({
           instrumentId,
           price: quote.price,
           currency: quote.currency,
           asOf: quote.asOf,
-          source: quote.source
+          source: quote.source,
         })
         .onConflictDoUpdate({
           target: priceSnapshots.instrumentId,
@@ -849,28 +909,29 @@ async function performRefreshMarketDataCache(
             price: quote.price,
             currency: quote.currency,
             asOf: quote.asOf,
-            source: quote.source
-          }
+            source: quote.source,
+          },
         });
     }
 
     for (const [instrumentId, series] of validHistories) {
       for (const bar of series.bars) {
-        await tx.insert(historicalPrices)
+        await tx
+          .insert(historicalPrices)
           .values({
             instrumentId,
             priceDate: bar.date,
             close: bar.close,
             currency: series.currency,
-            source: series.source
+            source: series.source,
           })
           .onConflictDoUpdate({
             target: [historicalPrices.instrumentId, historicalPrices.priceDate],
             set: {
               close: bar.close,
               currency: series.currency,
-              source: series.source
-            }
+              source: series.source,
+            },
           });
 
         historicalBarCount += 1;
@@ -879,22 +940,27 @@ async function performRefreshMarketDataCache(
 
     for (const { instrumentId, series } of validIntradaySeries.values()) {
       for (const bar of series.bars) {
-        await tx.insert(intradayPrices)
+        await tx
+          .insert(intradayPrices)
           .values({
             instrumentId,
             interval: series.interval,
             observedAt: bar.observedAt,
             close: bar.close,
             currency: series.currency,
-            source: series.source
+            source: series.source,
           })
           .onConflictDoUpdate({
-            target: [intradayPrices.instrumentId, intradayPrices.interval, intradayPrices.observedAt],
+            target: [
+              intradayPrices.instrumentId,
+              intradayPrices.interval,
+              intradayPrices.observedAt,
+            ],
             set: {
               close: bar.close,
               currency: series.currency,
-              source: series.source
-            }
+              source: series.source,
+            },
           });
 
         intradayBarCount += 1;
@@ -911,13 +977,13 @@ async function performRefreshMarketDataCache(
     refreshedAt: new Date().toISOString(),
     benchmarkSymbol,
     marketRefreshMinutes,
-    requestedSymbols: refreshTargets.map((target) => target.instrument.symbol).sort((left, right) =>
-      left.localeCompare(right)
-    ),
+    requestedSymbols: refreshTargets
+      .map((target) => target.instrument.symbol)
+      .sort((left, right) => left.localeCompare(right)),
     quoteRefreshCount: validQuotes.size,
     historicalBarCount,
     intradayBarCount,
     latestSuccessfulAsOf,
-    issues
+    issues,
   };
 }

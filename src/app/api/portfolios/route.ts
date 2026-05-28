@@ -6,7 +6,7 @@ import {
   deletePortfolio,
   listPortfolios,
   PortfolioServiceError,
-  updatePortfolio
+  updatePortfolio,
 } from "@/server/portfolios";
 
 function getStatusCode(error: PortfolioServiceError) {
@@ -28,17 +28,17 @@ function jsonErrorResponse(
   code: string,
   message: string,
   status: number,
-  details?: Record<string, unknown> | null
+  details?: Record<string, unknown> | null,
 ) {
   return NextResponse.json(
     {
       error: {
         code,
         message,
-        details: details ?? null
-      }
+        details: details ?? null,
+      },
     },
-    { status }
+    { status },
   );
 }
 
@@ -46,13 +46,17 @@ function setPortfolioCookie(response: NextResponse, portfolioId: number) {
   response.cookies.set(PORTFOLIO_COOKIE_KEY, String(portfolioId), {
     path: "/",
     maxAge: 60 * 60 * 24 * 365,
-    sameSite: "lax"
+    sameSite: "lax",
   });
 }
 
 async function assertAdmin() {
   if (!(await isAdminAuthenticated())) {
-    return jsonErrorResponse("ADMIN_REQUIRED", "Admin login is required to manage portfolios.", 401);
+    return jsonErrorResponse(
+      "ADMIN_REQUIRED",
+      "Admin login is required to manage portfolios.",
+      401,
+    );
   }
 
   return null;

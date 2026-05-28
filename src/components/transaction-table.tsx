@@ -174,9 +174,7 @@ export function TransactionTable({
 
     return searchableTransactions
       .filter(({ searchText }) =>
-        normalizedQuery.length === 0
-          ? true
-          : searchText.includes(normalizedQuery),
+        normalizedQuery.length === 0 ? true : searchText.includes(normalizedQuery),
       )
       .map(({ transaction }) => transaction)
       .sort((left, right) => compareTransactions(left, right, sort));

@@ -8,7 +8,7 @@ import type {
   MarketIntradayBar,
   MarketIntradayRequest,
   MarketIntradaySeries,
-  MarketQuoteSnapshot
+  MarketQuoteSnapshot,
 } from "@/lib/market/types";
 
 const SOURCE = "yahoo-finance2";
@@ -16,7 +16,7 @@ const YAHOO_QUOTE_TIMEOUT_MS = 5000;
 const YAHOO_HISTORY_TIMEOUT_MS = 8000;
 
 const yahooFinance = new YahooFinance({
-  suppressNotices: ["yahooSurvey"]
+  suppressNotices: ["yahooSurvey"],
 });
 
 function toIsoDate(value: Date) {
@@ -25,7 +25,7 @@ function toIsoDate(value: Date) {
 
 function uniqueProviderSymbols(providerSymbols: string[]) {
   return Array.from(
-    new Set(providerSymbols.map((providerSymbol) => providerSymbol.trim()).filter(Boolean))
+    new Set(providerSymbols.map((providerSymbol) => providerSymbol.trim()).filter(Boolean)),
   );
 }
 
@@ -33,12 +33,12 @@ async function fetchLatestQuote(providerSymbol: string): Promise<MarketQuoteSnap
   try {
     const quote = await withOperationTimeout(
       yahooFinance.quote(providerSymbol, {
-        fields: ["symbol", "currency", "regularMarketPrice", "regularMarketTime"]
+        fields: ["symbol", "currency", "regularMarketPrice", "regularMarketTime"],
       }),
       {
         label: `Yahoo quote ${providerSymbol}`,
-        timeoutMs: YAHOO_QUOTE_TIMEOUT_MS
-      }
+        timeoutMs: YAHOO_QUOTE_TIMEOUT_MS,
+      },
     );
     const price = quote.regularMarketPrice;
     const currency = quote.currency;
@@ -54,7 +54,7 @@ async function fetchLatestQuote(providerSymbol: string): Promise<MarketQuoteSnap
       price,
       currency,
       asOf,
-      source: SOURCE
+      source: SOURCE,
     };
   } catch (error) {
     console.error(`Latest quote fetch failed for ${providerSymbol}`, error);
@@ -64,7 +64,7 @@ async function fetchLatestQuote(providerSymbol: string): Promise<MarketQuoteSnap
 
 async function fetchHistoricalPrices(
   providerSymbol: string,
-  request: MarketHistoryRequest
+  request: MarketHistoryRequest,
 ): Promise<MarketHistoricalSeries | null> {
   try {
     const endDate = request.endDate ?? new Date().toISOString().slice(0, 10);
@@ -73,12 +73,12 @@ async function fetchHistoricalPrices(
         period1: request.startDate,
         period2: endDate,
         interval: "1d",
-        return: "array"
+        return: "array",
       }),
       {
         label: `Yahoo history ${providerSymbol}`,
-        timeoutMs: YAHOO_HISTORY_TIMEOUT_MS
-      }
+        timeoutMs: YAHOO_HISTORY_TIMEOUT_MS,
+      },
     );
 
     const bars = chart.quotes
@@ -89,7 +89,7 @@ async function fetchHistoricalPrices(
 
         return {
           date: toIsoDate(row.date),
-          close: row.close
+          close: row.close,
         };
       })
       .filter((bar): bar is MarketHistoricalBar => bar != null)
@@ -103,7 +103,7 @@ async function fetchHistoricalPrices(
       providerSymbol,
       currency: chart.meta.currency,
       source: SOURCE,
-      bars
+      bars,
     };
   } catch (error) {
     console.error(`Historical price fetch failed for ${providerSymbol}`, error);
@@ -113,7 +113,7 @@ async function fetchHistoricalPrices(
 
 async function fetchIntradayPrices(
   providerSymbol: string,
-  request: MarketIntradayRequest
+  request: MarketIntradayRequest,
 ): Promise<MarketIntradaySeries | null> {
   try {
     const chart = await withOperationTimeout(
@@ -121,12 +121,12 @@ async function fetchIntradayPrices(
         period1: request.startAt,
         period2: request.endAt ?? new Date().toISOString(),
         interval: request.interval,
-        return: "array"
+        return: "array",
       }),
       {
         label: `Yahoo intraday ${providerSymbol}`,
-        timeoutMs: YAHOO_HISTORY_TIMEOUT_MS
-      }
+        timeoutMs: YAHOO_HISTORY_TIMEOUT_MS,
+      },
     );
 
     const bars = chart.quotes
@@ -137,7 +137,7 @@ async function fetchIntradayPrices(
 
         return {
           observedAt: row.date.toISOString(),
-          close: row.close
+          close: row.close,
         };
       })
       .filter((bar): bar is MarketIntradayBar => bar != null)
@@ -152,7 +152,7 @@ async function fetchIntradayPrices(
       currency: chart.meta.currency,
       source: SOURCE,
       interval: request.interval,
-      bars
+      bars,
     };
   } catch (error) {
     console.error(`Intraday price fetch failed for ${providerSymbol}`, error);
@@ -164,7 +164,9 @@ export const yahooProvider: MarketDataProvider = {
   source: SOURCE,
   async getLatestQuotes(providerSymbols) {
     const settledQuotes = await Promise.all(
-      uniqueProviderSymbols(providerSymbols).map((providerSymbol) => fetchLatestQuote(providerSymbol))
+      uniqueProviderSymbols(providerSymbols).map((providerSymbol) =>
+        fetchLatestQuote(providerSymbol),
+      ),
     );
 
     return settledQuotes.filter((quote): quote is MarketQuoteSnapshot => quote != null);
@@ -174,5 +176,5 @@ export const yahooProvider: MarketDataProvider = {
   },
   async getIntradayPrices(providerSymbol, request) {
     return fetchIntradayPrices(providerSymbol, request);
-  }
+  },
 };

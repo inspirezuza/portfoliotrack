@@ -11,7 +11,7 @@ test("transaction validation rejects future trade dates", () => {
     quantity: 1,
     price: 1,
     fee: 0,
-    notes: ""
+    notes: "",
   });
 
   if (result.success) {
@@ -29,7 +29,7 @@ test("transaction validation normalizes side, quantity, price, fee, and blank no
     quantity: "1.123456789",
     price: "12.345678",
     fee: "",
-    notes: "   "
+    notes: "   ",
   });
 
   assert.deepEqual(result, {
@@ -39,7 +39,7 @@ test("transaction validation normalizes side, quantity, price, fee, and blank no
     quantity: 1.123457,
     price: 12.3457,
     fee: 0,
-    notes: null
+    notes: null,
   });
 });
 
@@ -50,7 +50,7 @@ test("instrument validation defaults Thai provider symbols and uppercases input"
     market: "th",
     instrumentType: "equity",
     currency: "thb",
-    providerSymbol: ""
+    providerSymbol: "",
   });
 
   assert.deepEqual(result, {
@@ -59,6 +59,6 @@ test("instrument validation defaults Thai provider symbols and uppercases input"
     market: "TH",
     instrumentType: "EQUITY",
     currency: "THB",
-    providerSymbol: "ASTS03.BK"
+    providerSymbol: "ASTS03.BK",
   });
 });

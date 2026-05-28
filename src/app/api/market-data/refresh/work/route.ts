@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { isAuthorizedMarketRefreshWorkerRequest, scheduleMarketRefreshWorker } from "@/server/market-refresh-batches";
+import {
+  isAuthorizedMarketRefreshWorkerRequest,
+  scheduleMarketRefreshWorker,
+} from "@/server/market-refresh-batches";
 import { processMarketRefreshRunBatch } from "@/server/market-refresh";
 
 export const dynamic = "force-dynamic";
@@ -11,10 +14,10 @@ function jsonErrorResponse(code: string, message: string, status: number) {
     {
       error: {
         code,
-        message
-      }
+        message,
+      },
     },
-    { status }
+    { status },
   );
 }
 

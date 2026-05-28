@@ -8,7 +8,7 @@ import { instruments, transactions, type Instrument, type NewTransaction } from 
 import { normalizeMoney, normalizePrice, normalizeQuantity } from "@/lib/db/precision";
 import {
   getInstrumentTypeFromYahooQuoteType,
-  normalizeInstrumentType
+  normalizeInstrumentType,
 } from "@/lib/instruments/instrument-types";
 import { getKnownDrMetadata } from "@/lib/instruments/dr-metadata";
 import {
@@ -17,22 +17,19 @@ import {
   sortTransactionsChronologically,
   type InstrumentPosition,
   InsufficientQuantityError,
-  type PositionTransaction
+  type PositionTransaction,
 } from "@/lib/portfolio/positions";
 import {
   buildTransactionExcelWorkbook,
   parseTransactionExcelWorkbook,
   TransactionExcelError,
-  type ParsedTransactionExcelRow
+  type ParsedTransactionExcelRow,
 } from "@/lib/transactions/excel";
-import {
-  instrumentInputSchema,
-  type InstrumentInput
-} from "@/lib/validation/instrument";
+import { instrumentInputSchema, type InstrumentInput } from "@/lib/validation/instrument";
 import {
   transactionInputSchema,
   type TransactionBroker,
-  type TransactionInput
+  type TransactionInput,
 } from "@/lib/validation/transaction";
 import { listTransactions, toChronologicalPositionTransaction } from "@/server/transactions";
 import { parsePortfolioId } from "@/server/portfolios";
@@ -42,7 +39,7 @@ export const MAX_TRANSACTION_IMPORT_ROWS = 5000;
 const INSTRUMENT_CREATE_QUOTE_TIMEOUT_MS = 4000;
 
 const yahooFinance = new YahooFinance({
-  suppressNotices: ["yahooSurvey"]
+  suppressNotices: ["yahooSurvey"],
 });
 
 type ImportRowStatus = "ready" | "skipped_duplicate" | "error";
@@ -106,7 +103,16 @@ type ImportTransactionInput = Omit<TransactionInput, "instrumentId"> & {
 
 type ExistingTransactionRow = Pick<
   typeof transactions.$inferSelect,
-  "id" | "instrumentId" | "tradeDate" | "side" | "broker" | "quantity" | "price" | "fee" | "notes" | "createdAt"
+  | "id"
+  | "instrumentId"
+  | "tradeDate"
+  | "side"
+  | "broker"
+  | "quantity"
+  | "price"
+  | "fee"
+  | "notes"
+  | "createdAt"
 >;
 
 type ImportPositionTransaction = PositionTransaction & {
@@ -126,7 +132,7 @@ export class TransactionImportExportError extends Error {
   constructor(
     code: TransactionImportExportError["code"],
     message: string,
-    details?: Record<string, unknown>
+    details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "TransactionImportExportError";
@@ -145,7 +151,11 @@ function getTodayIsoDate() {
 }
 
 function normalizeLookupValue(value: unknown) {
-  return typeof value === "string" ? value.trim().toUpperCase() : String(value ?? "").trim().toUpperCase();
+  return typeof value === "string"
+    ? value.trim().toUpperCase()
+    : String(value ?? "")
+        .trim()
+        .toUpperCase();
 }
 
 function normalizeDisplaySymbol(value: string) {
@@ -172,8 +182,11 @@ function getOptionalNumber(value: unknown) {
 }
 
 function getImportTransactionKey(
-  input: Pick<ImportTransactionInput, "tradeDate" | "side" | "broker" | "quantity" | "price" | "fee" | "notes">,
-  instrumentKey: string | number
+  input: Pick<
+    ImportTransactionInput,
+    "tradeDate" | "side" | "broker" | "quantity" | "price" | "fee" | "notes"
+  >,
+  instrumentKey: string | number,
 ) {
   return [
     instrumentKey,
@@ -183,7 +196,7 @@ function getImportTransactionKey(
     normalizeQuantity(input.quantity),
     normalizePrice(input.price),
     normalizeMoney(input.fee),
-    input.notes ?? ""
+    input.notes ?? "",
   ].join("|");
 }
 
@@ -227,22 +240,29 @@ function parseInstrumentAction(row: ParsedTransactionExcelRow): {
     return {
       action: null,
       error:
-        "Instrument Action UPDATE/DELETE is not supported in transaction import. Use a separate instrument maintenance flow."
+        "Instrument Action UPDATE/DELETE is not supported in transaction import. Use a separate instrument maintenance flow.",
     };
   }
 
   return {
     action: null,
-    error: "Instrument Action must be blank, MATCH, or CREATE."
+    error: "Instrument Action must be blank, MATCH, or CREATE.",
   };
 }
 
 function getMarket(providerSymbol: string, exchange?: string, market?: string) {
-  if (providerSymbol.toUpperCase().endsWith(".BK") || exchange === "SET" || market === "th_market") {
+  if (
+    providerSymbol.toUpperCase().endsWith(".BK") ||
+    exchange === "SET" ||
+    market === "th_market"
+  ) {
     return "TH";
   }
 
-  if (market === "us_market" || ["ASE", "NCM", "NGM", "NMS", "NYQ", "PCX"].includes(exchange ?? "")) {
+  if (
+    market === "us_market" ||
+    ["ASE", "NCM", "NGM", "NMS", "NYQ", "PCX"].includes(exchange ?? "")
+  ) {
     return "US";
   }
 
@@ -252,7 +272,7 @@ function getMarket(providerSymbol: string, exchange?: string, market?: string) {
 function getProviderSymbolCandidates({
   symbol,
   providerSymbol,
-  market
+  market,
 }: {
   symbol: string;
   providerSymbol: string;
@@ -264,7 +284,8 @@ function getProviderSymbolCandidates({
 
   const displaySymbol = normalizeDisplaySymbol(symbol);
   const knownDrMetadata = getKnownDrMetadata({ symbol: displaySymbol });
-  const symbolLooksThai = symbol.toUpperCase().endsWith(".BK") || knownDrMetadata != null || /\d$/.test(displaySymbol);
+  const symbolLooksThai =
+    symbol.toUpperCase().endsWith(".BK") || knownDrMetadata != null || /\d$/.test(displaySymbol);
 
   if (market === "TH" || symbolLooksThai) {
     return [`${displaySymbol}.BK`, displaySymbol];
@@ -283,7 +304,7 @@ async function getYahooInstrumentInput({
   market,
   instrumentType,
   currency,
-  providerSymbol
+  providerSymbol,
 }: {
   symbol: string;
   displayName: string;
@@ -292,16 +313,28 @@ async function getYahooInstrumentInput({
   currency: string;
   providerSymbol: string;
 }): Promise<InstrumentInput | null> {
-  for (const candidateProviderSymbol of getProviderSymbolCandidates({ symbol, providerSymbol, market })) {
+  for (const candidateProviderSymbol of getProviderSymbolCandidates({
+    symbol,
+    providerSymbol,
+    market,
+  })) {
     try {
       const quote = await withOperationTimeout(
         yahooFinance.quote(candidateProviderSymbol, {
-          fields: ["symbol", "currency", "exchange", "market", "quoteType", "shortName", "longName"]
+          fields: [
+            "symbol",
+            "currency",
+            "exchange",
+            "market",
+            "quoteType",
+            "shortName",
+            "longName",
+          ],
         }),
         {
           label: `Yahoo instrument create quote ${candidateProviderSymbol}`,
-          timeoutMs: INSTRUMENT_CREATE_QUOTE_TIMEOUT_MS
-        }
+          timeoutMs: INSTRUMENT_CREATE_QUOTE_TIMEOUT_MS,
+        },
       );
 
       if (!quote.symbol || !quote.currency) {
@@ -311,7 +344,7 @@ async function getYahooInstrumentInput({
       const resolvedSymbol = normalizeDisplaySymbol(symbol || quote.symbol);
       const knownDrMetadata = getKnownDrMetadata({
         symbol: resolvedSymbol,
-        providerSymbol: quote.symbol
+        providerSymbol: quote.symbol,
       });
 
       return {
@@ -323,7 +356,7 @@ async function getYahooInstrumentInput({
           knownDrMetadata?.instrumentType ||
           getInstrumentTypeFromYahooQuoteType(quote.quoteType),
         currency: currency || quote.currency,
-        providerSymbol: quote.symbol.toUpperCase()
+        providerSymbol: quote.symbol.toUpperCase(),
       };
     } catch {
       continue;
@@ -339,7 +372,7 @@ function getFallbackInstrumentInput({
   market,
   instrumentType,
   currency,
-  providerSymbol
+  providerSymbol,
 }: {
   symbol: string;
   displayName: string;
@@ -363,9 +396,11 @@ function getFallbackInstrumentInput({
     symbol: displaySymbol,
     displayName: displayName || displaySymbol,
     market: inferredMarket,
-    instrumentType: normalizeInstrumentType(instrumentType) || knownDrMetadata?.instrumentType || "EQUITY",
+    instrumentType:
+      normalizeInstrumentType(instrumentType) || knownDrMetadata?.instrumentType || "EQUITY",
     currency: currency || (inferredMarket === "TH" ? "THB" : "USD"),
-    providerSymbol: providerSymbol || (inferredMarket === "TH" ? `${displaySymbol}.BK` : displaySymbol)
+    providerSymbol:
+      providerSymbol || (inferredMarket === "TH" ? `${displaySymbol}.BK` : displaySymbol),
   };
 }
 
@@ -380,7 +415,7 @@ async function buildCreateInstrument(row: ParsedTransactionExcelRow) {
   if (symbol.length === 0 && providerSymbol.length === 0) {
     return {
       instrument: null,
-      error: "Symbol or Provider Symbol is required when Instrument Action is CREATE."
+      error: "Symbol or Provider Symbol is required when Instrument Action is CREATE.",
     };
   }
 
@@ -390,10 +425,12 @@ async function buildCreateInstrument(row: ParsedTransactionExcelRow) {
     market: normalizeLookupValue(row.values.market),
     instrumentType: normalizeLookupValue(row.values.instrumentType),
     currency: normalizeLookupValue(row.values.currency),
-    providerSymbol
+    providerSymbol,
   };
   const yahooInput = await getYahooInstrumentInput(baseInput);
-  const parsedInput = instrumentInputSchema.safeParse(yahooInput ?? getFallbackInstrumentInput(baseInput));
+  const parsedInput = instrumentInputSchema.safeParse(
+    yahooInput ?? getFallbackInstrumentInput(baseInput),
+  );
 
   if (!parsedInput.success) {
     const fieldError = Object.values(parsedInput.error.flatten().fieldErrors)
@@ -402,7 +439,7 @@ async function buildCreateInstrument(row: ParsedTransactionExcelRow) {
 
     return {
       instrument: null,
-      error: fieldError ?? "New instrument input is invalid."
+      error: fieldError ?? "New instrument input is invalid.",
     };
   }
 
@@ -419,13 +456,18 @@ async function buildCreateInstrument(row: ParsedTransactionExcelRow) {
       providerSymbol: parsedInput.data.providerSymbol,
       createInstrumentInput: parsedInput.data,
       createInstrumentKey,
-      positionInstrumentId: null
+      positionInstrumentId: null,
     } satisfies PendingImportInstrument,
-    error: null
+    error: null,
   };
 }
 
-function resolveInstrument(row: ParsedTransactionExcelRow, instrumentById: Map<number, ImportInstrument>, instrumentByProviderSymbol: Map<string, ImportInstrument>, instrumentBySymbol: Map<string, ImportInstrument>) {
+function resolveInstrument(
+  row: ParsedTransactionExcelRow,
+  instrumentById: Map<number, ImportInstrument>,
+  instrumentByProviderSymbol: Map<string, ImportInstrument>,
+  instrumentBySymbol: Map<string, ImportInstrument>,
+) {
   const instrumentIdValue = row.values.instrumentId;
   const normalizedInstrumentId =
     instrumentIdValue == null || String(instrumentIdValue).trim().length === 0
@@ -442,7 +484,7 @@ function resolveInstrument(row: ParsedTransactionExcelRow, instrumentById: Map<n
       ? { instrument, error: null }
       : {
           instrument: null,
-          error: `Instrument ID ${normalizedInstrumentId} was not found. Clear Instrument ID to create a new instrument.`
+          error: `Instrument ID ${normalizedInstrumentId} was not found. Clear Instrument ID to create a new instrument.`,
         };
   }
 
@@ -468,7 +510,8 @@ function resolveInstrument(row: ParsedTransactionExcelRow, instrumentById: Map<n
 
   return {
     instrument: null,
-    error: providerSymbol || symbol ? null : "Instrument ID, provider symbol, or symbol is required."
+    error:
+      providerSymbol || symbol ? null : "Instrument ID, provider symbol, or symbol is required.",
   };
 }
 
@@ -481,7 +524,7 @@ async function getImportContext(portfolioId: number) {
       market: instruments.market,
       instrumentType: instruments.instrumentType,
       currency: instruments.currency,
-      providerSymbol: instruments.providerSymbol
+      providerSymbol: instruments.providerSymbol,
     })
     .from(instruments)
     .orderBy(asc(instruments.symbol));
@@ -497,7 +540,7 @@ async function getImportContext(portfolioId: number) {
       price: transactions.price,
       fee: transactions.fee,
       notes: transactions.notes,
-      createdAt: transactions.createdAt
+      createdAt: transactions.createdAt,
     })
     .from(transactions)
     .where(eq(transactions.portfolioId, portfolioId))
@@ -505,7 +548,7 @@ async function getImportContext(portfolioId: number) {
 
   return {
     instruments: await instrumentRows,
-    transactions: await transactionRows
+    transactions: await transactionRows,
   };
 }
 
@@ -516,13 +559,13 @@ function createEmptyPosition(instrumentId: number): InstrumentPosition {
     averageCost: 0,
     totalCost: 0,
     realizedPnl: 0,
-    totalFees: 0
+    totalFees: 0,
   };
 }
 
 function getPositionValidationErrors(
   existingRows: ExistingTransactionRow[],
-  readyRows: ReadyImportRow[]
+  readyRows: ReadyImportRow[],
 ) {
   const errors = new Map<number, string>();
   const importedTransactions: ImportPositionTransaction[] = readyRows.map((row, index) => ({
@@ -534,11 +577,11 @@ function getPositionValidationErrors(
     fee: row.input.fee,
     createdAt: "9999-12-31 23:59:59",
     id: Number.MAX_SAFE_INTEGER - readyRows.length + index,
-    sourceRowNumber: row.rowNumber
+    sourceRowNumber: row.rowNumber,
   }));
   const orderedTransactions = sortTransactionsChronologically<ImportPositionTransaction>([
     ...existingRows.map(toChronologicalPositionTransaction),
-    ...importedTransactions
+    ...importedTransactions,
   ]);
   const positions = new Map<number, InstrumentPosition>();
 
@@ -553,7 +596,7 @@ function getPositionValidationErrors(
       if (error instanceof InsufficientQuantityError && transaction.sourceRowNumber != null) {
         errors.set(
           transaction.sourceRowNumber,
-          `Sell quantity exceeds holdings. Available quantity is ${normalizeQuantity(error.availableQuantity)}.`
+          `Sell quantity exceeds holdings. Available quantity is ${normalizeQuantity(error.availableQuantity)}.`,
         );
         continue;
       }
@@ -569,17 +612,22 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
   if (parsedRows.length > MAX_TRANSACTION_IMPORT_ROWS) {
     throw new TransactionImportExportError(
       "TOO_MANY_ROWS",
-      `Import files can contain at most ${MAX_TRANSACTION_IMPORT_ROWS} rows.`
+      `Import files can contain at most ${MAX_TRANSACTION_IMPORT_ROWS} rows.`,
     );
   }
 
   const context = await getImportContext(portfolioId);
-  const instrumentById = new Map(context.instruments.map((instrument) => [instrument.id, instrument]));
+  const instrumentById = new Map(
+    context.instruments.map((instrument) => [instrument.id, instrument]),
+  );
   const instrumentByProviderSymbol = new Map(
-    context.instruments.map((instrument) => [normalizeLookupValue(instrument.providerSymbol), instrument])
+    context.instruments.map((instrument) => [
+      normalizeLookupValue(instrument.providerSymbol),
+      instrument,
+    ]),
   );
   const instrumentBySymbol = new Map(
-    context.instruments.map((instrument) => [normalizeLookupValue(instrument.symbol), instrument])
+    context.instruments.map((instrument) => [normalizeLookupValue(instrument.symbol), instrument]),
   );
   const duplicateKeys = new Set(
     context.transactions.map((transaction) =>
@@ -587,11 +635,11 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
         {
           ...transaction,
           side: transaction.side as "BUY" | "SELL",
-          broker: transaction.broker as TransactionBroker
+          broker: transaction.broker as TransactionBroker,
         },
-        transaction.instrumentId
-      )
-    )
+        transaction.instrumentId,
+      ),
+    ),
   );
   const rows: TransactionImportPreviewRow[] = [];
   const readyRows: ReadyImportRow[] = [];
@@ -603,7 +651,7 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
       row,
       instrumentById,
       instrumentByProviderSymbol,
-      instrumentBySymbol
+      instrumentBySymbol,
     );
     let resolvedInstrument: ResolvedImportInstrument | null = existingInstrumentResult.instrument;
     let instrumentError = existingInstrumentResult.error;
@@ -613,13 +661,13 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
 
       if (createInstrumentResult.instrument) {
         const existingPendingInstrument = pendingInstrumentsByKey.get(
-          createInstrumentResult.instrument.createInstrumentKey
+          createInstrumentResult.instrument.createInstrumentKey,
         );
         const pendingInstrument =
           existingPendingInstrument ??
           ({
             ...createInstrumentResult.instrument,
-            positionInstrumentId: -(pendingInstrumentsByKey.size + 1)
+            positionInstrumentId: -(pendingInstrumentsByKey.size + 1),
           } satisfies PreparedPendingImportInstrument);
 
         resolvedInstrument = pendingInstrument;
@@ -634,23 +682,27 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
       rowNumber: row.rowNumber,
       symbol: (resolvedInstrument?.symbol ?? getOptionalCellString(row.values.symbol)) || null,
       tradeDate: getOptionalCellString(row.values.tradeDate) || null,
-      side: normalizeLookupValue(row.values.side) === "BUY" || normalizeLookupValue(row.values.side) === "SELL"
-        ? (normalizeLookupValue(row.values.side) as "BUY" | "SELL")
-        : null,
-      broker: normalizeLookupValue(row.values.broker) === "DIME" || normalizeLookupValue(row.values.broker) === "WEBULL"
-        ? (normalizeLookupValue(row.values.broker) as TransactionBroker)
-        : null,
+      side:
+        normalizeLookupValue(row.values.side) === "BUY" ||
+        normalizeLookupValue(row.values.side) === "SELL"
+          ? (normalizeLookupValue(row.values.side) as "BUY" | "SELL")
+          : null,
+      broker:
+        normalizeLookupValue(row.values.broker) === "DIME" ||
+        normalizeLookupValue(row.values.broker) === "WEBULL"
+          ? (normalizeLookupValue(row.values.broker) as TransactionBroker)
+          : null,
       quantity: getOptionalNumber(row.values.quantity),
       price: getOptionalNumber(row.values.price),
       fee: getOptionalNumber(row.values.fee),
-      notes: getOptionalCellString(row.values.notes) || null
+      notes: getOptionalCellString(row.values.notes) || null,
     };
 
     if (actionError) {
       rows.push({
         ...basePreview,
         status: "error",
-        message: actionError
+        message: actionError,
       });
       continue;
     }
@@ -661,7 +713,7 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
         status: "error",
         message:
           instrumentError ??
-          "Instrument was not found. Use Instrument Action CREATE to create it from Symbol."
+          "Instrument was not found. Use Instrument Action CREATE to create it from Symbol.",
       });
       continue;
     }
@@ -676,7 +728,7 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
       quantity: row.values.quantity,
       price: row.values.price,
       fee: getOptionalCellString(row.values.fee).length > 0 ? row.values.fee : 0,
-      notes: row.values.notes
+      notes: row.values.notes,
     });
     const validationMessage = getValidationMessage(parsedInput);
 
@@ -684,18 +736,19 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
       rows.push({
         ...basePreview,
         status: "error",
-        message: validationMessage ?? "Transaction row is invalid."
+        message: validationMessage ?? "Transaction row is invalid.",
       });
       continue;
     }
 
     const importInput: ImportTransactionInput = {
       ...parsedInput.data,
-      instrumentId: resolvedInstrument.id
+      instrumentId: resolvedInstrument.id,
     };
-    const instrumentKey = resolvedInstrument.id == null
-      ? `create:${resolvedInstrument.createInstrumentKey}`
-      : String(resolvedInstrument.id);
+    const instrumentKey =
+      resolvedInstrument.id == null
+        ? `create:${resolvedInstrument.createInstrumentKey}`
+        : String(resolvedInstrument.id);
     const duplicateKey = getImportTransactionKey(importInput, instrumentKey);
 
     if (duplicateKeys.has(duplicateKey)) {
@@ -710,7 +763,7 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
         quantity: parsedInput.data.quantity,
         price: parsedInput.data.price,
         fee: parsedInput.data.fee,
-        notes: parsedInput.data.notes
+        notes: parsedInput.data.notes,
       });
       continue;
     }
@@ -719,9 +772,10 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
     readyRows.push({
       rowNumber: row.rowNumber,
       status: "ready",
-      message: resolvedInstrument.id == null
-        ? `Ready to import. ${resolvedInstrument.symbol} will be created.`
-        : "Ready to import.",
+      message:
+        resolvedInstrument.id == null
+          ? `Ready to import. ${resolvedInstrument.symbol} will be created.`
+          : "Ready to import.",
       symbol: resolvedInstrument.symbol,
       tradeDate: parsedInput.data.tradeDate,
       side: parsedInput.data.side,
@@ -734,12 +788,10 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
       duplicateKey,
       instrumentKey,
       positionInstrumentId: resolvedInstrument.id ?? resolvedInstrument.positionInstrumentId,
-      createInstrumentInput: resolvedInstrument.id == null
-        ? resolvedInstrument.createInstrumentInput
-        : undefined,
-      createInstrumentKey: resolvedInstrument.id == null
-        ? resolvedInstrument.createInstrumentKey
-        : undefined
+      createInstrumentInput:
+        resolvedInstrument.id == null ? resolvedInstrument.createInstrumentInput : undefined,
+      createInstrumentKey:
+        resolvedInstrument.id == null ? resolvedInstrument.createInstrumentKey : undefined,
     });
   }
 
@@ -762,7 +814,7 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
       quantity: row.quantity,
       price: row.price,
       fee: row.fee,
-      notes: row.notes
+      notes: row.notes,
     });
 
     return false;
@@ -776,14 +828,14 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
       totalRows: parsedRows.length,
       readyRows: validatedReadyRows.length,
       skippedRows: rows.filter((row) => row.status === "skipped_duplicate").length,
-      errorRows: rows.filter((row) => row.status === "error").length
+      errorRows: rows.filter((row) => row.status === "error").length,
     },
-    rows
+    rows,
   };
 
   return {
     ...preview,
-    readyRows: validatedReadyRows
+    readyRows: validatedReadyRows,
   };
 }
 
@@ -805,7 +857,7 @@ function buildInsertValue(input: TransactionInput, portfolioId: number): NewTran
     quantity: input.quantity,
     price: input.price,
     fee: input.fee,
-    notes: input.notes
+    notes: input.notes,
   };
 }
 
@@ -816,7 +868,8 @@ function buildInstrumentInsertValue(input: InstrumentInput) {
     symbol: input.symbol,
     displayName: input.displayName,
     market: input.market,
-    instrumentType: knownDrMetadata?.instrumentType ?? normalizeInstrumentType(input.instrumentType),
+    instrumentType:
+      knownDrMetadata?.instrumentType ?? normalizeInstrumentType(input.instrumentType),
     currency: input.currency,
     providerSymbol: input.providerSymbol,
     underlyingSymbol: knownDrMetadata?.underlyingSymbol ?? null,
@@ -825,37 +878,42 @@ function buildInstrumentInsertValue(input: InstrumentInput) {
     underlyingProviderSymbol: knownDrMetadata?.underlyingProviderSymbol ?? null,
     drRatio: knownDrMetadata?.drRatio ?? null,
     fxProviderSymbol: knownDrMetadata?.fxProviderSymbol ?? null,
-    isActive: true
+    isActive: true,
   };
 }
 
-function getFinalImportInput(row: ReadyImportRow, createdInstrumentIds: Map<string, number>): TransactionInput {
+function getFinalImportInput(
+  row: ReadyImportRow,
+  createdInstrumentIds: Map<string, number>,
+): TransactionInput {
   if (row.input.instrumentId != null) {
     return {
       ...row.input,
-      instrumentId: row.input.instrumentId
+      instrumentId: row.input.instrumentId,
     };
   }
 
   const createdInstrumentId =
-    row.createInstrumentKey == null ? null : createdInstrumentIds.get(row.createInstrumentKey) ?? null;
+    row.createInstrumentKey == null
+      ? null
+      : (createdInstrumentIds.get(row.createInstrumentKey) ?? null);
 
   if (createdInstrumentId == null) {
     throw new TransactionImportExportError(
       "INTERNAL_ERROR",
-      `Instrument ${row.symbol ?? ""} could not be resolved for import.`
+      `Instrument ${row.symbol ?? ""} could not be resolved for import.`,
     );
   }
 
   return {
     ...row.input,
-    instrumentId: createdInstrumentId
+    instrumentId: createdInstrumentId,
   };
 }
 
 export async function buildTransactionExport({
   portfolioId: portfolioIdInput,
-  template = false
+  template = false,
 }: {
   portfolioId: number;
   template?: boolean;
@@ -869,18 +927,21 @@ export async function buildTransactionExport({
 
   return {
     buffer,
-    fileName
+    fileName,
   };
 }
 
 export async function previewTransactionImport(
   buffer: Buffer,
-  { portfolioId: portfolioIdInput }: { portfolioId: number }
+  { portfolioId: portfolioIdInput }: { portfolioId: number },
 ): Promise<TransactionImportPreview> {
   const portfolioId = parsePortfolioId(portfolioIdInput);
 
   if (buffer.byteLength > MAX_TRANSACTION_IMPORT_FILE_SIZE) {
-    throw new TransactionImportExportError("IMPORT_TOO_LARGE", "Import file must be 5MB or smaller.");
+    throw new TransactionImportExportError(
+      "IMPORT_TOO_LARGE",
+      "Import file must be 5MB or smaller.",
+    );
   }
 
   const parsedWorkbook = await parseImportBuffer(buffer);
@@ -888,18 +949,21 @@ export async function previewTransactionImport(
 
   return {
     counts: evaluation.counts,
-    rows: evaluation.rows
+    rows: evaluation.rows,
   };
 }
 
 export async function commitTransactionImport(
   buffer: Buffer,
-  { portfolioId: portfolioIdInput }: { portfolioId: number }
+  { portfolioId: portfolioIdInput }: { portfolioId: number },
 ): Promise<TransactionImportPreview> {
   const portfolioId = parsePortfolioId(portfolioIdInput);
 
   if (buffer.byteLength > MAX_TRANSACTION_IMPORT_FILE_SIZE) {
-    throw new TransactionImportExportError("IMPORT_TOO_LARGE", "Import file must be 5MB or smaller.");
+    throw new TransactionImportExportError(
+      "IMPORT_TOO_LARGE",
+      "Import file must be 5MB or smaller.",
+    );
   }
 
   const parsedWorkbook = await parseImportBuffer(buffer);
@@ -909,7 +973,7 @@ export async function commitTransactionImport(
     throw new TransactionImportExportError(
       "IMPORT_HAS_ERRORS",
       "Import has row errors. Fix the file and preview again before importing.",
-      { preview: evaluation }
+      { preview: evaluation },
     );
   }
 
@@ -927,7 +991,12 @@ export async function commitTransactionImport(
       const [existingInstrument] = await tx
         .select({ id: instruments.id })
         .from(instruments)
-        .where(or(eq(instruments.symbol, input.symbol), eq(instruments.providerSymbol, input.providerSymbol)))
+        .where(
+          or(
+            eq(instruments.symbol, input.symbol),
+            eq(instruments.providerSymbol, input.providerSymbol),
+          ),
+        )
         .limit(1);
 
       if (existingInstrument) {
@@ -943,7 +1012,7 @@ export async function commitTransactionImport(
       if (!insertedInstrument) {
         throw new TransactionImportExportError(
           "INTERNAL_ERROR",
-          `Instrument ${input.symbol} could not be created.`
+          `Instrument ${input.symbol} could not be created.`,
         );
       }
 
@@ -951,7 +1020,7 @@ export async function commitTransactionImport(
     }
 
     const readyInputs = evaluation.readyRows.map((row) =>
-      getFinalImportInput(row, createdInstrumentIds)
+      getFinalImportInput(row, createdInstrumentIds),
     );
     const currentRows = await tx
       .select({
@@ -962,7 +1031,7 @@ export async function commitTransactionImport(
         quantity: transactions.quantity,
         price: transactions.price,
         fee: transactions.fee,
-        createdAt: transactions.createdAt
+        createdAt: transactions.createdAt,
       })
       .from(transactions)
       .where(eq(transactions.portfolioId, portfolioId))
@@ -978,19 +1047,19 @@ export async function commitTransactionImport(
         price: input.price,
         fee: input.fee,
         createdAt: "9999-12-31 23:59:59",
-        id: Number.MAX_SAFE_INTEGER - readyInputs.length + index
-      }))
+        id: Number.MAX_SAFE_INTEGER - readyInputs.length + index,
+      })),
     ]);
 
     if (readyInputs.length > 0) {
-      await tx.insert(transactions).values(
-        readyInputs.map((input) => buildInsertValue(input, portfolioId))
-      );
+      await tx
+        .insert(transactions)
+        .values(readyInputs.map((input) => buildInsertValue(input, portfolioId)));
     }
   });
 
   return {
     counts: evaluation.counts,
-    rows: evaluation.rows
+    rows: evaluation.rows,
   };
 }

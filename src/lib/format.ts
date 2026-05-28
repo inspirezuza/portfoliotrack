@@ -27,37 +27,37 @@ export function formatCurrency(
     currency = "THB",
     locale,
     minimumFractionDigits = 2,
-    maximumFractionDigits = 2
-  }: CurrencyFormatOptions = {}
+    maximumFractionDigits = 2,
+  }: CurrencyFormatOptions = {},
 ) {
   return createNumberFormatter(locale, {
     style: "currency",
     currency,
     minimumFractionDigits,
-    maximumFractionDigits
+    maximumFractionDigits,
   }).format(value);
 }
 
 export function formatQuantity(
   value: number,
-  { locale, minimumFractionDigits = 0, maximumFractionDigits = 6 }: QuantityFormatOptions = {}
+  { locale, minimumFractionDigits = 0, maximumFractionDigits = 6 }: QuantityFormatOptions = {},
 ) {
   return createNumberFormatter(locale, {
     minimumFractionDigits,
-    maximumFractionDigits
+    maximumFractionDigits,
   }).format(value);
 }
 
 export function formatPercent(
   value: number,
-  { locale, minimumFractionDigits = 2, maximumFractionDigits = 2 }: PercentFormatOptions = {}
+  { locale, minimumFractionDigits = 2, maximumFractionDigits = 2 }: PercentFormatOptions = {},
 ) {
   const normalizedValue = value / 100;
 
   return createNumberFormatter(locale, {
     style: "percent",
     minimumFractionDigits,
-    maximumFractionDigits
+    maximumFractionDigits,
   }).format(normalizedValue);
 }
 
@@ -65,6 +65,6 @@ export function formatPercentRatio(value: number, options?: PercentFormatOptions
   return createNumberFormatter(options?.locale, {
     style: "percent",
     minimumFractionDigits: options?.minimumFractionDigits ?? 2,
-    maximumFractionDigits: options?.maximumFractionDigits ?? 2
+    maximumFractionDigits: options?.maximumFractionDigits ?? 2,
   }).format(value);
 }

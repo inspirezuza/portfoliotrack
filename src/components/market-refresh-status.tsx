@@ -34,11 +34,7 @@ type StatusResponse = {
 
 const POLL_INTERVAL_MS = 2500;
 
-export function MarketRefreshStatus({
-  language,
-  onSettled,
-  runId
-}: MarketRefreshStatusProps) {
+export function MarketRefreshStatus({ language, onSettled, runId }: MarketRefreshStatusProps) {
   const copy = getUiCopy(language);
   const router = useRouter();
   const [run, setRun] = useState<MarketRefreshStatusRun | null>(null);
@@ -52,7 +48,7 @@ export function MarketRefreshStatus({
     async function pollStatus() {
       try {
         const response = await fetch(`/api/market-data/refresh/status?runId=${runId}`, {
-          cache: "no-store"
+          cache: "no-store",
         });
         const payload = (await response.json()) as StatusResponse;
 
@@ -84,7 +80,9 @@ export function MarketRefreshStatus({
         }
       } catch (error) {
         if (!isCancelled) {
-          setErrorMessage(error instanceof Error ? error.message : copy.dashboard.refresh.statusUnavailable);
+          setErrorMessage(
+            error instanceof Error ? error.message : copy.dashboard.refresh.statusUnavailable,
+          );
         }
       }
     }
@@ -143,16 +141,20 @@ export function MarketRefreshStatus({
         : copy.dashboard.refresh.successTitle
       : copy.dashboard.refresh.startedTitle;
   const detail = isFailed
-    ? run.errorMessage ?? copy.dashboard.refresh.fallbackErrorBody
+    ? (run.errorMessage ?? copy.dashboard.refresh.fallbackErrorBody)
     : isSuccess
       ? [
           copy.dashboard.refresh.quotesUpdated(String(run.quoteRefreshCount)),
-          run.issueCount > 0 ? copy.dashboard.refresh.symbolsNeedReview(String(run.issueCount)) : ""
-        ].filter(Boolean).join(" | ")
+          run.issueCount > 0
+            ? copy.dashboard.refresh.symbolsNeedReview(String(run.issueCount))
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" | ")
       : copy.dashboard.refresh.runningProgress(
           run.processedTargetCount,
           run.targetCount,
-          run.currentSymbol
+          run.currentSymbol,
         );
 
   return (
@@ -171,7 +173,7 @@ export function MarketRefreshStatus({
             height: 8,
             minWidth: 140,
             overflow: "hidden",
-            width: "24%"
+            width: "24%",
           }}
         >
           <span
@@ -179,7 +181,7 @@ export function MarketRefreshStatus({
               background: "var(--accent)",
               display: "block",
               height: "100%",
-              width: `${progress}%`
+              width: `${progress}%`,
             }}
           />
         </div>

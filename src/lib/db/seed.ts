@@ -11,7 +11,7 @@ import {
   priceSnapshots,
   transactions,
   type NewInstrument,
-  type NewTransaction
+  type NewTransaction,
 } from "./schema";
 
 loadEnvConfig(process.cwd());
@@ -63,7 +63,7 @@ const defaultInstruments: NewInstrument[] = [
     underlyingProviderSymbol: null,
     drRatio: null,
     fxProviderSymbol: null,
-    isActive: true
+    isActive: true,
   },
   {
     symbol: "SPYM",
@@ -78,7 +78,7 @@ const defaultInstruments: NewInstrument[] = [
     underlyingProviderSymbol: null,
     drRatio: null,
     fxProviderSymbol: null,
-    isActive: true
+    isActive: true,
   },
   {
     symbol: "USDTHB",
@@ -93,7 +93,7 @@ const defaultInstruments: NewInstrument[] = [
     underlyingProviderSymbol: null,
     drRatio: null,
     fxProviderSymbol: null,
-    isActive: false
+    isActive: false,
   },
   {
     symbol: "AAPL80",
@@ -108,7 +108,7 @@ const defaultInstruments: NewInstrument[] = [
     underlyingProviderSymbol: "AAPL",
     drRatio: 1000,
     fxProviderSymbol: "USDTHB=X",
-    isActive: true
+    isActive: true,
   },
   {
     symbol: "CPALL",
@@ -123,7 +123,7 @@ const defaultInstruments: NewInstrument[] = [
     underlyingProviderSymbol: null,
     drRatio: null,
     fxProviderSymbol: null,
-    isActive: true
+    isActive: true,
   },
   {
     symbol: "BDMS",
@@ -138,8 +138,8 @@ const defaultInstruments: NewInstrument[] = [
     underlyingProviderSymbol: null,
     drRatio: null,
     fxProviderSymbol: null,
-    isActive: true
-  }
+    isActive: true,
+  },
 ];
 
 const defaultSettings: Array<{ key: string; value: string }> = [
@@ -147,7 +147,7 @@ const defaultSettings: Array<{ key: string; value: string }> = [
   { key: "benchmarkSymbol", value: "SPYM" },
   { key: "marketRefreshMinutes", value: "30" },
   { key: "timezone", value: "Asia/Bangkok" },
-  { key: "symbolOverrides", value: "{}" }
+  { key: "symbolOverrides", value: "{}" },
 ];
 
 const seededPortfolioNames = ["Main Portfolio", "US Stocks Demo", "Closed Trades Demo"];
@@ -162,7 +162,7 @@ const seededTransactionNotes = [
   "Local seed: mixed AAPL buy",
   "Local seed: mixed AAPL80 buy",
   "Local seed: closed BDMS buy",
-  "Local seed: closed BDMS sell"
+  "Local seed: closed BDMS sell",
 ];
 const retiredSeededTransactionNotes = ["Local seed: mixed SPY buy"];
 const localSeedPriceSource = "local-seed";
@@ -171,7 +171,7 @@ function buildMainPortfolioTransactions({
   aapl80Id,
   bdmsId,
   cpallId,
-  portfolioId
+  portfolioId,
 }: {
   aapl80Id: number;
   bdmsId: number;
@@ -188,7 +188,7 @@ function buildMainPortfolioTransactions({
       quantity: 100,
       price: 7.8,
       fee: 5,
-      notes: "Local seed: AAPL80 initial buy"
+      notes: "Local seed: AAPL80 initial buy",
     },
     {
       portfolioId,
@@ -199,7 +199,7 @@ function buildMainPortfolioTransactions({
       quantity: 200,
       price: 44.5,
       fee: 10,
-      notes: "Local seed: CPALL initial buy"
+      notes: "Local seed: CPALL initial buy",
     },
     {
       portfolioId,
@@ -210,7 +210,7 @@ function buildMainPortfolioTransactions({
       quantity: 300,
       price: 17.8,
       fee: 8,
-      notes: "Local seed: BDMS initial buy"
+      notes: "Local seed: BDMS initial buy",
     },
     {
       portfolioId,
@@ -221,7 +221,7 @@ function buildMainPortfolioTransactions({
       quantity: 50,
       price: 8.15,
       fee: 3,
-      notes: "Local seed: AAPL80 add"
+      notes: "Local seed: AAPL80 add",
     },
     {
       portfolioId,
@@ -232,7 +232,7 @@ function buildMainPortfolioTransactions({
       quantity: 100,
       price: 45.75,
       fee: 8,
-      notes: "Local seed: CPALL add"
+      notes: "Local seed: CPALL add",
     },
     {
       portfolioId,
@@ -243,15 +243,15 @@ function buildMainPortfolioTransactions({
       quantity: 30,
       price: 9.65,
       fee: 4,
-      notes: "Local seed: AAPL80 partial sell"
-    }
+      notes: "Local seed: AAPL80 partial sell",
+    },
   ];
 }
 
 function buildMixedCurrencyTransactions({
   aaplId,
   aapl80Id,
-  portfolioId
+  portfolioId,
 }: {
   aaplId: number;
   aapl80Id: number;
@@ -267,7 +267,7 @@ function buildMixedCurrencyTransactions({
       quantity: 10,
       price: 181.2,
       fee: 1.5,
-      notes: "Local seed: mixed AAPL buy"
+      notes: "Local seed: mixed AAPL buy",
     },
     {
       portfolioId,
@@ -278,14 +278,14 @@ function buildMixedCurrencyTransactions({
       quantity: 80,
       price: 8.15,
       fee: 5,
-      notes: "Local seed: mixed AAPL80 buy"
-    }
+      notes: "Local seed: mixed AAPL80 buy",
+    },
   ];
 }
 
 function buildClosedTradesTransactions({
   bdmsId,
-  portfolioId
+  portfolioId,
 }: {
   bdmsId: number;
   portfolioId: number;
@@ -300,7 +300,7 @@ function buildClosedTradesTransactions({
       quantity: 150,
       price: 17.8,
       fee: 6,
-      notes: "Local seed: closed BDMS buy"
+      notes: "Local seed: closed BDMS buy",
     },
     {
       portfolioId,
@@ -311,8 +311,8 @@ function buildClosedTradesTransactions({
       quantity: 150,
       price: 18.25,
       fee: 6,
-      notes: "Local seed: closed BDMS sell"
-    }
+      notes: "Local seed: closed BDMS sell",
+    },
   ];
 }
 
@@ -324,7 +324,8 @@ async function main() {
   const portfolioIdsToRefresh: number[] = [];
 
   await db.transaction(async (tx) => {
-    await tx.insert(instruments)
+    await tx
+      .insert(instruments)
       .values(defaultInstruments)
       .onConflictDoUpdate({
         target: instruments.symbol,
@@ -341,40 +342,41 @@ async function main() {
           drRatio: sql`excluded.dr_ratio`,
           fxProviderSymbol: sql`excluded.fx_provider_symbol`,
           isActive: sql`excluded.is_active`,
-          updatedAt: sql`CURRENT_TIMESTAMP`
-        }
+          updatedAt: sql`CURRENT_TIMESTAMP`,
+        },
       });
 
     const existingPortfolios = await tx.select().from(portfolios);
 
     if (existingPortfolios.length === 0) {
-      await tx.insert(portfolios)
-        .values({
-          name: "Main Portfolio",
-          isDefault: true
-        });
+      await tx.insert(portfolios).values({
+        name: "Main Portfolio",
+        isDefault: true,
+      });
     }
 
     await tx.delete(portfolios).where(eq(portfolios.name, "Mixed Currency Demo"));
 
     for (const portfolioName of seededPortfolioNames) {
-      await tx.insert(portfolios)
+      await tx
+        .insert(portfolios)
         .values({
           name: portfolioName,
-          isDefault: false
+          isDefault: false,
         })
         .onConflictDoUpdate({
           target: portfolios.name,
           set: {
-            updatedAt: sql`CURRENT_TIMESTAMP`
-          }
+            updatedAt: sql`CURRENT_TIMESTAMP`,
+          },
         });
     }
 
     let portfolioRows = await tx.select().from(portfolios);
 
     if (!portfolioRows.some((portfolio) => portfolio.isDefault)) {
-      await tx.update(portfolios)
+      await tx
+        .update(portfolios)
         .set({ isDefault: true, updatedAt: sql`CURRENT_TIMESTAMP` })
         .where(eq(portfolios.name, "Main Portfolio"));
       portfolioRows = await tx.select().from(portfolios);
@@ -385,54 +387,72 @@ async function main() {
     const mixedCurrencyPortfolio = portfoliosByName.get("US Stocks Demo");
     const closedTradesPortfolio = portfoliosByName.get("Closed Trades Demo");
     const instrumentRows = await tx.select().from(instruments);
-    const instrumentsBySymbol = new Map(instrumentRows.map((instrument) => [instrument.symbol, instrument]));
+    const instrumentsBySymbol = new Map(
+      instrumentRows.map((instrument) => [instrument.symbol, instrument]),
+    );
     const aapl80 = instrumentsBySymbol.get("AAPL80");
     const aapl = instrumentsBySymbol.get("AAPL");
     const bdms = instrumentsBySymbol.get("BDMS");
     const cpall = instrumentsBySymbol.get("CPALL");
     const spym = instrumentsBySymbol.get("SPYM");
 
-    if (!mainPortfolio || !mixedCurrencyPortfolio || !closedTradesPortfolio || !aapl || !aapl80 || !bdms || !cpall || !spym) {
+    if (
+      !mainPortfolio ||
+      !mixedCurrencyPortfolio ||
+      !closedTradesPortfolio ||
+      !aapl ||
+      !aapl80 ||
+      !bdms ||
+      !cpall ||
+      !spym
+    ) {
       throw new Error("Seed data could not load demo portfolios and sample instruments.");
     }
 
-    await tx.delete(transactions).where(
-      inArray(transactions.notes, [...seededTransactionNotes, ...retiredSeededTransactionNotes])
-    );
+    await tx
+      .delete(transactions)
+      .where(
+        inArray(transactions.notes, [...seededTransactionNotes, ...retiredSeededTransactionNotes]),
+      );
     await tx.insert(transactions).values([
       ...buildMainPortfolioTransactions({
         aapl80Id: aapl80.id,
         bdmsId: bdms.id,
         cpallId: cpall.id,
-        portfolioId: mainPortfolio.id
+        portfolioId: mainPortfolio.id,
       }),
       ...buildMixedCurrencyTransactions({
         aaplId: aapl.id,
         aapl80Id: aapl80.id,
-        portfolioId: mixedCurrencyPortfolio.id
+        portfolioId: mixedCurrencyPortfolio.id,
       }),
       ...buildClosedTradesTransactions({
         bdmsId: bdms.id,
-        portfolioId: closedTradesPortfolio.id
-      })
+        portfolioId: closedTradesPortfolio.id,
+      }),
     ]);
 
-    portfolioIdsToRefresh.push(mainPortfolio.id, mixedCurrencyPortfolio.id, closedTradesPortfolio.id);
+    portfolioIdsToRefresh.push(
+      mainPortfolio.id,
+      mixedCurrencyPortfolio.id,
+      closedTradesPortfolio.id,
+    );
 
     await tx.delete(historicalPrices).where(eq(historicalPrices.source, localSeedPriceSource));
     await tx.delete(intradayPrices).where(eq(intradayPrices.source, localSeedPriceSource));
     await tx.delete(priceSnapshots).where(eq(priceSnapshots.source, localSeedPriceSource));
 
     for (const setting of defaultSettings) {
-      await tx.insert(appSettings)
+      await tx
+        .insert(appSettings)
         .values(setting)
         .onConflictDoUpdate({
           target: appSettings.key,
           set: {
             value: setting.value,
-            updatedAt: sql`CURRENT_TIMESTAMP`
-          }
-      });
+            updatedAt: sql`CURRENT_TIMESTAMP`,
+          },
+        });
     }
   });
 
@@ -443,12 +463,18 @@ async function main() {
   }
 
   const quoteCount = refreshResults.reduce((count, result) => count + result.quoteRefreshCount, 0);
-  const historicalBarCount = refreshResults.reduce((count, result) => count + result.historicalBarCount, 0);
-  const intradayBarCount = refreshResults.reduce((count, result) => count + result.intradayBarCount, 0);
+  const historicalBarCount = refreshResults.reduce(
+    (count, result) => count + result.historicalBarCount,
+    0,
+  );
+  const intradayBarCount = refreshResults.reduce(
+    (count, result) => count + result.intradayBarCount,
+    0,
+  );
   const issueCount = refreshResults.reduce((count, result) => count + result.issues.length, 0);
 
   console.log(
-    `Database seeded with ${defaultInstruments.length} instruments, ${seededTransactionNotes.length} transactions, and ${defaultSettings.length} settings. Real market refresh fetched ${quoteCount} quotes, ${historicalBarCount} historical bars, ${intradayBarCount} intraday bars, with ${issueCount} issues.`
+    `Database seeded with ${defaultInstruments.length} instruments, ${seededTransactionNotes.length} transactions, and ${defaultSettings.length} settings. Real market refresh fetched ${quoteCount} quotes, ${historicalBarCount} historical bars, ${intradayBarCount} intraday bars, with ${issueCount} issues.`,
   );
 }
 

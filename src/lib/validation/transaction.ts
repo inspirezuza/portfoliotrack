@@ -27,7 +27,7 @@ function coerceFiniteNumber() {
 function positiveNormalizedNumber(
   normalize: (value: number) => number,
   message: string,
-  { allowZero = false }: { allowZero?: boolean } = {}
+  { allowZero = false }: { allowZero?: boolean } = {},
 ) {
   return coerceFiniteNumber()
     .transform(normalize)
@@ -47,31 +47,31 @@ export const transactionInputSchema = z
       .refine((value) => value <= getCurrentLocalIsoDate(), "Trade date cannot be in the future."),
     side: z.preprocess(
       (value) => (typeof value === "string" ? value.trim().toUpperCase() : value),
-      transactionSideSchema
+      transactionSideSchema,
     ),
     broker: z.preprocess(
       (value) => (typeof value === "string" ? value.trim().toUpperCase() : value),
-      transactionBrokerSchema.optional()
+      transactionBrokerSchema.optional(),
     ),
     quantity: positiveNormalizedNumber(
       normalizeQuantity,
-      "Quantity must be greater than zero after normalization."
+      "Quantity must be greater than zero after normalization.",
     ),
     price: positiveNormalizedNumber(
       normalizePrice,
-      "Price must be greater than zero after normalization."
+      "Price must be greater than zero after normalization.",
     ),
     fee: positiveNormalizedNumber(normalizeMoney, "Fee must be zero or greater.", {
-      allowZero: true
+      allowZero: true,
     }).default(0),
     notes: z
       .union([z.string(), z.null(), z.undefined()])
-      .transform((value) => (typeof value === "string" ? value.trim() : value ?? null))
+      .transform((value) => (typeof value === "string" ? value.trim() : (value ?? null)))
       .refine(
         (value) => value === null || value.length <= 500,
-        "Notes must be 500 characters or fewer."
+        "Notes must be 500 characters or fewer.",
       )
-      .transform((value) => (value && value.length > 0 ? value : null))
+      .transform((value) => (value && value.length > 0 ? value : null)),
   })
   .strict();
 

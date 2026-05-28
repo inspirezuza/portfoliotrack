@@ -596,9 +596,7 @@ export function HoldingsTable({
     return searchableHoldings
       .filter(({ holding }) => matchesHoldingFilter(holding, filter))
       .filter(({ searchText }) =>
-        normalizedQuery.length === 0
-          ? true
-          : searchText.includes(normalizedQuery),
+        normalizedQuery.length === 0 ? true : searchText.includes(normalizedQuery),
       )
       .map(({ holding }) => holding)
       .sort((left, right) => compareHoldings(left, right, sort, selectedPerformanceKey));

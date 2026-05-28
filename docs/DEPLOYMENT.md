@@ -66,7 +66,7 @@ pnpm run db:seed
 
 The app prefers `LOCAL_DATABASE_URL` in development. Local development uses the machine-level PostgreSQL service that pgAdmin connects to on `localhost:5432`. Hosted Vercel environments should continue using `DATABASE_URL`.
 
-For schema changes, update `src/lib/db/schema.ts`, run `pnpm run db:generate`, and review the generated SQL under `drizzle/` before applying the migration. Keep `drizzle-kit push` for local iteration only; production handoff should use committed migrations.
+For schema changes, update `src/lib/db/schema.ts`, run `pnpm run db:generate`, optionally run `pnpm run db:check`, and review the generated SQL under `drizzle/` before applying the migration. Keep `drizzle-kit push` for local iteration only through `pnpm run db:migrate:local`; production handoff should use committed migrations through `pnpm run db:migrate:prod`.
 
 The seed script is local-test oriented: it creates demo portfolios, transactions, prices, FX snapshots, DR metadata, and settings so dashboard, holdings, asset detail, import-adjacent flows, US stock valuation, and realized/closed-trade behavior can be checked without manual setup.
 
@@ -78,7 +78,7 @@ Push the repository to GitHub and let Vercel build it with:
 pnpm run build
 ```
 
-GitHub Actions runs `pnpm install --frozen-lockfile` and `pnpm run verify` before normal merge. Pull requests also run the Playwright smoke suite.
+GitHub Actions runs `pnpm install --frozen-lockfile` and `pnpm run verify` before normal merge. That gate includes formatting, linting, TypeScript, unit tests, and a production build. Pull requests also run the Playwright smoke suite.
 
 After deploy:
 

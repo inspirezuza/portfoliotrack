@@ -14,7 +14,9 @@ type LoginPageProps = {
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const session = await getAdminSession();
   const resolvedSearchParams = (await searchParams) ?? {};
-  const nextPath = resolvedSearchParams.next?.startsWith("/") ? resolvedSearchParams.next : "/transactions";
+  const nextPath = resolvedSearchParams.next?.startsWith("/")
+    ? resolvedSearchParams.next
+    : "/transactions";
 
   if (session != null) {
     redirect(nextPath);
@@ -26,7 +28,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <div>
           <p className="eyebrow">Admin</p>
           <h1>Sign in</h1>
-          <p className="field-hint">Unlock transaction editing, instrument search, and market refresh controls.</p>
+          <p className="field-hint">
+            Unlock transaction editing, instrument search, and market refresh controls.
+          </p>
         </div>
 
         {resolvedSearchParams.error ? (

@@ -1,7 +1,7 @@
 const yahooQuoteTypeMap: Record<string, string> = {
   ETF: "ETF",
   FUND: "FUND",
-  MUTUALFUND: "FUND"
+  MUTUALFUND: "FUND",
 };
 
 const instrumentTypeAliases: Record<string, string> = {
@@ -12,7 +12,7 @@ const instrumentTypeAliases: Record<string, string> = {
   FUND: "FUND",
   MUTUALFUND: "FUND",
   DR: "DR",
-  FX: "FX"
+  FX: "FX",
 };
 
 export function normalizeInstrumentType(value: string) {

@@ -6,7 +6,7 @@ import { getInstrumentTypeFromYahooQuoteType } from "@/lib/instruments/instrumen
 import { getKnownDrMetadata } from "@/lib/instruments/dr-metadata";
 
 const yahooFinance = new YahooFinance({
-  suppressNotices: ["yahooSurvey"]
+  suppressNotices: ["yahooSurvey"],
 });
 const INSTRUMENT_SEARCH_TIMEOUT_MS = 5000;
 const INSTRUMENT_QUOTE_TIMEOUT_MS = 4000;
@@ -35,10 +35,13 @@ type InstrumentSearchResult = {
   score: number;
 };
 
-const instrumentSearchCache = new Map<string, {
-  expiresAt: number;
-  results: InstrumentSearchResult[];
-}>();
+const instrumentSearchCache = new Map<
+  string,
+  {
+    expiresAt: number;
+    results: InstrumentSearchResult[];
+  }
+>();
 
 function normalizeSearchQuery(query: string) {
   return query.trim();
@@ -61,15 +64,24 @@ function getSearchQueries(query: string) {
 }
 
 function getDisplaySymbol(providerSymbol: string) {
-  return providerSymbol.toUpperCase().endsWith(".BK") ? providerSymbol.slice(0, -3) : providerSymbol;
+  return providerSymbol.toUpperCase().endsWith(".BK")
+    ? providerSymbol.slice(0, -3)
+    : providerSymbol;
 }
 
 function getMarket(providerSymbol: string, exchange?: string, market?: string) {
-  if (providerSymbol.toUpperCase().endsWith(".BK") || exchange === "SET" || market === "th_market") {
+  if (
+    providerSymbol.toUpperCase().endsWith(".BK") ||
+    exchange === "SET" ||
+    market === "th_market"
+  ) {
     return "TH";
   }
 
-  if (market === "us_market" || ["ASE", "NCM", "NGM", "NMS", "NYQ", "PCX"].includes(exchange ?? "")) {
+  if (
+    market === "us_market" ||
+    ["ASE", "NCM", "NGM", "NMS", "NYQ", "PCX"].includes(exchange ?? "")
+  ) {
     return "US";
   }
 
@@ -92,7 +104,11 @@ function getCachedSearchResults(query: string, now = Date.now()) {
   return cached.results;
 }
 
-function setCachedSearchResults(query: string, results: InstrumentSearchResult[], now = Date.now()) {
+function setCachedSearchResults(
+  query: string,
+  results: InstrumentSearchResult[],
+  now = Date.now(),
+) {
   if (instrumentSearchCache.size >= INSTRUMENT_SEARCH_CACHE_MAX_SIZE) {
     const oldestKey = instrumentSearchCache.keys().next().value;
 
@@ -103,7 +119,7 @@ function setCachedSearchResults(query: string, results: InstrumentSearchResult[]
 
   instrumentSearchCache.set(query.toLowerCase(), {
     expiresAt: now + INSTRUMENT_SEARCH_CACHE_TTL_MS,
-    results
+    results,
   });
 }
 
@@ -113,11 +129,11 @@ export async function GET(request: Request) {
       {
         error: {
           code: "ADMIN_REQUIRED",
-          message: "Admin login is required to search instruments."
+          message: "Admin login is required to search instruments.",
         },
-        results: []
+        results: [],
       },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -144,12 +160,12 @@ export async function GET(request: Request) {
           enableCb: false,
           enableNavLinks: false,
           newsCount: 0,
-          quotesCount: 8
+          quotesCount: 8,
         }),
         {
           label: `Yahoo instrument search ${searchQuery}`,
-          timeoutMs: INSTRUMENT_SEARCH_TIMEOUT_MS
-        }
+          timeoutMs: INSTRUMENT_SEARCH_TIMEOUT_MS,
+        },
       );
 
       for (const quote of results.quotes) {
@@ -168,12 +184,20 @@ export async function GET(request: Request) {
           try {
             const quote = await withOperationTimeout(
               yahooFinance.quote(searchQuote.symbol ?? "", {
-                fields: ["symbol", "currency", "exchange", "market", "quoteType", "shortName", "longName"]
+                fields: [
+                  "symbol",
+                  "currency",
+                  "exchange",
+                  "market",
+                  "quoteType",
+                  "shortName",
+                  "longName",
+                ],
               }),
               {
                 label: `Yahoo instrument quote ${searchQuote.symbol ?? ""}`,
-                timeoutMs: INSTRUMENT_QUOTE_TIMEOUT_MS
-              }
+                timeoutMs: INSTRUMENT_QUOTE_TIMEOUT_MS,
+              },
             );
 
             if (!quote.symbol || !quote.currency) {
@@ -181,12 +205,16 @@ export async function GET(request: Request) {
             }
 
             const displayName =
-              quote.longName ?? quote.shortName ?? searchQuote.longname ?? searchQuote.shortname ?? quote.symbol;
+              quote.longName ??
+              quote.shortName ??
+              searchQuote.longname ??
+              searchQuote.shortname ??
+              quote.symbol;
 
             const symbol = getDisplaySymbol(quote.symbol);
             const knownDrMetadata = getKnownDrMetadata({
               symbol,
-              providerSymbol: quote.symbol
+              providerSymbol: quote.symbol,
             });
 
             return {
@@ -199,12 +227,12 @@ export async function GET(request: Request) {
               currency: quote.currency,
               providerSymbol: quote.symbol,
               exchangeName: searchQuote.exchDisp ?? quote.exchange ?? null,
-              score: searchQuote.score ?? 0
+              score: searchQuote.score ?? 0,
             };
           } catch {
             return null;
           }
-        })
+        }),
     );
 
     const results = quoteRows
@@ -222,11 +250,11 @@ export async function GET(request: Request) {
       {
         error: {
           code: "INSTRUMENT_SEARCH_FAILED",
-          message: "Instrument search is unavailable right now."
+          message: "Instrument search is unavailable right now.",
         },
-        results: []
+        results: [],
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

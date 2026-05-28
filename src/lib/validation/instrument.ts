@@ -22,7 +22,10 @@ export const instrumentInputSchema = z
       .trim()
       .min(1, "Symbol is required.")
       .max(24, "Symbol must be 24 characters or fewer.")
-      .regex(displaySymbolPattern, "Symbol may only contain letters, numbers, dots, underscores, and hyphens.")
+      .regex(
+        displaySymbolPattern,
+        "Symbol may only contain letters, numbers, dots, underscores, and hyphens.",
+      )
       .transform((value) => value.toUpperCase()),
     displayName: z
       .string()
@@ -46,7 +49,7 @@ export const instrumentInputSchema = z
       .trim()
       .length(3, "Currency must be a three-letter code.")
       .transform((value) => value.toUpperCase()),
-    providerSymbol: z.preprocess(normalizeOptionalProviderSymbol, z.string())
+    providerSymbol: z.preprocess(normalizeOptionalProviderSymbol, z.string()),
   })
   .transform((value) => {
     const providerSymbol =
@@ -56,13 +59,13 @@ export const instrumentInputSchema = z
 
     return {
       ...value,
-      providerSymbol
+      providerSymbol,
     };
   })
   .refine((value) => providerSymbolPattern.test(value.providerSymbol), {
     message:
       "Provider symbol may only contain letters, numbers, dots, underscores, hyphens, equals signs, colons, and carets.",
-    path: ["providerSymbol"]
+    path: ["providerSymbol"],
   });
 
 export type InstrumentInput = z.infer<typeof instrumentInputSchema>;

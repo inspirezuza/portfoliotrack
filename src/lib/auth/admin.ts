@@ -81,7 +81,7 @@ export function createAdminSessionCookieValue(username: string, now = Date.now()
 
   const payload: AdminSessionPayload = {
     username,
-    expiresAt: now + SESSION_TTL_MS
+    expiresAt: now + SESSION_TTL_MS,
   };
   const encodedPayload = base64UrlEncode(JSON.stringify(payload));
   const signature = signValue(encodedPayload, secret);
@@ -115,7 +115,7 @@ function verifySessionCookieValue(value: string | undefined): AdminSession | nul
 
     return {
       username: payload.username,
-      expiresAt: new Date(payload.expiresAt)
+      expiresAt: new Date(payload.expiresAt),
     };
   } catch {
     return null;
@@ -137,7 +137,7 @@ export function getAdminSessionCookieOptions(expiresAt: Date) {
     sameSite: "lax" as const,
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    expires: expiresAt
+    expires: expiresAt,
   };
 }
 
@@ -148,7 +148,7 @@ export function getExpiredAdminSessionCookieOptions() {
     secure: process.env.NODE_ENV === "production",
     path: "/",
     expires: new Date(0),
-    maxAge: 0
+    maxAge: 0,
   };
 }
 

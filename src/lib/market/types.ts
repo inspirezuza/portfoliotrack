@@ -49,10 +49,10 @@ export interface MarketDataProvider {
   getLatestQuotes(providerSymbols: string[]): Promise<MarketQuoteSnapshot[]>;
   getHistoricalPrices(
     providerSymbol: string,
-    request: MarketHistoryRequest
+    request: MarketHistoryRequest,
   ): Promise<MarketHistoricalSeries | null>;
   getIntradayPrices(
     providerSymbol: string,
-    request: MarketIntradayRequest
+    request: MarketIntradayRequest,
   ): Promise<MarketIntradaySeries | null>;
 }

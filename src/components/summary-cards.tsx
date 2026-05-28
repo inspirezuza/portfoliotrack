@@ -27,7 +27,7 @@ function getPnlTone(value: number | null): SummaryCardConfig["tone"] {
 
 function getPriceCoverageDetail(
   summary: DashboardSummary,
-  copy: ReturnType<typeof getUiCopy>["holdings"]["summary"]
+  copy: ReturnType<typeof getUiCopy>["holdings"]["summary"],
 ) {
   if (summary.openPositionCount === 0) {
     return copy.priceCoverageNoOpen;
@@ -48,7 +48,7 @@ function getPriceCoverageDetail(
   return copy.priceCoveragePartial(
     summary.pricedPositionCount,
     summary.openPositionCount,
-    `${awaitingList}${suffix}`
+    `${awaitingList}${suffix}`,
   );
 }
 
@@ -56,7 +56,7 @@ function formatCurrencyBreakdown(
   summary: DashboardSummary,
   key: "totalCostBasis" | "totalMarketValue" | "totalUnrealizedPnl",
   locale: string,
-  copy: ReturnType<typeof getUiCopy>["holdings"]["summary"]
+  copy: ReturnType<typeof getUiCopy>["holdings"]["summary"],
 ) {
   return summary.currencyBreakdown
     .map((entry) => {
@@ -68,7 +68,7 @@ function formatCurrencyBreakdown(
 
       return copy.currencyBreakdown(
         entry.currency,
-        formatCurrency(value, { currency: entry.currency, locale })
+        formatCurrency(value, { currency: entry.currency, locale }),
       );
     })
     .join(" - ");
@@ -77,22 +77,19 @@ function formatCurrencyBreakdown(
 function formatRealizedBreakdown(
   summary: DashboardSummary,
   locale: string,
-  copy: ReturnType<typeof getUiCopy>["holdings"]["summary"]
+  copy: ReturnType<typeof getUiCopy>["holdings"]["summary"],
 ) {
   return summary.realizedBreakdown
     .map((entry) =>
       copy.currencyBreakdown(
         entry.currency,
-        formatCurrency(entry.totalRealizedPnl, { currency: entry.currency, locale })
-      )
+        formatCurrency(entry.totalRealizedPnl, { currency: entry.currency, locale }),
+      ),
     )
     .join(" - ");
 }
 
-function buildCards(
-  summary: DashboardSummary,
-  language: UiLanguage
-): SummaryCardConfig[] {
+function buildCards(summary: DashboardSummary, language: UiLanguage): SummaryCardConfig[] {
   const copy = getUiCopy(language).holdings.summary;
   const locale = getUiLocale(language);
   const marketValueIsMixedCurrency =
@@ -113,7 +110,7 @@ function buildCards(
       detail:
         summary.openPositionCount === 0
           ? copy.noOpenHoldings
-          : copy.openLedger(summary.openPositionCount)
+          : copy.openLedger(summary.openPositionCount),
     },
     {
       label: copy.openCostBasis,
@@ -122,12 +119,12 @@ function buildCards(
           ? copy.mixedCurrency
           : formatCurrency(summary.totalCostBasis, {
               currency: summary.openPositionCurrency ?? DEFAULT_DISPLAY_CURRENCY,
-              locale
+              locale,
             }),
       detail:
         summary.totalCostBasis == null
           ? formatCurrencyBreakdown(summary, "totalCostBasis", locale, copy)
-          : copy.calculatedOpenOnly
+          : copy.calculatedOpenOnly,
     },
     {
       label: copy.marketValue,
@@ -138,7 +135,7 @@ function buildCards(
             : copy.waiting
           : formatCurrency(summary.totalMarketValue, {
               currency: summary.openPositionCurrency ?? DEFAULT_DISPLAY_CURRENCY,
-              locale
+              locale,
             }),
       detail:
         summary.totalMarketValue == null
@@ -147,7 +144,7 @@ function buildCards(
             : `${getPriceCoverageDetail(summary, copy)} ${formatCurrencyBreakdown(summary, "totalMarketValue", locale, copy)}`
           : summary.latestPriceAsOf
             ? copy.usingCachedPricesAsOf(summary.latestPriceAsOf)
-            : copy.usingCachedPrices
+            : copy.usingCachedPrices,
     },
     {
       label: copy.unrealizedPnl,
@@ -158,7 +155,7 @@ function buildCards(
             : copy.waiting
           : formatCurrency(summary.totalUnrealizedPnl, {
               currency: summary.openPositionCurrency ?? DEFAULT_DISPLAY_CURRENCY,
-              locale
+              locale,
             }),
       tone: getPnlTone(summary.totalUnrealizedPnl),
       detail:
@@ -166,7 +163,7 @@ function buildCards(
           ? unrealizedPnlIsMixedCurrency
             ? formatCurrencyBreakdown(summary, "totalUnrealizedPnl", locale, copy)
             : `${getPriceCoverageDetail(summary, copy)} ${formatCurrencyBreakdown(summary, "totalUnrealizedPnl", locale, copy)}`
-          : copy.openGainLoss
+          : copy.openGainLoss,
     },
     {
       label: copy.realizedPnl,
@@ -175,14 +172,14 @@ function buildCards(
           ? copy.mixedCurrency
           : formatCurrency(summary.totalRealizedPnl, {
               currency: summary.realizedBreakdown[0]?.currency ?? DEFAULT_DISPLAY_CURRENCY,
-              locale
+              locale,
             }),
       tone: getPnlTone(summary.totalRealizedPnl),
       detail:
         summary.totalRealizedPnl == null
           ? formatRealizedBreakdown(summary, locale, copy)
-          : copy.closedTradeResult
-    }
+          : copy.closedTradeResult,
+    },
   ];
 }
 
@@ -194,7 +191,9 @@ export function SummaryCards({ language, summary }: SummaryCardsProps) {
       {cards.map((card) => (
         <article key={card.label} className="metric-card summary-card">
           <p className="eyebrow">{card.label}</p>
-          <p className={`metric-value summary-value${card.tone ? ` summary-value-${card.tone}` : ""}`}>
+          <p
+            className={`metric-value summary-value${card.tone ? ` summary-value-${card.tone}` : ""}`}
+          >
             {card.value}
           </p>
           <p className="metric-label">{card.detail}</p>

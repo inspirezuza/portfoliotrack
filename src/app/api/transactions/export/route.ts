@@ -1,5 +1,8 @@
 import { isAdminAuthenticated } from "@/lib/auth/admin";
-import { AggregatePortfolioSelectionError, getSelectedPortfolioId } from "@/lib/portfolio/selection";
+import {
+  AggregatePortfolioSelectionError,
+  getSelectedPortfolioId,
+} from "@/lib/portfolio/selection";
 import { ensureDefaultPortfolio } from "@/server/portfolios";
 import { buildTransactionExport } from "@/server/transaction-import-export";
 
@@ -15,10 +18,10 @@ export async function GET(request: Request) {
         {
           error: {
             code: "ADMIN_REQUIRED",
-            message: "Admin login is required to export transactions."
-          }
+            message: "Admin login is required to export transactions.",
+          },
         },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -37,8 +40,8 @@ export async function GET(request: Request) {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "Content-Disposition": `attachment; filename="${exportFile.fileName}"`,
-        "Cache-Control": "no-store"
-      }
+        "Cache-Control": "no-store",
+      },
     });
   } catch (error) {
     if (error instanceof AggregatePortfolioSelectionError) {
@@ -46,10 +49,10 @@ export async function GET(request: Request) {
         {
           error: {
             code: "AGGREGATE_PORTFOLIO_SELECTION",
-            message: "Choose a specific portfolio before exporting transactions."
-          }
+            message: "Choose a specific portfolio before exporting transactions.",
+          },
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
@@ -59,10 +62,10 @@ export async function GET(request: Request) {
       {
         error: {
           code: "INTERNAL_ERROR",
-          message: "Transaction export failed."
-        }
+          message: "Transaction export failed.",
+        },
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

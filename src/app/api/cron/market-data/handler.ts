@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { ensureDefaultPortfolio, listPortfolios } from "@/server/portfolios";
 import { scheduleMarketRefreshWorker } from "@/server/market-refresh-batches";
-import { startDailyAutoMarketRefresh, type DailyAutoRefreshResponse } from "@/server/market-refresh";
+import {
+  startDailyAutoMarketRefresh,
+  type DailyAutoRefreshResponse,
+} from "@/server/market-refresh";
 
 export const MARKET_REFRESH_CRON_SLOTS = new Map([
   ["1800", "18:00"],
@@ -12,7 +15,7 @@ export const MARKET_REFRESH_CRON_SLOTS = new Map([
   ["2200", "22:00"],
   ["2300", "23:00"],
   ["0000", "00:00"],
-  ["0300", "03:00"]
+  ["0300", "03:00"],
 ]);
 
 type PortfolioRefreshResult = {
@@ -26,10 +29,10 @@ function jsonErrorResponse(code: string, message: string, status: number) {
     {
       error: {
         code,
-        message
-      }
+        message,
+      },
     },
-    { status }
+    { status },
   );
 }
 
@@ -86,7 +89,10 @@ export async function handleMarketDataCronRequest(request: Request, slotInput: s
     const results: PortfolioRefreshResult[] = [];
 
     for (const portfolio of portfolios) {
-      const result = await startDailyAutoMarketRefresh({ portfolioId: portfolio.id, refreshSlot: slot });
+      const result = await startDailyAutoMarketRefresh({
+        portfolioId: portfolio.id,
+        refreshSlot: slot,
+      });
 
       if (result.runId != null) {
         scheduleMarketRefreshWorker(request, result.runId);
@@ -95,7 +101,7 @@ export async function handleMarketDataCronRequest(request: Request, slotInput: s
       results.push({
         portfolioId: portfolio.id,
         portfolioName: portfolio.name,
-        result
+        result,
       });
     }
 
@@ -105,7 +111,7 @@ export async function handleMarketDataCronRequest(request: Request, slotInput: s
       refreshSlot: slot,
       scheduledTimeThailand: MARKET_REFRESH_CRON_SLOTS.get(slot),
       timeZone: "Asia/Bangkok",
-      portfolios: results
+      portfolios: results,
     });
   } catch (error) {
     console.error("Scheduled market data refresh failed", error);

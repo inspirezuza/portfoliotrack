@@ -70,6 +70,7 @@
 ## Task 1: Scaffold the local web app foundation
 
 **Files:**
+
 - Create: `D:\coding\portfoliotrack\package.json`
 - Create: `D:\coding\portfoliotrack\tsconfig.json`
 - Create: `D:\coding\portfoliotrack\next-env.d.ts`
@@ -130,8 +131,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   experimental: {
-    typedRoutes: true
-  }
+    typedRoutes: true,
+  },
 };
 
 export default nextConfig;
@@ -182,8 +183,8 @@ export default [...nextVitals];
 // D:\coding\portfoliotrack\postcss.config.mjs
 export default {
   plugins: {
-    tailwindcss: {}
-  }
+    tailwindcss: {},
+  },
 };
 ```
 
@@ -222,7 +223,7 @@ import type { ReactNode } from "react";
 const navItems = [
   { href: "/", label: "Dashboard" },
   { href: "/holdings", label: "Holdings" },
-  { href: "/transactions", label: "Transactions" }
+  { href: "/transactions", label: "Transactions" },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -277,15 +278,53 @@ export default function DashboardPage() {
   --border: rgba(27, 26, 23, 0.08);
 }
 
-* { box-sizing: border-box; }
-body { margin: 0; background: radial-gradient(circle at top, #fffdf8, var(--bg)); color: var(--ink); font-family: Georgia, "Times New Roman", serif; }
-.app-frame { max-width: 1200px; margin: 0 auto; padding: 32px 24px 64px; }
-.topbar { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 32px; }
-.topbar nav { display: flex; gap: 16px; }
-.topbar a { color: var(--ink); text-decoration: none; }
-.eyebrow { margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.12em; font-size: 12px; color: var(--muted); }
-.page-grid { display: grid; gap: 24px; }
-.hero-card { background: var(--panel); border: 1px solid var(--border); border-radius: 28px; padding: 32px; box-shadow: 0 20px 60px rgba(27, 26, 23, 0.08); }
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: radial-gradient(circle at top, #fffdf8, var(--bg));
+  color: var(--ink);
+  font-family: Georgia, "Times New Roman", serif;
+}
+.app-frame {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+}
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+.topbar nav {
+  display: flex;
+  gap: 16px;
+}
+.topbar a {
+  color: var(--ink);
+  text-decoration: none;
+}
+.eyebrow {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 12px;
+  color: var(--muted);
+}
+.page-grid {
+  display: grid;
+  gap: 24px;
+}
+.hero-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  padding: 32px;
+  box-shadow: 0 20px 60px rgba(27, 26, 23, 0.08);
+}
 ```
 
 - [ ] **Step 5: Install dependencies and verify the shell boots**
@@ -299,6 +338,7 @@ Expected: Next.js starts and the starter dashboard renders at `http://localhost:
 ## Task 2: Create the SQLite and Drizzle data foundation
 
 **Files:**
+
 - Create: `D:\coding\portfoliotrack\drizzle.config.ts`
 - Create: `D:\coding\portfoliotrack\src\lib\db\client.ts`
 - Create: `D:\coding\portfoliotrack\src\lib\db\schema.ts`
@@ -319,8 +359,8 @@ export default {
   out: "./drizzle",
   dialect: "sqlite",
   dbCredentials: {
-    url: "./data/portfolio.sqlite"
-  }
+    url: "./data/portfolio.sqlite",
+  },
 } satisfies Config;
 ```
 
@@ -353,7 +393,7 @@ export const instruments = sqliteTable("instruments", {
   providerSymbol: text("provider_symbol").notNull(),
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
   createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull()
+  updatedAt: text("updated_at").notNull(),
 });
 
 export const transactions = sqliteTable("transactions", {
@@ -366,7 +406,7 @@ export const transactions = sqliteTable("transactions", {
   fee: numeric("fee").notNull(),
   notes: text("notes"),
   createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull()
+  updatedAt: text("updated_at").notNull(),
 });
 ```
 
@@ -379,7 +419,7 @@ export const priceSnapshots = sqliteTable("price_snapshots", {
   price: numeric("price").notNull(),
   currency: text("currency").notNull(),
   asOf: text("as_of").notNull(),
-  source: text("source").notNull()
+  source: text("source").notNull(),
 });
 
 export const historicalPrices = sqliteTable("historical_prices", {
@@ -388,14 +428,14 @@ export const historicalPrices = sqliteTable("historical_prices", {
   priceDate: text("price_date").notNull(),
   close: numeric("close").notNull(),
   currency: text("currency").notNull(),
-  source: text("source").notNull()
+  source: text("source").notNull(),
 });
 
 export const appSettings = sqliteTable("app_settings", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   key: text("key").notNull().unique(),
   value: text("value").notNull(),
-  updatedAt: text("updated_at").notNull()
+  updatedAt: text("updated_at").notNull(),
 });
 ```
 
@@ -415,15 +455,29 @@ console.log("Database migrations applied.");
 ```ts
 // D:\coding\portfoliotrack\src\lib\db\seed.ts
 export const defaultInstruments = [
-  { symbol: "SPY", displayName: "SPDR S&P 500 ETF Trust", market: "US", instrumentType: "ETF", currency: "USD", providerSymbol: "SPY" },
-  { symbol: "AAPL80", displayName: "Apple DR", market: "TH", instrumentType: "DR", currency: "THB", providerSymbol: "AAPL80.BK" }
+  {
+    symbol: "SPY",
+    displayName: "SPDR S&P 500 ETF Trust",
+    market: "US",
+    instrumentType: "ETF",
+    currency: "USD",
+    providerSymbol: "SPY",
+  },
+  {
+    symbol: "AAPL80",
+    displayName: "Apple DR",
+    market: "TH",
+    instrumentType: "DR",
+    currency: "THB",
+    providerSymbol: "AAPL80.BK",
+  },
 ];
 
 export const defaultSettings = {
   benchmarkSymbol: "SPY",
   marketRefreshMinutes: "30",
   timezone: "Asia/Bangkok",
-  symbolOverrides: "{}"
+  symbolOverrides: "{}",
 };
 ```
 
@@ -441,6 +495,7 @@ Expected: SQLite file is created and migrations apply without path errors
 ## Task 3: Implement portfolio math and transaction validation
 
 **Files:**
+
 - Create: `D:\coding\portfoliotrack\src\lib\validation\transaction.ts`
 - Create: `D:\coding\portfoliotrack\src\lib\portfolio\positions.ts`
 - Create: `D:\coding\portfoliotrack\src\lib\format.ts`
@@ -461,7 +516,7 @@ export const transactionSchema = z.object({
   quantity: z.coerce.number().positive(),
   price: z.coerce.number().positive(),
   fee: z.coerce.number().min(0),
-  notes: z.string().trim().max(500).optional().or(z.literal(""))
+  notes: z.string().trim().max(500).optional().or(z.literal("")),
 });
 
 export type TransactionInput = z.infer<typeof transactionSchema>;
@@ -478,7 +533,10 @@ type PositionState = {
   realizedPnl: number;
 };
 
-export function applyTransaction(state: PositionState, tx: { side: "BUY" | "SELL"; quantity: number; price: number; fee: number }): PositionState {
+export function applyTransaction(
+  state: PositionState,
+  tx: { side: "BUY" | "SELL"; quantity: number; price: number; fee: number },
+): PositionState {
   if (tx.side === "BUY") {
     const nextQuantity = state.quantity + tx.quantity;
     const nextTotalCost = state.totalCost + tx.quantity * tx.price + tx.fee;
@@ -486,7 +544,7 @@ export function applyTransaction(state: PositionState, tx: { side: "BUY" | "SELL
       quantity: nextQuantity,
       totalCost: nextTotalCost,
       averageCost: nextQuantity === 0 ? 0 : nextTotalCost / nextQuantity,
-      realizedPnl: state.realizedPnl
+      realizedPnl: state.realizedPnl,
     };
   }
 
@@ -498,7 +556,7 @@ export function applyTransaction(state: PositionState, tx: { side: "BUY" | "SELL
     quantity: nextQuantity,
     totalCost: nextTotalCost,
     averageCost: nextQuantity === 0 ? 0 : nextTotalCost / nextQuantity,
-    realizedPnl: state.realizedPnl + (proceeds - removedCost)
+    realizedPnl: state.realizedPnl + (proceeds - removedCost),
   };
 }
 ```
@@ -508,7 +566,11 @@ export function applyTransaction(state: PositionState, tx: { side: "BUY" | "SELL
 ```ts
 // D:\coding\portfoliotrack\src\lib\format.ts
 export function formatCurrency(value: number, currency: string) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 2 }).format(value);
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
 export function formatNumber(value: number, digits = 2) {
@@ -544,6 +606,7 @@ Expected: first log shows `totalCost = 1005` and `averageCost = 100.5`; second l
 ## Task 4: Build transaction entry and transaction list pages
 
 **Files:**
+
 - Create: `D:\coding\portfoliotrack\src\app\transactions\page.tsx`
 - Create: `D:\coding\portfoliotrack\src\app\api\transactions\route.ts`
 - Create: `D:\coding\portfoliotrack\src\components\transaction-form.tsx`
@@ -612,7 +675,14 @@ export function TransactionTable({ rows }: { rows: TransactionRow[] }) {
   return (
     <table>
       <thead>
-        <tr><th>Date</th><th>Symbol</th><th>Side</th><th>Quantity</th><th>Price</th><th>Fee</th></tr>
+        <tr>
+          <th>Date</th>
+          <th>Symbol</th>
+          <th>Side</th>
+          <th>Quantity</th>
+          <th>Price</th>
+          <th>Fee</th>
+        </tr>
       </thead>
       <tbody>
         {rows.map((row) => (
@@ -656,6 +726,7 @@ Expected: posting from the form creates a transaction and the list updates after
 - [ ] **Step 5: Verify sell validation blocks impossible states**
 
 Manual check:
+
 - save a `BUY` for one symbol
 - attempt a `SELL` larger than current quantity
 - confirm the route returns a clear validation error instead of allowing negative holdings
@@ -663,6 +734,7 @@ Manual check:
 ## Task 5: Build holdings, dashboard, and summary queries
 
 **Files:**
+
 - Create: `D:\coding\portfoliotrack\src\server\holdings.ts`
 - Create: `D:\coding\portfoliotrack\src\server\dashboard.ts`
 - Create: `D:\coding\portfoliotrack\src\components\holdings-table.tsx`
@@ -694,7 +766,7 @@ export async function getDashboardSummary() {
     totalCostBasis: 0,
     unrealizedPnl: 0,
     realizedPnl: 0,
-    topMovers: []
+    topMovers: [],
   };
 }
 ```
@@ -708,9 +780,29 @@ export function HoldingsTable({ rows }: { rows: Array<Record<string, string | nu
     <div className="panel">
       <table>
         <thead>
-          <tr><th>Symbol</th><th>Market</th><th>Quantity</th><th>Average Cost</th><th>Last Price</th><th>Market Value</th><th>Unrealized P&L</th></tr>
+          <tr>
+            <th>Symbol</th>
+            <th>Market</th>
+            <th>Quantity</th>
+            <th>Average Cost</th>
+            <th>Last Price</th>
+            <th>Market Value</th>
+            <th>Unrealized P&L</th>
+          </tr>
         </thead>
-        <tbody>{rows.map((row) => <tr key={String(row.symbol)}><td>{row.symbol}</td><td>{row.market}</td><td>{row.quantity}</td><td>{row.averageCost}</td><td>{row.lastPrice}</td><td>{row.marketValue}</td><td>{row.unrealizedPnl}</td></tr>)}</tbody>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={String(row.symbol)}>
+              <td>{row.symbol}</td>
+              <td>{row.market}</td>
+              <td>{row.quantity}</td>
+              <td>{row.averageCost}</td>
+              <td>{row.lastPrice}</td>
+              <td>{row.marketValue}</td>
+              <td>{row.unrealizedPnl}</td>
+            </tr>
+          ))}
+        </tbody>
       </table>
     </div>
   );
@@ -721,12 +813,21 @@ export function HoldingsTable({ rows }: { rows: Array<Record<string, string | nu
 
 ```tsx
 // D:\coding\portfoliotrack\src\components\summary-cards.tsx
-export function SummaryCards({ summary }: { summary: { totalMarketValue: number; totalCostBasis: number; unrealizedPnl: number; realizedPnl: number } }) {
+export function SummaryCards({
+  summary,
+}: {
+  summary: {
+    totalMarketValue: number;
+    totalCostBasis: number;
+    unrealizedPnl: number;
+    realizedPnl: number;
+  };
+}) {
   const cards = [
     ["Market Value", summary.totalMarketValue],
     ["Cost Basis", summary.totalCostBasis],
     ["Unrealized P&L", summary.unrealizedPnl],
-    ["Realized P&L", summary.realizedPnl]
+    ["Realized P&L", summary.realizedPnl],
   ];
 
   return (
@@ -745,6 +846,7 @@ export function SummaryCards({ summary }: { summary: { totalMarketValue: number;
 - [ ] **Step 5: Manually confirm dashboard and holdings totals match**
 
 Manual check:
+
 - create two buys and one sell across at least two symbols
 - compare dashboard totals with holdings rows
 - confirm the dashboard never counts fully exited positions in open cost basis
@@ -752,6 +854,7 @@ Manual check:
 ## Task 6: Add market data adapter, cache refresh, and benchmark timeline
 
 **Files:**
+
 - Create: `D:\coding\portfoliotrack\src\lib\market\types.ts`
 - Create: `D:\coding\portfoliotrack\src\lib\market\provider.ts`
 - Create: `D:\coding\portfoliotrack\src\lib\market\yahoo-provider.ts`
@@ -765,7 +868,12 @@ Manual check:
 
 ```ts
 // D:\coding\portfoliotrack\src\lib\market\types.ts
-export type QuoteSnapshot = { providerSymbol: string; price: number; currency: string; asOf: string };
+export type QuoteSnapshot = {
+  providerSymbol: string;
+  price: number;
+  currency: string;
+  asOf: string;
+};
 export type HistoricalBar = { date: string; close: number };
 
 export interface MarketDataProvider {
@@ -796,12 +904,12 @@ export const yahooProvider: MarketDataProvider = {
       providerSymbol: symbol,
       price: 0,
       currency: symbol.endsWith(".BK") ? "THB" : "USD",
-      asOf: new Date().toISOString()
+      asOf: new Date().toISOString(),
     }));
   },
   async getHistoricalCloses(providerSymbol: string, startDate: string): Promise<HistoricalBar[]> {
     return [{ date: startDate, close: 100 }];
-  }
+  },
 };
 ```
 
@@ -811,13 +919,16 @@ export const yahooProvider: MarketDataProvider = {
 // D:\coding\portfoliotrack\src\lib\portfolio\timeline.ts
 type TimelinePoint = { date: string; portfolio: number; benchmark: number };
 
-export function normalizeSeries(portfolio: Array<{ date: string; value: number }>, benchmark: Array<{ date: string; value: number }>): TimelinePoint[] {
+export function normalizeSeries(
+  portfolio: Array<{ date: string; value: number }>,
+  benchmark: Array<{ date: string; value: number }>,
+): TimelinePoint[] {
   const portfolioBase = portfolio[0]?.value ?? 1;
   const benchmarkBase = benchmark[0]?.value ?? 1;
   return portfolio.map((point, index) => ({
     date: point.date,
     portfolio: (point.value / portfolioBase) * 100,
-    benchmark: ((benchmark[index]?.value ?? benchmarkBase) / benchmarkBase) * 100
+    benchmark: ((benchmark[index]?.value ?? benchmarkBase) / benchmarkBase) * 100,
   }));
 }
 ```
@@ -836,6 +947,7 @@ export async function POST() {
 - [ ] **Step 5: Verify the benchmark baseline logic**
 
 Manual check:
+
 - set the first transaction date to a known date
 - refresh market data
 - confirm both portfolio and benchmark begin at `100` on that first transaction date
@@ -843,6 +955,7 @@ Manual check:
 ## Task 7: Build charts and the asset detail page
 
 **Files:**
+
 - Create: `D:\coding\portfoliotrack\src\server\assets.ts`
 - Create: `D:\coding\portfoliotrack\src\components\portfolio-chart.tsx`
 - Create: `D:\coding\portfoliotrack\src\components\benchmark-chart.tsx`
@@ -880,7 +993,11 @@ export function PortfolioChart({ data }: { data: Array<{ date: string; value: nu
 
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-export function BenchmarkChart({ data }: { data: Array<{ date: string; portfolio: number; benchmark: number }> }) {
+export function BenchmarkChart({
+  data,
+}: {
+  data: Array<{ date: string; portfolio: number; benchmark: number }>;
+}) {
   return (
     <ResponsiveContainer width="100%" height={320}>
       <LineChart data={data}>
@@ -899,12 +1016,24 @@ export function BenchmarkChart({ data }: { data: Array<{ date: string; portfolio
 
 ```tsx
 // D:\coding\portfoliotrack\src\components\asset-header.tsx
-export function AssetHeader({ symbol, displayName, quantity, averageCost }: { symbol: string; displayName: string; quantity: number; averageCost: number }) {
+export function AssetHeader({
+  symbol,
+  displayName,
+  quantity,
+  averageCost,
+}: {
+  symbol: string;
+  displayName: string;
+  quantity: number;
+  averageCost: number;
+}) {
   return (
     <header className="hero-card">
       <p className="eyebrow">{symbol}</p>
       <h2>{displayName}</h2>
-      <p>{quantity} shares at average cost {averageCost}</p>
+      <p>
+        {quantity} shares at average cost {averageCost}
+      </p>
     </header>
   );
 }
@@ -930,9 +1059,23 @@ export default async function AssetPage({ params }: { params: Promise<{ symbol: 
 // D:\coding\portfoliotrack\src\components\asset-price-chart.tsx
 "use client";
 
-import { Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Line,
+  LineChart,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
-export function AssetPriceChart({ data, averageCost }: { data: Array<{ date: string; close: number }>; averageCost: number }) {
+export function AssetPriceChart({
+  data,
+  averageCost,
+}: {
+  data: Array<{ date: string; close: number }>;
+  averageCost: number;
+}) {
   return (
     <ResponsiveContainer width="100%" height={320}>
       <LineChart data={data}>
@@ -955,6 +1098,7 @@ Expected: dashboard shows both charts and clicking a holdings symbol opens `/ass
 - [ ] **Step 5: Manually verify a DR symbol renders correctly**
 
 Manual check:
+
 - seed or add a Thai DR symbol such as `AAPL80`
 - confirm it links to a detail page
 - confirm pricing uses its provider symbol mapping, not the display symbol by assumption alone
@@ -962,6 +1106,7 @@ Manual check:
 ## Task 8: Finish error states, refresh control, and release readiness checks
 
 **Files:**
+
 - Update: `D:\coding\portfoliotrack\src\app\page.tsx`
 - Update: `D:\coding\portfoliotrack\src\app\holdings\page.tsx`
 - Update: `D:\coding\portfoliotrack\src\app\transactions\page.tsx`
@@ -974,6 +1119,7 @@ Manual check:
 - [ ] **Step 1: Add empty states and stale-data messaging**
 
 Implement these UI rules:
+
 - if there are no transactions, dashboard shows a clear onboarding empty state
 - if a quote is missing, show `Price unavailable` with last refresh time
 - if the refresh endpoint fails, show a retry affordance instead of crashing the page
@@ -981,6 +1127,7 @@ Implement these UI rules:
 - [ ] **Step 2: Add a manual refresh control on the dashboard**
 
 Expected UI behavior:
+
 - a `Refresh market data` button appears in the dashboard header
 - clicking it calls `POST /api/market-data/refresh`
 - success updates the visible `as of` timestamp
@@ -996,6 +1143,7 @@ Expected: production build completes successfully
 - [ ] **Step 4: Run the full manual verification pass**
 
 Manual checklist:
+
 - add a buy for a US symbol
 - add a buy for a Thai or DR symbol
 - add a sell with a fee

@@ -3,6 +3,7 @@
 PortfolioTrack is a deployable personal portfolio tracker built with Next.js, Neon Postgres, Drizzle ORM, and Yahoo Finance market data. It tracks manual stock and DR transactions across multiple portfolios, calculates fee-aware positions and P&L, caches market prices in Postgres, and shows dashboard, transactions, and per-asset detail views.
 
 For deeper repository context aimed at AI coding agents, read [docs/AI_CONTEXT.md](docs/AI_CONTEXT.md).
+For quality gates, dependency policy, and migration safety, read [docs/QUALITY_AND_OPERATIONS.md](docs/QUALITY_AND_OPERATIONS.md).
 For the latest layout and visual-design review, read [docs/UX_REVIEW.md](docs/UX_REVIEW.md).
 
 ## Current Capabilities
@@ -99,18 +100,19 @@ Public visitors can view the app read-only and switch between portfolios. Sign i
 - `pnpm run test:e2e` runs the Playwright Chromium smoke suite. It starts the Next dev server on `127.0.0.1:3001` unless `PLAYWRIGHT_BASE_URL` or `PLAYWRIGHT_PORT` is set.
 - `pnpm run test:e2e:headed` runs the same Playwright smoke suite with a visible browser.
 - `pnpm run typecheck` runs `tsc --noEmit --pretty false`.
-- `pnpm run verify` runs lint, typecheck, unit tests, and production build in sequence.
-- `pnpm run verify:full` runs lint, typecheck, unit tests, Playwright smoke tests, and production build in sequence.
+- `pnpm run verify` runs format check, lint, typecheck, unit tests, and production build in sequence.
+- `pnpm run verify:full` runs format check, lint, typecheck, unit tests, Playwright smoke tests, and production build in sequence.
 - `pnpm run build` builds the production app and runs type/lint checks through Next.
 - `pnpm run start` serves the production build.
 - `pnpm run lint` runs ESLint.
-- `pnpm run format:check` checks Prettier formatting without writing files. Keep it local/optional until a deliberate repo-wide format pass lands.
+- `pnpm run format:check` checks Prettier formatting without writing files and is part of the normal verification gate.
 - `pnpm run config:check` verifies local admin env and reports the local database fallback.
 - `pnpm run config:check:prod` verifies production deployment env before migration or deploy handoff.
 - `pnpm run db:local:up` reminds you to use the machine-level PostgreSQL service on `localhost:5432`.
 - `pnpm run db:local:down` reminds you to stop the machine-level PostgreSQL service from Windows Services if needed.
 - `pnpm run db:generate` generates SQL migrations from the Drizzle schema.
-- `pnpm run db:migrate` pushes the Drizzle schema to the configured Postgres database for local iteration.
+- `pnpm run db:check` checks Drizzle migration consistency.
+- `pnpm run db:migrate` is a compatibility alias for the explicit local migration command.
 - `pnpm run db:migrate:local` is the explicit local schema-push alias.
 - `pnpm run db:migrate:prod` checks required production env and applies committed migrations with `drizzle-kit migrate`.
 - `pnpm run db:seed` inserts demo portfolios, instruments, transactions, prices, FX snapshots, DR metadata, and settings for local testing.
@@ -138,13 +140,13 @@ Public visitors can view the app read-only and switch between portfolios. Sign i
 
 The production database lives in Neon Postgres. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full free-tier Vercel + Neon setup.
 
-The database schema is declared in `src/lib/db/schema.ts`, with SQL migrations in `drizzle/`. Use `pnpm run db:generate` after schema changes, review the generated SQL, use `pnpm run db:migrate:local` for local schema pushes, and use `pnpm run db:migrate:prod` for production migration handoff.
+The database schema is declared in `src/lib/db/schema.ts`, with SQL migrations in `drizzle/`. Use `pnpm run db:generate` after schema changes, review the generated SQL, optionally run `pnpm run db:check`, use `pnpm run db:migrate:local` for local schema pushes, and use `pnpm run db:migrate:prod` for production migration handoff.
 
 Market refresh runs are tracked in `market_refresh_runs`. Vercel Cron calls slot-specific routes in `Asia/Bangkok`: `/api/cron/market-data/1800`, `/1900`, `/2000`, `/2030` for US market open, `/2100`, `/2200`, `/2300`, `/0000`, and `/0300` for US market close. Each route requires `Authorization: Bearer $CRON_SECRET`, starts every portfolio through the guarded `daily-auto` path, and records one run per Bangkok day per portfolio per slot. Admin manual refresh remains available from the app and bypasses the scheduled slot limit. Manual and cron refreshes return quickly, then a protected worker processes market data in batches and updates run progress so older portfolios do not hold a browser request open until Vercel times out. Vercel Hobby cron timing is hourly best-effort, so these slots are target windows rather than exact minute guarantees.
 
 ## Notes For Future Work
 
-- The unit test suite covers the transaction selection helper, position math, validation, and timeout utility. Run `pnpm run test` before changing those flows.
+- The unit test suite covers transaction selection, transaction Excel import/export parsing, position math, benchmark/performance comparison, DR metadata, market-data staleness, config validation, structured logging, validation, and timeout utility. Run `pnpm run test` before changing those flows.
 - The Playwright smoke suite covers the dashboard, transactions route, instrument-to-asset drilldown, and login route. Run `pnpm run test:e2e` after changing shell navigation, route rendering, transaction table links, login visibility, app loading states, or anything likely to compile cleanly but fail in the browser.
 - Use `pnpm run verify` for normal code verification and `pnpm run verify:full` before larger releases, route changes, deploy handoff, or broad vibe-code passes.
 - GitHub Actions runs `pnpm run verify` on `main` and pull requests, with a separate Playwright smoke job for pull requests. Dependabot opens conservative weekly dependency PRs while major upgrades remain manual.

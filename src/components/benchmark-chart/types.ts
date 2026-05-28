@@ -1,7 +1,7 @@
 import type { TimeAxisPoint } from "@/lib/charts/time-axis";
 import type {
   IndexedPerformancePoint,
-  ReturnPerformancePoint
+  ReturnPerformancePoint,
 } from "@/lib/portfolio/performance-series";
 
 export type TimeframeKey = "1D" | "5D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "ALL";

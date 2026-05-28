@@ -10,10 +10,10 @@ function jsonErrorResponse(code: string, message: string, status: number) {
     {
       error: {
         code,
-        message
-      }
+        message,
+      },
     },
-    { status }
+    { status },
   );
 }
 
@@ -26,7 +26,11 @@ function parseRunId(request: Request) {
 
 export async function GET(request: Request) {
   if (!(await isAdminAuthenticated())) {
-    return jsonErrorResponse("ADMIN_REQUIRED", "Admin login is required to read refresh status.", 401);
+    return jsonErrorResponse(
+      "ADMIN_REQUIRED",
+      "Admin login is required to read refresh status.",
+      401,
+    );
   }
 
   const runId = parseRunId(request);

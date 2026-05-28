@@ -53,9 +53,7 @@
   padding: 14px 16px;
   color: var(--ink);
   text-align: left;
-  background:
-    linear-gradient(135deg, rgba(12, 121, 94, 0.13), transparent 68%),
-    var(--surface);
+  background: linear-gradient(135deg, rgba(12, 121, 94, 0.13), transparent 68%), var(--surface);
   box-shadow: 0 12px 32px rgba(33, 49, 41, 0.08);
   cursor: pointer;
   transition:
@@ -74,8 +72,7 @@
 .miniCard[aria-pressed="true"] {
   border-color: rgba(12, 121, 94, 0.48);
   background:
-    linear-gradient(135deg, rgba(12, 121, 94, 0.2), rgba(12, 121, 94, 0.04)),
-    var(--surface);
+    linear-gradient(135deg, rgba(12, 121, 94, 0.2), rgba(12, 121, 94, 0.04)), var(--surface);
   box-shadow:
     0 0 0 3px rgba(12, 121, 94, 0.11),
     0 16px 38px rgba(33, 49, 41, 0.12);

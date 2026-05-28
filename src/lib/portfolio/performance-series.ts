@@ -28,7 +28,7 @@ export function createEmptyPerformanceSeries(): PortfolioPerformanceSeries {
   return {
     absolute: [],
     mwr: [],
-    twr: []
+    twr: [],
   };
 }
 
@@ -37,14 +37,14 @@ export function toPercentReturn(startValue: number, endValue: number) {
     return null;
   }
 
-  return normalizeMoney(((endValue / startValue) - 1) * 100);
+  return normalizeMoney((endValue / startValue - 1) * 100);
 }
 
 export function toIndexedPerformancePoint({
   benchmark,
   date,
   interval,
-  portfolio
+  portfolio,
 }: PerformancePointBase & {
   benchmark: number;
   portfolio: number;
@@ -53,7 +53,7 @@ export function toIndexedPerformancePoint({
     date,
     interval,
     benchmarkIndex: benchmark,
-    portfolioIndex: portfolio
+    portfolioIndex: portfolio,
   };
 }
 
@@ -62,7 +62,7 @@ export function toReturnPerformancePoint({
   benchmarkReturnPercent,
   date,
   interval,
-  portfolioReturnPercent
+  portfolioReturnPercent,
 }: PerformancePointBase & {
   annualized: boolean;
   benchmarkReturnPercent: number;
@@ -73,6 +73,6 @@ export function toReturnPerformancePoint({
     interval,
     annualized,
     benchmarkReturnPercent: normalizeMoney(benchmarkReturnPercent),
-    portfolioReturnPercent: normalizeMoney(portfolioReturnPercent)
+    portfolioReturnPercent: normalizeMoney(portfolioReturnPercent),
   };
 }

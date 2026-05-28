@@ -31,11 +31,14 @@ export function useChartVisibilityKey() {
       setRenderKey((current) => current + 1);
     }
 
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
-        refreshWhenMeasurable();
-      }
-    }, { threshold: 0.01 });
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          refreshWhenMeasurable();
+        }
+      },
+      { threshold: 0.01 },
+    );
 
     observer.observe(observedContainer);
     requestAnimationFrame(refreshWhenMeasurable);

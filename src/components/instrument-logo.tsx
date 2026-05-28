@@ -20,7 +20,7 @@ function getLogoLookupSymbol({
   symbol,
   instrumentType,
   providerSymbol,
-  underlyingProviderSymbol
+  underlyingProviderSymbol,
 }: InstrumentLogoProps) {
   if (instrumentType === "DR" && underlyingProviderSymbol != null) {
     return normalizeLogoSymbol(underlyingProviderSymbol);
@@ -39,14 +39,14 @@ export function InstrumentLogo({
   instrumentType = null,
   providerSymbol = null,
   underlyingProviderSymbol = null,
-  size = "md"
+  size = "md",
 }: InstrumentLogoProps) {
   const [hasImageError, setHasImageError] = useState(false);
   const logoSymbol = getLogoLookupSymbol({
     symbol,
     instrumentType,
     providerSymbol,
-    underlyingProviderSymbol
+    underlyingProviderSymbol,
   });
   const imageUrl = `https://financialmodelingprep.com/image-stock/${encodeURIComponent(logoSymbol)}.png`;
   const label = displayName == null ? `${symbol} logo` : `${displayName} logo`;

@@ -11,10 +11,7 @@ import {
 } from "react";
 import type { BenchmarkChart as BenchmarkChartComponent } from "@/components/benchmark-chart";
 import type { PortfolioChart as PortfolioChartComponent } from "@/components/portfolio-chart";
-import type {
-  DashboardBenchmarkMonthlyReturn,
-  DashboardBenchmarkQuote,
-} from "@/server/dashboard";
+import type { DashboardBenchmarkMonthlyReturn, DashboardBenchmarkQuote } from "@/server/dashboard";
 import type { HoldingRow } from "@/server/holdings";
 import type { UiLanguage } from "@/lib/ui/translations";
 

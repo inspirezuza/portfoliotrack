@@ -12,7 +12,9 @@ const AssetPriceChart = lazy(() =>
 export function DeferredAssetPriceChart({ asset }: { asset: AssetDetail }) {
   return (
     <Suspense
-      fallback={<div className="loading-skeleton-panel" style={{ minHeight: 360 }} aria-hidden="true" />}
+      fallback={
+        <div className="loading-skeleton-panel" style={{ minHeight: 360 }} aria-hidden="true" />
+      }
     >
       <AssetPriceChart asset={asset} />
     </Suspense>

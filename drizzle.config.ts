@@ -13,6 +13,6 @@ export default {
   out: "./drizzle",
   dialect: "postgresql",
   dbCredentials: {
-    url: databaseUrl
-  }
+    url: databaseUrl,
+  },
 } satisfies Config;

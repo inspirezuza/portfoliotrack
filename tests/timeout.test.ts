@@ -5,7 +5,7 @@ import { OperationTimeoutError, withOperationTimeout } from "../src/lib/async/ti
 test("withOperationTimeout resolves successful operations", async () => {
   const value = await withOperationTimeout(Promise.resolve("ok"), {
     label: "quick operation",
-    timeoutMs: 100
+    timeoutMs: 100,
   });
 
   assert.equal(value, "ok");
@@ -16,10 +16,10 @@ test("withOperationTimeout rejects slow operations with a labeled timeout", asyn
     () =>
       withOperationTimeout(new Promise((resolve) => setTimeout(resolve, 50)), {
         label: "slow operation",
-        timeoutMs: 1
+        timeoutMs: 1,
       }),
     (error) =>
       error instanceof OperationTimeoutError &&
-      /slow operation timed out after 1ms/.test(error.message)
+      /slow operation timed out after 1ms/.test(error.message),
   );
 });

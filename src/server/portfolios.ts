@@ -25,7 +25,7 @@ export class PortfolioServiceError extends Error {
   constructor(
     code: PortfolioServiceError["code"],
     message: string,
-    details?: Record<string, unknown>
+    details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "PortfolioServiceError";
@@ -40,7 +40,7 @@ function mapPortfolio(portfolio: Portfolio): PortfolioListItem {
     name: portfolio.name,
     isDefault: portfolio.isDefault,
     createdAt: portfolio.createdAt,
-    updatedAt: portfolio.updatedAt
+    updatedAt: portfolio.updatedAt,
   };
 }
 
@@ -72,7 +72,10 @@ function parsePortfolioName(input: unknown) {
   }
 
   if (name.length > 80) {
-    throw new PortfolioServiceError("VALIDATION_ERROR", "Portfolio name must be 80 characters or fewer.");
+    throw new PortfolioServiceError(
+      "VALIDATION_ERROR",
+      "Portfolio name must be 80 characters or fewer.",
+    );
   }
 
   return name;
@@ -83,24 +86,19 @@ function parseDeleteConfirmation(input: unknown) {
 }
 
 export async function listPortfolios() {
-  const rows = await db
-    .select()
-    .from(portfolios)
-    .orderBy(asc(portfolios.name), asc(portfolios.id));
+  const rows = await db.select().from(portfolios).orderBy(asc(portfolios.name), asc(portfolios.id));
 
   return rows.map(mapPortfolio);
 }
 
 export async function ensureDefaultPortfolio(): Promise<PortfolioListItem> {
-  const rows = await db
-    .select()
-    .from(portfolios)
-    .orderBy(asc(portfolios.id));
+  const rows = await db.select().from(portfolios).orderBy(asc(portfolios.id));
   const existingDefault = rows.find((portfolio) => portfolio.isDefault) ?? rows[0] ?? null;
 
   if (existingDefault != null) {
     if (!existingDefault.isDefault) {
-      await db.update(portfolios)
+      await db
+        .update(portfolios)
         .set({ isDefault: true, updatedAt: sql`CURRENT_TIMESTAMP` })
         .where(eq(portfolios.id, existingDefault.id));
     }
@@ -113,7 +111,7 @@ export async function ensureDefaultPortfolio(): Promise<PortfolioListItem> {
       .insert(portfolios)
       .values({
         name: "Main Portfolio",
-        isDefault: true
+        isDefault: true,
       })
       .returning();
 
@@ -124,21 +122,17 @@ export async function ensureDefaultPortfolio(): Promise<PortfolioListItem> {
     }
   }
 
-  const fallbackRows = await db
-    .select()
-    .from(portfolios)
-    .orderBy(asc(portfolios.id));
+  const fallbackRows = await db.select().from(portfolios).orderBy(asc(portfolios.id));
   const fallbackPortfolio =
-    fallbackRows.find((portfolio) => portfolio.isDefault) ??
-    fallbackRows[0] ??
-    null;
+    fallbackRows.find((portfolio) => portfolio.isDefault) ?? fallbackRows[0] ?? null;
 
   if (fallbackPortfolio == null) {
     throw new PortfolioServiceError("INTERNAL_ERROR", "Default portfolio could not be created.");
   }
 
   if (!fallbackPortfolio.isDefault) {
-    await db.update(portfolios)
+    await db
+      .update(portfolios)
       .set({ isDefault: true, updatedAt: sql`CURRENT_TIMESTAMP` })
       .where(eq(portfolios.id, fallbackPortfolio.id));
   }
@@ -166,16 +160,20 @@ export async function createPortfolio(input: unknown) {
       .insert(portfolios)
       .values({
         name,
-        isDefault: false
+        isDefault: false,
       })
       .returning();
 
     return mapPortfolio(createdPortfolio);
   } catch (error) {
     if (isUniqueConstraintError(error)) {
-      throw new PortfolioServiceError("DUPLICATE_PORTFOLIO", "A portfolio with that name already exists.", {
-        name
-      });
+      throw new PortfolioServiceError(
+        "DUPLICATE_PORTFOLIO",
+        "A portfolio with that name already exists.",
+        {
+          name,
+        },
+      );
     }
 
     throw error;
@@ -184,7 +182,10 @@ export async function createPortfolio(input: unknown) {
 
 export async function updatePortfolio(input: unknown) {
   if (input === null || typeof input !== "object" || Array.isArray(input)) {
-    throw new PortfolioServiceError("VALIDATION_ERROR", "Portfolio update payload must be an object.");
+    throw new PortfolioServiceError(
+      "VALIDATION_ERROR",
+      "Portfolio update payload must be an object.",
+    );
   }
 
   const payload = input as Record<string, unknown>;
@@ -209,7 +210,7 @@ export async function updatePortfolio(input: unknown) {
         .set({
           name: nextName ?? existingPortfolio.name,
           isDefault: shouldSetDefault ? true : existingPortfolio.isDefault,
-          updatedAt: sql`CURRENT_TIMESTAMP`
+          updatedAt: sql`CURRENT_TIMESTAMP`,
         })
         .where(eq(portfolios.id, id))
         .returning();
@@ -220,9 +221,13 @@ export async function updatePortfolio(input: unknown) {
     return mapPortfolio(updatedPortfolio);
   } catch (error) {
     if (isUniqueConstraintError(error)) {
-      throw new PortfolioServiceError("DUPLICATE_PORTFOLIO", "A portfolio with that name already exists.", {
-        name: nextName
-      });
+      throw new PortfolioServiceError(
+        "DUPLICATE_PORTFOLIO",
+        "A portfolio with that name already exists.",
+        {
+          name: nextName,
+        },
+      );
     }
 
     throw error;
@@ -231,7 +236,10 @@ export async function updatePortfolio(input: unknown) {
 
 export async function deletePortfolio(input: unknown) {
   if (input === null || typeof input !== "object" || Array.isArray(input)) {
-    throw new PortfolioServiceError("VALIDATION_ERROR", "Portfolio delete payload must be an object.");
+    throw new PortfolioServiceError(
+      "VALIDATION_ERROR",
+      "Portfolio delete payload must be an object.",
+    );
   }
 
   const payload = input as Record<string, unknown>;
@@ -250,8 +258,8 @@ export async function deletePortfolio(input: unknown) {
         "CONFIRMATION_REQUIRED",
         "Portfolio deletion must be confirmed with the portfolio name.",
         {
-          portfolioName: portfolio.name
-        }
+          portfolioName: portfolio.name,
+        },
       );
     }
 
@@ -285,12 +293,15 @@ export async function deletePortfolio(input: unknown) {
       .where(eq(portfolios.id, nextDefault.id));
 
     if (selectedPortfolio == null) {
-      throw new PortfolioServiceError("INTERNAL_ERROR", "Replacement portfolio could not be loaded.");
+      throw new PortfolioServiceError(
+        "INTERNAL_ERROR",
+        "Replacement portfolio could not be loaded.",
+      );
     }
 
     return {
       deletedPortfolio: mapPortfolio(portfolio),
-      selectedPortfolio: mapPortfolio({ ...selectedPortfolio, isDefault: true })
+      selectedPortfolio: mapPortfolio({ ...selectedPortfolio, isDefault: true }),
     };
   });
 }

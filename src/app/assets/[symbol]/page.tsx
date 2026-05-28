@@ -45,7 +45,7 @@ function formatOptionalPercent(value: number | null) {
 
   return formatPercentRatio(value, {
     minimumFractionDigits: 1,
-    maximumFractionDigits: 1
+    maximumFractionDigits: 1,
   });
 }
 
@@ -58,7 +58,7 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
     ...(isAggregatePortfolio
       ? { portfolioIds: portfolios.map((portfolio) => portfolio.id) }
       : { portfolioId: selectedPortfolio.id }),
-    allowMarketRefresh: isAdmin && !isAggregatePortfolio
+    allowMarketRefresh: isAdmin && !isAggregatePortfolio,
   });
 
   if (asset == null) {
@@ -79,20 +79,28 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
               ? "Waiting"
               : formatCurrency(asset.marketData.lastPrice, {
                   currency: asset.instrument.currency,
-                  maximumFractionDigits: 4
+                  maximumFractionDigits: 4,
                 })}
           </p>
         </article>
         <article className="metric-card">
           <p className="metric-label">Average cost</p>
           <p className="metric-value">
-            {formatOptionalMoney(asset.position.averageCost, asset.instrument.currency, "No position")}
+            {formatOptionalMoney(
+              asset.position.averageCost,
+              asset.instrument.currency,
+              "No position",
+            )}
           </p>
         </article>
         <article className="metric-card">
           <p className="metric-label">Total cost</p>
           <p className="metric-value">
-            {formatOptionalMoney(asset.position.totalCost, asset.instrument.currency, "No position")}
+            {formatOptionalMoney(
+              asset.position.totalCost,
+              asset.instrument.currency,
+              "No position",
+            )}
           </p>
         </article>
         <article className="metric-card">
@@ -137,7 +145,7 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
                 {asset.dr.impliedParentPrice == null || asset.dr.underlyingCurrency == null
                   ? "Not available"
                   : formatCurrency(asset.dr.impliedParentPrice, {
-                      currency: asset.dr.underlyingCurrency
+                      currency: asset.dr.underlyingCurrency,
                     })}
               </p>
             </article>
@@ -147,7 +155,7 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
                 {asset.dr.averageImpliedParentCost == null || asset.dr.underlyingCurrency == null
                   ? "Not available"
                   : formatCurrency(asset.dr.averageImpliedParentCost, {
-                      currency: asset.dr.underlyingCurrency
+                      currency: asset.dr.underlyingCurrency,
                     })}
               </p>
             </article>
@@ -173,7 +181,7 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
                 {asset.dr.parentMarketPrice == null || asset.dr.underlyingCurrency == null
                   ? "Waiting"
                   : formatCurrency(asset.dr.parentMarketPrice, {
-                      currency: asset.dr.underlyingCurrency
+                      currency: asset.dr.underlyingCurrency,
                     })}
               </p>
             </article>
@@ -183,16 +191,24 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
             <div className="dr-step">
               <span className="route-caption">DR price</span>
               <strong>
-                {formatOptionalMoney(asset.marketData.lastPrice, asset.instrument.currency, "Waiting")}
+                {formatOptionalMoney(
+                  asset.marketData.lastPrice,
+                  asset.instrument.currency,
+                  "Waiting",
+                )}
               </strong>
             </div>
             <div className="dr-step">
               <span className="route-caption">x DR per parent share</span>
-              <strong>{asset.dr.drRatio == null ? "Not set" : formatQuantity(asset.dr.drRatio)}</strong>
+              <strong>
+                {asset.dr.drRatio == null ? "Not set" : formatQuantity(asset.dr.drRatio)}
+              </strong>
             </div>
             <div className="dr-step">
               <span className="route-caption">÷ FX</span>
-              <strong>{asset.dr.fxRate == null ? "Waiting for FX" : formatQuantity(asset.dr.fxRate)}</strong>
+              <strong>
+                {asset.dr.fxRate == null ? "Waiting for FX" : formatQuantity(asset.dr.fxRate)}
+              </strong>
             </div>
             <div className="dr-step">
               <span className="route-caption">= implied parent</span>
@@ -200,7 +216,7 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
                 {asset.dr.impliedParentPrice == null || asset.dr.underlyingCurrency == null
                   ? "Not available"
                   : formatCurrency(asset.dr.impliedParentPrice, {
-                      currency: asset.dr.underlyingCurrency
+                      currency: asset.dr.underlyingCurrency,
                     })}
               </strong>
             </div>
@@ -218,7 +234,9 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
               <div>
                 <dt>Quantity held</dt>
                 <dd>
-                  {asset.position.hasOpenPosition ? formatQuantity(asset.position.quantity) : "No position"}
+                  {asset.position.hasOpenPosition
+                    ? formatQuantity(asset.position.quantity)
+                    : "No position"}
                 </dd>
               </div>
               <div>
@@ -289,10 +307,11 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
                 <div>
                   <dt>Parent-equivalent cost</dt>
                   <dd>
-                    {asset.dr.averageImpliedParentCost == null || asset.dr.underlyingCurrency == null
+                    {asset.dr.averageImpliedParentCost == null ||
+                    asset.dr.underlyingCurrency == null
                       ? "Not available"
                       : formatCurrency(asset.dr.averageImpliedParentCost, {
-                          currency: asset.dr.underlyingCurrency
+                          currency: asset.dr.underlyingCurrency,
                         })}
                   </dd>
                 </div>
@@ -338,9 +357,15 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
                 <tr>
                   <th scope="col">Date</th>
                   <th scope="col">Side</th>
-                  <th scope="col" className="table-heading-number">Quantity</th>
-                  <th scope="col" className="table-heading-number">Price</th>
-                  <th scope="col" className="table-heading-number">Fee</th>
+                  <th scope="col" className="table-heading-number">
+                    Quantity
+                  </th>
+                  <th scope="col" className="table-heading-number">
+                    Price
+                  </th>
+                  <th scope="col" className="table-heading-number">
+                    Fee
+                  </th>
                   <th scope="col">Notes</th>
                 </tr>
               </thead>
@@ -361,10 +386,12 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
                     <td className="table-number">
                       {formatCurrency(transaction.price, {
                         currency: asset.instrument.currency,
-                        maximumFractionDigits: 4
+                        maximumFractionDigits: 4,
                       })}
                     </td>
-                    <td className="table-number">{formatCurrency(transaction.fee, { currency: asset.instrument.currency })}</td>
+                    <td className="table-number">
+                      {formatCurrency(transaction.fee, { currency: asset.instrument.currency })}
+                    </td>
                     <td className="table-notes">{transaction.notes ?? "-"}</td>
                   </tr>
                 ))}

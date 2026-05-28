@@ -3,17 +3,13 @@ import {
   adminSessionCookieName,
   createAdminSessionCookieValue,
   getAdminSessionCookieOptions,
-  verifyAdminCredentials
+  verifyAdminCredentials,
 } from "@/lib/auth/admin";
 
 function getSafeRedirectPath(value: string | null) {
   const target = value?.trim() || "/transactions";
 
-  if (
-    target.startsWith("/") &&
-    !target.startsWith("//") &&
-    !target.startsWith("/\\")
-  ) {
+  if (target.startsWith("/") && !target.startsWith("//") && !target.startsWith("/\\")) {
     return target;
   }
 
@@ -24,8 +20,8 @@ function redirectResponse(location: string) {
   return new NextResponse(null, {
     status: 303,
     headers: {
-      Location: location
-    }
+      Location: location,
+    },
   });
 }
 
@@ -39,7 +35,7 @@ async function parseLoginRequest(request: Request) {
       username: typeof body.username === "string" ? body.username : "",
       password: typeof body.password === "string" ? body.password : "",
       next: typeof body.next === "string" ? body.next : null,
-      expectsJson: true
+      expectsJson: true,
     };
   }
 
@@ -49,7 +45,7 @@ async function parseLoginRequest(request: Request) {
     username: String(formData.get("username") ?? ""),
     password: String(formData.get("password") ?? ""),
     next: String(formData.get("next") ?? ""),
-    expectsJson: false
+    expectsJson: false,
   };
 }
 
@@ -63,23 +59,25 @@ export async function POST(request: Request) {
         {
           error: {
             code: "INVALID_CREDENTIALS",
-            message: "Invalid admin username or password."
-          }
+            message: "Invalid admin username or password.",
+          },
         },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
     const redirectUrl = new URLSearchParams({
       error: "invalid",
-      next: getSafeRedirectPath(login.next)
+      next: getSafeRedirectPath(login.next),
     });
 
     return redirectResponse(`/login?${redirectUrl.toString()}`);
   }
 
   const cookieValue = createAdminSessionCookieValue(login.username);
-  const sessionPayload = JSON.parse(Buffer.from(cookieValue.split(".")[0], "base64url").toString("utf8")) as {
+  const sessionPayload = JSON.parse(
+    Buffer.from(cookieValue.split(".")[0], "base64url").toString("utf8"),
+  ) as {
     expiresAt: number;
   };
 
@@ -88,7 +86,7 @@ export async function POST(request: Request) {
     response.cookies.set(
       adminSessionCookieName,
       cookieValue,
-      getAdminSessionCookieOptions(new Date(sessionPayload.expiresAt))
+      getAdminSessionCookieOptions(new Date(sessionPayload.expiresAt)),
     );
     return response;
   }
@@ -97,7 +95,7 @@ export async function POST(request: Request) {
   response.cookies.set(
     adminSessionCookieName,
     cookieValue,
-    getAdminSessionCookieOptions(new Date(sessionPayload.expiresAt))
+    getAdminSessionCookieOptions(new Date(sessionPayload.expiresAt)),
   );
   return response;
 }

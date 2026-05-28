@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth/admin";
 import {
   BenchmarkComparisonServiceError,
-  ensureBenchmarkComparison
+  ensureBenchmarkComparison,
 } from "@/server/benchmark-comparisons";
 
 export const dynamic = "force-dynamic";
@@ -25,17 +25,17 @@ function jsonErrorResponse(
   code: string,
   message: string,
   status: number,
-  details?: Record<string, unknown> | null
+  details?: Record<string, unknown> | null,
 ) {
   return NextResponse.json(
     {
       error: {
         code,
         message,
-        details: details ?? null
-      }
+        details: details ?? null,
+      },
     },
-    { status }
+    { status },
   );
 }
 
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
       return jsonErrorResponse(
         "ADMIN_REQUIRED",
         "Admin login is required to add benchmark comparisons.",
-        401
+        401,
       );
     }
 
@@ -55,12 +55,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ comparison }, { status: 201 });
   } catch (error) {
     if (error instanceof BenchmarkComparisonServiceError) {
-      return jsonErrorResponse(
-        error.code,
-        error.message,
-        getStatusCode(error),
-        error.details
-      );
+      return jsonErrorResponse(error.code, error.message, getStatusCode(error), error.details);
     }
 
     if (error instanceof SyntaxError) {

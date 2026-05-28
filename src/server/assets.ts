@@ -15,10 +15,19 @@ import {
   type Instrument,
   type IntradayPrice,
   type PriceSnapshot,
-  type Transaction
+  type Transaction,
 } from "@/lib/db/schema";
-import { getMarketDataProvider, getMarketSettings, getPriceAgeMinutes, isMarketDataStale } from "@/lib/market/provider";
-import type { MarketIntradayInterval, MarketIntradaySeries, MarketQuoteSnapshot } from "@/lib/market/types";
+import {
+  getMarketDataProvider,
+  getMarketSettings,
+  getPriceAgeMinutes,
+  isMarketDataStale,
+} from "@/lib/market/provider";
+import type {
+  MarketIntradayInterval,
+  MarketIntradaySeries,
+  MarketQuoteSnapshot,
+} from "@/lib/market/types";
 import { calculatePositionForInstrument } from "@/lib/portfolio/positions";
 import { toChronologicalPositionTransaction } from "@/server/transactions";
 import { parsePortfolioId } from "@/server/portfolios";
@@ -51,7 +60,7 @@ const ASSET_INTRADAY_WINDOWS: Array<{
   lookbackDays: number;
 }> = [
   { interval: "5m", lookbackDays: 2 },
-  { interval: "1h", lookbackDays: 35 }
+  { interval: "1h", lookbackDays: 35 },
 ];
 
 export type AssetPricePoint = {
@@ -199,7 +208,7 @@ function getQuoteByProviderSymbol(quotes: MarketQuoteSnapshot[], providerSymbol:
 async function runAssetMarketRefreshBestEffort<T>({
   operation,
   fallback,
-  label
+  label,
 }: {
   operation: Promise<T>;
   fallback: T;
@@ -208,7 +217,7 @@ async function runAssetMarketRefreshBestEffort<T>({
   try {
     return await withOperationTimeout(operation, {
       label,
-      timeoutMs: ASSET_MARKET_REFRESH_TIMEOUT_MS
+      timeoutMs: ASSET_MARKET_REFRESH_TIMEOUT_MS,
     });
   } catch (error) {
     if (error instanceof OperationTimeoutError) {
@@ -230,7 +239,7 @@ async function getDrProviderQuotes(instrument: Instrument) {
     return {
       parentQuote: null,
       fxQuote: null,
-      analyticsIssue: "DR metadata is incomplete, so parent and FX analytics are unavailable."
+      analyticsIssue: "DR metadata is incomplete, so parent and FX analytics are unavailable.",
     };
   }
 
@@ -238,7 +247,7 @@ async function getDrProviderQuotes(instrument: Instrument) {
     const provider = getMarketDataProvider();
     const quotes = await provider.getLatestQuotes([
       instrument.underlyingProviderSymbol,
-      instrument.fxProviderSymbol
+      instrument.fxProviderSymbol,
     ]);
     const parentQuote = getQuoteByProviderSymbol(quotes, instrument.underlyingProviderSymbol);
     const fxQuote = getQuoteByProviderSymbol(quotes, instrument.fxProviderSymbol);
@@ -247,7 +256,7 @@ async function getDrProviderQuotes(instrument: Instrument) {
       return {
         parentQuote: null,
         fxQuote,
-        analyticsIssue: `Latest parent quote is unavailable for ${instrument.underlyingProviderSymbol}.`
+        analyticsIssue: `Latest parent quote is unavailable for ${instrument.underlyingProviderSymbol}.`,
       };
     }
 
@@ -255,7 +264,7 @@ async function getDrProviderQuotes(instrument: Instrument) {
       return {
         parentQuote: null,
         fxQuote,
-        analyticsIssue: `Latest parent quote returned ${parentQuote.currency}, but ${instrument.underlyingSymbol ?? instrument.underlyingProviderSymbol} is tracked in ${instrument.underlyingCurrency}.`
+        analyticsIssue: `Latest parent quote returned ${parentQuote.currency}, but ${instrument.underlyingSymbol ?? instrument.underlyingProviderSymbol} is tracked in ${instrument.underlyingCurrency}.`,
       };
     }
 
@@ -263,7 +272,7 @@ async function getDrProviderQuotes(instrument: Instrument) {
       return {
         parentQuote,
         fxQuote: null,
-        analyticsIssue: `Latest FX quote is unavailable for ${instrument.fxProviderSymbol}.`
+        analyticsIssue: `Latest FX quote is unavailable for ${instrument.fxProviderSymbol}.`,
       };
     }
 
@@ -271,20 +280,20 @@ async function getDrProviderQuotes(instrument: Instrument) {
       return {
         parentQuote,
         fxQuote: null,
-        analyticsIssue: `Latest FX quote returned ${fxQuote.currency}, but ${instrument.fxProviderSymbol} is expected in ${instrument.currency}.`
+        analyticsIssue: `Latest FX quote returned ${fxQuote.currency}, but ${instrument.fxProviderSymbol} is expected in ${instrument.currency}.`,
       };
     }
 
     return {
       parentQuote,
       fxQuote,
-      analyticsIssue: null
+      analyticsIssue: null,
     };
   } catch {
     return {
       parentQuote: null,
       fxQuote: null,
-      analyticsIssue: "DR parent and FX quotes are unavailable from the provider right now."
+      analyticsIssue: "DR parent and FX quotes are unavailable from the provider right now.",
     };
   }
 }
@@ -293,7 +302,7 @@ async function buildDrAnalytics({
   instrument,
   drPrice,
   averageDrCost,
-  allowProviderQuotes
+  allowProviderQuotes,
 }: {
   instrument: Instrument;
   drPrice: number | null;
@@ -317,7 +326,7 @@ async function buildDrAnalytics({
         fxQuote: null,
         analyticsIssue: allowProviderQuotes
           ? "DR metadata is incomplete, so parent and FX analytics are unavailable."
-          : "Login and refresh market data to calculate live DR parent and FX analytics."
+          : "Login and refresh market data to calculate live DR parent and FX analytics.",
       };
   const parentMarketPrice = isPositiveFiniteNumber(parentQuote?.price) ? parentQuote.price : null;
   const fxRate = isPositiveFiniteNumber(fxQuote?.price) ? fxQuote.price : null;
@@ -349,13 +358,13 @@ async function buildDrAnalytics({
     impliedParentPrice,
     averageImpliedParentCost,
     premiumDiscount: premiumDiscount == null ? null : premiumDiscount - 1,
-    analyticsIssue
+    analyticsIssue,
   };
 }
 
 function quoteMatchesInstrumentCurrency(
   snapshot: PriceSnapshot | null,
-  instrument: Instrument
+  instrument: Instrument,
 ): snapshot is PriceSnapshot {
   return snapshot != null && snapshot.currency === instrument.currency;
 }
@@ -374,7 +383,7 @@ function filterMatchingIntradayRows(rows: IntradayPrice[], instrument: Instrumen
 
 function combineAssetPriceHistory({
   historyRows,
-  intradayRows
+  intradayRows,
 }: {
   historyRows: HistoricalPrice[];
   intradayRows: IntradayPrice[];
@@ -385,7 +394,7 @@ function combineAssetPriceHistory({
     pointsByKey.set(`1d:${row.priceDate}`, {
       date: row.priceDate,
       close: row.close,
-      interval: "1d"
+      interval: "1d",
     });
   }
 
@@ -393,17 +402,19 @@ function combineAssetPriceHistory({
     pointsByKey.set(`${row.interval}:${row.observedAt}`, {
       date: row.observedAt,
       close: row.close,
-      interval: row.interval as MarketIntradayInterval
+      interval: row.interval as MarketIntradayInterval,
     });
   }
 
-  return Array.from(pointsByKey.values()).sort((left, right) => left.date.localeCompare(right.date));
+  return Array.from(pointsByKey.values()).sort((left, right) =>
+    left.date.localeCompare(right.date),
+  );
 }
 
 function getHistoryStatus({
   requestedHistoryStartDate,
   firstHistoryDate,
-  historyCount
+  historyCount,
 }: {
   requestedHistoryStartDate: string | null;
   firstHistoryDate: string | null;
@@ -425,7 +436,7 @@ function getHistoryStatus({
 }
 
 async function refreshAssetQuote({
-  instrument
+  instrument,
 }: {
   instrument: Instrument;
 }): Promise<AssetQuoteRefreshResult> {
@@ -440,13 +451,14 @@ async function refreshAssetQuote({
         : null;
 
   if (quote != null && quote.currency === instrument.currency) {
-    await db.insert(priceSnapshots)
+    await db
+      .insert(priceSnapshots)
       .values({
         instrumentId: instrument.id,
         price: quote.price,
         currency: quote.currency,
         asOf: quote.asOf,
-        source: quote.source
+        source: quote.source,
       })
       .onConflictDoUpdate({
         target: priceSnapshots.instrumentId,
@@ -454,14 +466,14 @@ async function refreshAssetQuote({
           price: quote.price,
           currency: quote.currency,
           asOf: quote.asOf,
-          source: quote.source
-        }
+          source: quote.source,
+        },
       });
   }
 
   return {
     attempted: true,
-    quoteIssue
+    quoteIssue,
   };
 }
 
@@ -483,7 +495,7 @@ function getHistoryCooldownState(instrumentId: number, now = Date.now()) {
 function setHistoryRefreshCooldown(instrumentId: number, issue: string, now = Date.now()) {
   historyRefreshCooldownByInstrumentId.set(instrumentId, {
     issue,
-    retryAfter: now + HISTORY_REFRESH_FAILURE_COOLDOWN_MS
+    retryAfter: now + HISTORY_REFRESH_FAILURE_COOLDOWN_MS,
   });
 }
 
@@ -493,14 +505,14 @@ function clearHistoryRefreshCooldown(instrumentId: number) {
 
 async function refreshAssetHistory({
   instrument,
-  historyStartDate
+  historyStartDate,
 }: {
   instrument: Instrument;
   historyStartDate: string;
 }): Promise<AssetHistoryRefreshResult> {
   const provider = getMarketDataProvider();
   const history = await provider.getHistoricalPrices(instrument.providerSymbol, {
-    startDate: historyStartDate
+    startDate: historyStartDate,
   });
   const returnedEmptyHistory = history != null && history.bars.length === 0;
   const historyIssue =
@@ -508,16 +520,16 @@ async function refreshAssetHistory({
       ? `Historical prices are unavailable from the provider for ${instrument.providerSymbol} right now.`
       : returnedEmptyHistory
         ? `Historical prices returned no bars for ${instrument.providerSymbol} in the requested window.`
-      : history.currency !== instrument.currency
-        ? `Historical prices returned ${history.currency}, but ${instrument.symbol} is tracked in ${instrument.currency}.`
-        : null;
+        : history.currency !== instrument.currency
+          ? `Historical prices returned ${history.currency}, but ${instrument.symbol} is tracked in ${instrument.currency}.`
+          : null;
 
   if (historyIssue != null) {
     setHistoryRefreshCooldown(instrument.id, historyIssue);
 
     return {
       attempted: true,
-      historyIssue
+      historyIssue,
     };
   }
 
@@ -525,21 +537,22 @@ async function refreshAssetHistory({
 
   await db.transaction(async (tx) => {
     for (const bar of validHistory.bars) {
-      await tx.insert(historicalPrices)
+      await tx
+        .insert(historicalPrices)
         .values({
           instrumentId: instrument.id,
           priceDate: bar.date,
           close: bar.close,
           currency: validHistory.currency,
-          source: validHistory.source
+          source: validHistory.source,
         })
         .onConflictDoUpdate({
           target: [historicalPrices.instrumentId, historicalPrices.priceDate],
           set: {
             close: bar.close,
             currency: validHistory.currency,
-            source: validHistory.source
-          }
+            source: validHistory.source,
+          },
         });
     }
   });
@@ -548,12 +561,12 @@ async function refreshAssetHistory({
 
   return {
     attempted: true,
-    historyIssue: null
+    historyIssue: null,
   };
 }
 
 async function refreshAssetIntraday({
-  instrument
+  instrument,
 }: {
   instrument: Instrument;
 }): Promise<AssetIntradayRefreshResult> {
@@ -563,22 +576,23 @@ async function refreshAssetIntraday({
     ASSET_INTRADAY_WINDOWS.map(async (window) => {
       const series = await provider.getIntradayPrices(instrument.providerSymbol, {
         interval: window.interval,
-        startAt: subtractUtcDays(now, window.lookbackDays).toISOString()
+        startAt: subtractUtcDays(now, window.lookbackDays).toISOString(),
       });
 
       return {
         interval: window.interval,
-        series
+        series,
       };
-    })
+    }),
   );
   const validSeries: MarketIntradaySeries[] = [];
-  const issue =
-    intradayResults.every((result) => result.series == null)
-      ? `Intraday prices are unavailable from the provider for ${instrument.providerSymbol} right now.`
-      : intradayResults.some((result) => result.series != null && result.series.currency !== instrument.currency)
-        ? `Intraday prices returned a currency that does not match ${instrument.symbol}.`
-        : null;
+  const issue = intradayResults.every((result) => result.series == null)
+    ? `Intraday prices are unavailable from the provider for ${instrument.providerSymbol} right now.`
+    : intradayResults.some(
+          (result) => result.series != null && result.series.currency !== instrument.currency,
+        )
+      ? `Intraday prices returned a currency that does not match ${instrument.symbol}.`
+      : null;
 
   for (const result of intradayResults) {
     if (result.series == null || result.series.currency !== instrument.currency) {
@@ -592,22 +606,27 @@ async function refreshAssetIntraday({
     await db.transaction(async (tx) => {
       for (const series of validSeries) {
         for (const bar of series.bars) {
-          await tx.insert(intradayPrices)
+          await tx
+            .insert(intradayPrices)
             .values({
               instrumentId: instrument.id,
               interval: series.interval,
               observedAt: bar.observedAt,
               close: bar.close,
               currency: series.currency,
-              source: series.source
+              source: series.source,
             })
             .onConflictDoUpdate({
-              target: [intradayPrices.instrumentId, intradayPrices.interval, intradayPrices.observedAt],
+              target: [
+                intradayPrices.instrumentId,
+                intradayPrices.interval,
+                intradayPrices.observedAt,
+              ],
               set: {
                 close: bar.close,
                 currency: series.currency,
-                source: series.source
-              }
+                source: series.source,
+              },
             });
         }
       }
@@ -616,13 +635,13 @@ async function refreshAssetIntraday({
 
   return {
     attempted: true,
-    intradayIssue: issue
+    intradayIssue: issue,
   };
 }
 
 function parsePortfolioScope({
   portfolioId,
-  portfolioIds
+  portfolioIds,
 }: {
   portfolioId?: number;
   portfolioIds?: number[];
@@ -645,16 +664,22 @@ async function getAssetRows(symbol: string, portfolioIds: number[]) {
     db
       .select()
       .from(transactions)
-      .where(and(
-        portfolioIds.length === 1
-          ? eq(transactions.portfolioId, portfolioIds[0])
-          : inArray(transactions.portfolioId, portfolioIds),
-        eq(transactions.instrumentId, instrument.id)
-      ))
+      .where(
+        and(
+          portfolioIds.length === 1
+            ? eq(transactions.portfolioId, portfolioIds[0])
+            : inArray(transactions.portfolioId, portfolioIds),
+          eq(transactions.instrumentId, instrument.id),
+        ),
+      )
       .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id)),
-    db.select().from(priceSnapshots).where(eq(priceSnapshots.instrumentId, instrument.id)).then((rows) => rows[0] ?? null),
+    db
+      .select()
+      .from(priceSnapshots)
+      .where(eq(priceSnapshots.instrumentId, instrument.id))
+      .then((rows) => rows[0] ?? null),
     db.select().from(historicalPrices).where(eq(historicalPrices.instrumentId, instrument.id)),
-    db.select().from(intradayPrices).where(eq(intradayPrices.instrumentId, instrument.id))
+    db.select().from(intradayPrices).where(eq(intradayPrices.instrumentId, instrument.id)),
   ]);
 
   return {
@@ -662,7 +687,7 @@ async function getAssetRows(symbol: string, portfolioIds: number[]) {
     transactionRows,
     snapshot,
     historyRows,
-    intradayRows
+    intradayRows,
   };
 }
 
@@ -674,13 +699,13 @@ async function getAssetMarketRows(instrumentId: number) {
       .where(eq(priceSnapshots.instrumentId, instrumentId))
       .then((rows) => rows[0] ?? null),
     db.select().from(historicalPrices).where(eq(historicalPrices.instrumentId, instrumentId)),
-    db.select().from(intradayPrices).where(eq(intradayPrices.instrumentId, instrumentId))
+    db.select().from(intradayPrices).where(eq(intradayPrices.instrumentId, instrumentId)),
   ]);
 
   return {
     historyRows,
     intradayRows,
-    snapshot
+    snapshot,
   };
 }
 
@@ -689,16 +714,16 @@ export async function getAssetDetail(
   {
     portfolioId: portfolioIdInput,
     portfolioIds: portfolioIdsInput,
-    allowMarketRefresh = false
+    allowMarketRefresh = false,
   }: {
     portfolioId?: number;
     portfolioIds?: number[];
     allowMarketRefresh?: boolean;
-  }
+  },
 ): Promise<AssetDetail | null> {
   const portfolioIds = parsePortfolioScope({
     portfolioId: portfolioIdInput,
-    portfolioIds: portfolioIdsInput
+    portfolioIds: portfolioIdsInput,
   });
   const normalizedSymbol = symbol.trim().toUpperCase();
   const initialRows = await getAssetRows(normalizedSymbol, portfolioIds);
@@ -720,10 +745,10 @@ export async function getAssetDetail(
     : null;
   const matchingInitialHistory = filterMatchingHistoryRows(initialRows.historyRows, instrument);
   const matchingInitialIntraday = filterMatchingIntradayRows(initialRows.intradayRows, instrument);
-  const shouldRefreshQuote = allowMarketRefresh && (
-    matchingInitialSnapshot == null ||
-    isMarketDataStale(matchingInitialSnapshot.asOf, marketSettings.marketRefreshMinutes)
-  );
+  const shouldRefreshQuote =
+    allowMarketRefresh &&
+    (matchingInitialSnapshot == null ||
+      isMarketDataStale(matchingInitialSnapshot.asOf, marketSettings.marketRefreshMinutes));
   const historyCooldownState = getHistoryCooldownState(instrument.id);
   const shouldRefreshHistory =
     allowMarketRefresh && matchingInitialHistory.length === 0 && historyCooldownState == null;
@@ -734,61 +759,63 @@ export async function getAssetDetail(
     shouldRefreshQuote
       ? runAssetMarketRefreshBestEffort({
           operation: refreshAssetQuote({
-            instrument
+            instrument,
           }),
           fallback: {
             attempted: true,
-            quoteIssue: `Latest quote refresh timed out for ${instrument.providerSymbol}; cached data is shown.`
+            quoteIssue: `Latest quote refresh timed out for ${instrument.providerSymbol}; cached data is shown.`,
           } satisfies AssetQuoteRefreshResult,
-          label: `Asset quote refresh for ${instrument.providerSymbol}`
+          label: `Asset quote refresh for ${instrument.providerSymbol}`,
         })
       : Promise.resolve({
           attempted: false,
-          quoteIssue: null
+          quoteIssue: null,
         } satisfies AssetQuoteRefreshResult),
     shouldRefreshHistory
       ? runAssetMarketRefreshBestEffort({
           operation: refreshAssetHistory({
             instrument,
-            historyStartDate: requestedHistoryStartDate
+            historyStartDate: requestedHistoryStartDate,
           }),
           fallback: {
             attempted: true,
-            historyIssue: `Historical price refresh timed out for ${instrument.providerSymbol}; cached data is shown.`
+            historyIssue: `Historical price refresh timed out for ${instrument.providerSymbol}; cached data is shown.`,
           } satisfies AssetHistoryRefreshResult,
-          label: `Asset history refresh for ${instrument.providerSymbol}`
+          label: `Asset history refresh for ${instrument.providerSymbol}`,
         })
       : Promise.resolve({
           attempted: false,
-          historyIssue: historyCooldownState?.issue ?? null
+          historyIssue: historyCooldownState?.issue ?? null,
         } satisfies AssetHistoryRefreshResult),
     shouldRefreshIntraday
       ? runAssetMarketRefreshBestEffort({
           operation: refreshAssetIntraday({
-            instrument
+            instrument,
           }),
           fallback: {
             attempted: true,
-            intradayIssue: `Intraday price refresh timed out for ${instrument.providerSymbol}; cached data is shown.`
+            intradayIssue: `Intraday price refresh timed out for ${instrument.providerSymbol}; cached data is shown.`,
           } satisfies AssetIntradayRefreshResult,
-          label: `Asset intraday refresh for ${instrument.providerSymbol}`
+          label: `Asset intraday refresh for ${instrument.providerSymbol}`,
         })
       : Promise.resolve({
           attempted: false,
-          intradayIssue: null
-        } satisfies AssetIntradayRefreshResult)
+          intradayIssue: null,
+        } satisfies AssetIntradayRefreshResult),
   ]);
   const didRefreshAnyMarketData =
-    quoteRefreshResult.attempted || historyRefreshResult.attempted || intradayRefreshResult.attempted;
+    quoteRefreshResult.attempted ||
+    historyRefreshResult.attempted ||
+    intradayRefreshResult.attempted;
   const latestRows = didRefreshAnyMarketData
     ? {
         ...initialRows,
-        ...(await getAssetMarketRows(instrument.id))
+        ...(await getAssetMarketRows(instrument.id)),
       }
     : initialRows;
 
   const position = calculatePositionForInstrument(
-    currentTransactionRows.map((row) => toChronologicalPositionTransaction(row as Transaction))
+    currentTransactionRows.map((row) => toChronologicalPositionTransaction(row as Transaction)),
   );
   const latestSnapshot = latestRows.snapshot ?? null;
   const matchingSnapshot = quoteMatchesInstrumentCurrency(latestSnapshot, instrument)
@@ -807,7 +834,7 @@ export async function getAssetDetail(
   const historyStatus = getHistoryStatus({
     requestedHistoryStartDate,
     firstHistoryDate,
-    historyCount: matchingHistory.length
+    historyCount: matchingHistory.length,
   });
   const averageCost = hasOpenPosition ? position.averageCost : null;
   const totalCost = hasOpenPosition ? position.totalCost : null;
@@ -815,7 +842,7 @@ export async function getAssetDetail(
     instrument,
     drPrice: lastPrice,
     averageDrCost: averageCost,
-    allowProviderQuotes: allowMarketRefresh
+    allowProviderQuotes: allowMarketRefresh,
   });
 
   return {
@@ -834,7 +861,7 @@ export async function getAssetDetail(
       underlyingProviderSymbol: instrument.underlyingProviderSymbol,
       drRatio: instrument.drRatio,
       fxProviderSymbol: instrument.fxProviderSymbol,
-      isActive: instrument.isActive
+      isActive: instrument.isActive,
     },
     position: {
       quantity: position.quantity,
@@ -847,7 +874,7 @@ export async function getAssetDetail(
       hasOpenPosition,
       tradeCount: currentTransactionRows.length,
       firstTradeDate,
-      lastTradeDate: currentTransactionRows[currentTransactionRows.length - 1]?.tradeDate ?? null
+      lastTradeDate: currentTransactionRows[currentTransactionRows.length - 1]?.tradeDate ?? null,
     },
     transactions: currentTransactionRows.map((row) => ({
       id: row.id,
@@ -856,7 +883,7 @@ export async function getAssetDetail(
       quantity: row.quantity,
       price: row.price,
       fee: row.fee,
-      notes: row.notes
+      notes: row.notes,
     })),
     marketData: {
       lastPrice,
@@ -865,7 +892,7 @@ export async function getAssetDetail(
       priceAgeMinutes: getPriceAgeMinutes(matchingSnapshot?.asOf ?? null),
       isPriceDataStale: isMarketDataStale(
         matchingSnapshot?.asOf ?? null,
-        marketSettings.marketRefreshMinutes
+        marketSettings.marketRefreshMinutes,
       ),
       marketRefreshMinutes: marketSettings.marketRefreshMinutes,
       latestHistoryDate,
@@ -875,14 +902,14 @@ export async function getAssetDetail(
       historyUnavailableReason:
         matchingHistory.length > 0
           ? null
-          : historyRefreshResult.historyIssue ??
-            "No cached daily price history is available for this symbol yet.",
+          : (historyRefreshResult.historyIssue ??
+            "No cached daily price history is available for this symbol yet."),
       requestedHistoryStartDate,
       priceHistory: combineAssetPriceHistory({
         historyRows: matchingHistory,
-        intradayRows: matchingIntraday
-      })
+        intradayRows: matchingIntraday,
+      }),
     },
-    dr
+    dr,
   };
 }

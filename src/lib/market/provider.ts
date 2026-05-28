@@ -10,7 +10,7 @@ export {
   isMarketDataStale,
   refreshMarketDataCache,
   refreshMarketDataCacheBatch,
-  refreshMarketDataTargets
+  refreshMarketDataTargets,
 } from "./provider-core";
 export type {
   MarketDataRefreshBatchResult,
@@ -18,5 +18,5 @@ export type {
   MarketRefreshIssue,
   MarketSettings,
   RefreshContext,
-  RefreshTarget
+  RefreshTarget,
 } from "./provider-core";

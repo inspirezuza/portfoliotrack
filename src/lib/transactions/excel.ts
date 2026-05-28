@@ -9,56 +9,59 @@ const transactionExcelColumns = [
     header: "Instrument Action",
     width: 22,
     optional: true,
-    description: "Blank/MATCH uses an existing instrument. CREATE can add a missing instrument from Symbol."
+    description:
+      "Blank/MATCH uses an existing instrument. CREATE can add a missing instrument from Symbol.",
   },
   {
     key: "instrumentId",
     header: "Instrument ID",
     width: 14,
-    description: "Existing app instrument id. Leave blank when matching by symbol or creating a new instrument."
+    description:
+      "Existing app instrument id. Leave blank when matching by symbol or creating a new instrument.",
   },
   {
     key: "symbol",
     header: "Symbol",
     width: 16,
-    description: "App symbol, for example AAPL, AAPL80, ASTS03, or PTT.BK."
+    description: "App symbol, for example AAPL, AAPL80, ASTS03, or PTT.BK.",
   },
   {
     key: "displayName",
     header: "Display Name",
     width: 28,
-    description: "Optional for CREATE. Yahoo or the symbol will be used when blank."
+    description: "Optional for CREATE. Yahoo or the symbol will be used when blank.",
   },
   {
     key: "market",
     header: "Market",
     width: 12,
-    description: "Optional for CREATE. Use US, TH, or leave blank for Yahoo detection."
+    description: "Optional for CREATE. Use US, TH, or leave blank for Yahoo detection.",
   },
   {
     key: "instrumentType",
     header: "Instrument Type",
     width: 18,
     optional: true,
-    description: "Optional for CREATE. Examples: EQUITY, ETF, FUND, DR. Leave blank to detect from Yahoo."
+    description:
+      "Optional for CREATE. Examples: EQUITY, ETF, FUND, DR. Leave blank to detect from Yahoo.",
   },
   {
     key: "currency",
     header: "Currency",
     width: 12,
-    description: "Optional for CREATE. Three-letter code such as USD or THB."
+    description: "Optional for CREATE. Three-letter code such as USD or THB.",
   },
   {
     key: "providerSymbol",
     header: "Provider Symbol",
     width: 20,
-    description: "Optional provider symbol for market data, for example AAPL or PTT.BK."
+    description: "Optional provider symbol for market data, for example AAPL or PTT.BK.",
   },
   {
     key: "tradeDate",
     header: "Trade Date",
     width: 14,
-    description: "Required transaction date in YYYY-MM-DD format."
+    description: "Required transaction date in YYYY-MM-DD format.",
   },
   { key: "side", header: "Side", width: 10, description: "Required. BUY or SELL." },
   {
@@ -66,12 +69,12 @@ const transactionExcelColumns = [
     header: "Broker",
     width: 12,
     optional: true,
-    description: "Optional. DIME or WEBULL. Blank defaults to DIME."
+    description: "Optional. DIME or WEBULL. Blank defaults to DIME.",
   },
   { key: "quantity", header: "Quantity", width: 14, description: "Required positive quantity." },
   { key: "price", header: "Price", width: 14, description: "Required price per unit." },
   { key: "fee", header: "Fee", width: 12, description: "Optional fee. Blank defaults to 0." },
-  { key: "notes", header: "Notes", width: 42, description: "Optional note for this transaction." }
+  { key: "notes", header: "Notes", width: 42, description: "Optional note for this transaction." },
 ] as const;
 
 export type TransactionExcelColumnKey = (typeof transactionExcelColumns)[number]["key"];
@@ -165,9 +168,7 @@ function isDescriptionRow(rowNumber: number, values: Record<TransactionExcelColu
     return false;
   }
 
-  return transactionExcelColumns.some(
-    (column) => values[column.key] === column.description
-  );
+  return transactionExcelColumns.some((column) => values[column.key] === column.description);
 }
 
 function getHeaderColumnMap(worksheet: ExcelJS.Worksheet) {
@@ -191,7 +192,7 @@ function getWorksheet(workbook: ExcelJS.Workbook) {
   if (!worksheet) {
     throw new TransactionExcelError(
       "INVALID_TEMPLATE",
-      `Workbook must include a "${TRANSACTION_EXCEL_SHEET_NAME}" sheet.`
+      `Workbook must include a "${TRANSACTION_EXCEL_SHEET_NAME}" sheet.`,
     );
   }
 
@@ -201,13 +202,17 @@ function getWorksheet(workbook: ExcelJS.Workbook) {
 function assertTemplateColumns(worksheet: ExcelJS.Worksheet) {
   const headerColumnMap = getHeaderColumnMap(worksheet);
   const missingHeaders = transactionExcelColumns
-    .filter((column) => !("optional" in column && column.optional) && !headerColumnMap.has(normalizeHeader(column.header)))
+    .filter(
+      (column) =>
+        !("optional" in column && column.optional) &&
+        !headerColumnMap.has(normalizeHeader(column.header)),
+    )
     .map((column) => column.header);
 
   if (missingHeaders.length > 0) {
     throw new TransactionExcelError(
       "INVALID_TEMPLATE",
-      `Workbook is missing template columns: ${missingHeaders.join(", ")}.`
+      `Workbook is missing template columns: ${missingHeaders.join(", ")}.`,
     );
   }
 
@@ -222,7 +227,9 @@ export function getTransactionExcelColumns() {
   return transactionExcelColumns;
 }
 
-export async function parseTransactionExcelWorkbook(buffer: Buffer): Promise<TransactionExcelParseResult> {
+export async function parseTransactionExcelWorkbook(
+  buffer: Buffer,
+): Promise<TransactionExcelParseResult> {
   const workbook = new ExcelJS.Workbook();
 
   try {
@@ -230,7 +237,7 @@ export async function parseTransactionExcelWorkbook(buffer: Buffer): Promise<Tra
   } catch (error) {
     throw new TransactionExcelError(
       "INVALID_WORKBOOK",
-      error instanceof Error ? error.message : "Workbook could not be read."
+      error instanceof Error ? error.message : "Workbook could not be read.",
     );
   }
 
@@ -250,11 +257,11 @@ export async function parseTransactionExcelWorkbook(buffer: Buffer): Promise<Tra
         const cellValue = columnNumber ? getCellValue(row.getCell(columnNumber)) : null;
         const parsedValue =
           column.key === "tradeDate" && typeof cellValue === "number"
-            ? getExcelSerialDate(cellValue) ?? cellValue
+            ? (getExcelSerialDate(cellValue) ?? cellValue)
             : cellValue;
 
         return [column.key, parsedValue];
-      })
+      }),
     ) as Record<TransactionExcelColumnKey, unknown>;
 
     if (isDescriptionRow(rowNumber, values) || Object.values(values).every(isEmptyValue)) {
@@ -268,7 +275,7 @@ export async function parseTransactionExcelWorkbook(buffer: Buffer): Promise<Tra
 }
 
 export async function buildTransactionExcelWorkbook(
-  transactions: TransactionListItem[]
+  transactions: TransactionListItem[],
 ): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "PortfolioTrack";
@@ -279,7 +286,7 @@ export async function buildTransactionExcelWorkbook(
   worksheet.columns = transactionExcelColumns.map((column) => ({
     key: column.key,
     header: column.header,
-    width: column.width
+    width: column.width,
   }));
 
   worksheet.getRow(1).font = { bold: true };
@@ -291,7 +298,7 @@ export async function buildTransactionExcelWorkbook(
   worksheet.views = [{ state: "frozen", ySplit: 2 }];
   worksheet.autoFilter = {
     from: { row: 1, column: 1 },
-    to: { row: 1, column: transactionExcelColumns.length }
+    to: { row: 1, column: transactionExcelColumns.length },
   };
 
   for (const transaction of transactions) {
@@ -310,7 +317,7 @@ export async function buildTransactionExcelWorkbook(
       quantity: transaction.quantity,
       price: transaction.price,
       fee: transaction.fee,
-      notes: transaction.notes ?? ""
+      notes: transaction.notes ?? "",
     });
   }
 

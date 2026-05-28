@@ -1,9 +1,4 @@
-import {
-  nearlyEqual,
-  normalizeMoney,
-  normalizePrice,
-  normalizeQuantity
-} from "@/lib/db/precision";
+import { nearlyEqual, normalizeMoney, normalizePrice, normalizeQuantity } from "@/lib/db/precision";
 import type { TransactionSide } from "@/lib/validation/transaction";
 
 export type PositionTransaction = {
@@ -33,7 +28,7 @@ export class InsufficientQuantityError extends Error {
 
   constructor(instrumentId: number, availableQuantity: number, attemptedQuantity: number) {
     super(
-      `Cannot sell ${attemptedQuantity} units for instrument ${instrumentId}; only ${availableQuantity} available.`
+      `Cannot sell ${attemptedQuantity} units for instrument ${instrumentId}; only ${availableQuantity} available.`,
     );
     this.name = "InsufficientQuantityError";
     this.instrumentId = instrumentId;
@@ -79,7 +74,7 @@ function normalizePositionTransaction<T extends PositionTransaction>(transaction
     ...transaction,
     quantity: normalizeQuantity(transaction.quantity),
     price: normalizePrice(transaction.price),
-    fee: normalizeMoney(transaction.fee)
+    fee: normalizeMoney(transaction.fee),
   };
 }
 
@@ -90,11 +85,14 @@ function createEmptyPosition(instrumentId: number): InstrumentPosition {
     averageCost: 0,
     totalCost: 0,
     realizedPnl: 0,
-    totalFees: 0
+    totalFees: 0,
   };
 }
 
-export function applyTransaction(position: InstrumentPosition, rawTransaction: PositionTransaction) {
+export function applyTransaction(
+  position: InstrumentPosition,
+  rawTransaction: PositionTransaction,
+) {
   const transaction = normalizePositionTransaction(rawTransaction);
   const grossAmount = normalizeMoney(transaction.quantity * transaction.price);
 
@@ -107,11 +105,14 @@ export function applyTransaction(position: InstrumentPosition, rawTransaction: P
     return;
   }
 
-  if (transaction.quantity > position.quantity && !nearlyEqual(transaction.quantity, position.quantity)) {
+  if (
+    transaction.quantity > position.quantity &&
+    !nearlyEqual(transaction.quantity, position.quantity)
+  ) {
     throw new InsufficientQuantityError(
       transaction.instrumentId,
       position.quantity,
-      transaction.quantity
+      transaction.quantity,
     );
   }
 

@@ -31,7 +31,7 @@ const knownDrMetadataByDisplaySymbol: Record<string, DrMetadata> = {
     underlyingCurrency: "USD",
     underlyingProviderSymbol: "AAPL",
     drRatio: 1000,
-    fxProviderSymbol: "USDTHB=X"
+    fxProviderSymbol: "USDTHB=X",
   },
   ASTS03: {
     instrumentType: "DR",
@@ -40,8 +40,8 @@ const knownDrMetadataByDisplaySymbol: Record<string, DrMetadata> = {
     underlyingCurrency: "USD",
     underlyingProviderSymbol: "ASTS",
     drRatio: 1000,
-    fxProviderSymbol: "USDTHB=X"
-  }
+    fxProviderSymbol: "USDTHB=X",
+  },
 };
 
 function normalizeDisplaySymbol(value: string) {
@@ -61,7 +61,7 @@ export function getKnownDrMetadata(input: DrLookupInput) {
 }
 
 export function applyKnownDrMetadata<TInstrument extends DrEnrichableInstrument>(
-  instrument: TInstrument
+  instrument: TInstrument,
 ): TInstrument {
   const metadata = getKnownDrMetadata(instrument);
 
@@ -75,8 +75,9 @@ export function applyKnownDrMetadata<TInstrument extends DrEnrichableInstrument>
     underlyingSymbol: instrument.underlyingSymbol ?? metadata.underlyingSymbol,
     underlyingDisplayName: instrument.underlyingDisplayName ?? metadata.underlyingDisplayName,
     underlyingCurrency: instrument.underlyingCurrency ?? metadata.underlyingCurrency,
-    underlyingProviderSymbol: instrument.underlyingProviderSymbol ?? metadata.underlyingProviderSymbol,
+    underlyingProviderSymbol:
+      instrument.underlyingProviderSymbol ?? metadata.underlyingProviderSymbol,
     drRatio: instrument.drRatio ?? metadata.drRatio,
-    fxProviderSymbol: instrument.fxProviderSymbol ?? metadata.fxProviderSymbol
+    fxProviderSymbol: instrument.fxProviderSymbol ?? metadata.fxProviderSymbol,
   };
 }

@@ -12,12 +12,13 @@ import "./globals.css";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
-  display: "swap"
+  display: "swap",
 });
 
 export const metadata: Metadata = {
   title: "PortfolioTrack",
-  description: "A public read-only portfolio tracker with admin editing for focused personal investing."
+  description:
+    "A public read-only portfolio tracker with admin editing for focused personal investing.",
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
@@ -43,7 +44,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   document.documentElement.dataset.theme = "dark";
                 }
               } catch (_) {}
-            `
+            `,
           }}
         />
       </head>

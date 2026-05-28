@@ -7,7 +7,7 @@ import {
   useEffect,
   useMemo,
   useState,
-  type ReactNode
+  type ReactNode,
 } from "react";
 import {
   DEFAULT_THEME,
@@ -17,7 +17,7 @@ import {
   LANGUAGE_STORAGE_KEY,
   THEME_STORAGE_KEY,
   type UiLanguage,
-  type UiTheme
+  type UiTheme,
 } from "@/lib/ui/translations";
 
 type UiPreferencesContextValue = {
@@ -51,7 +51,7 @@ function applyThemePreference(theme: UiTheme) {
 
 export function UiPreferencesProvider({
   children,
-  initialLanguage
+  initialLanguage,
 }: {
   children: ReactNode;
   initialLanguage: UiLanguage;
@@ -101,9 +101,9 @@ export function UiPreferencesProvider({
       language,
       theme,
       setLanguage,
-      setTheme
+      setTheme,
     }),
-    [language, setLanguage, setTheme, theme]
+    [language, setLanguage, setTheme, theme],
   );
 
   return <UiPreferencesContext.Provider value={value}>{children}</UiPreferencesContext.Provider>;

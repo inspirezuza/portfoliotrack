@@ -22,5 +22,5 @@ export const db = new Proxy({} as ReturnType<typeof getDb>, {
     const value = Reflect.get(runtimeDb, property);
 
     return typeof value === "function" ? value.bind(runtimeDb) : value;
-  }
+  },
 });

@@ -444,10 +444,7 @@ function buildBenchmarkWatchlist({
     const localDemoQuote = shouldUseLocalDemoMarketData(historyRows.length)
       ? (LOCAL_DEMO_QUOTES[benchmark.symbol] ?? null)
       : null;
-    const comparisonQuote =
-      instrument == null
-        ? null
-        : getComparisonPayload(instrument).quote;
+    const comparisonQuote = instrument == null ? null : getComparisonPayload(instrument).quote;
     const price = comparisonQuote?.price ?? localDemoQuote?.price ?? null;
     const dailyChange =
       comparisonQuote?.dailyChange ??
@@ -527,10 +524,7 @@ function buildBenchmarkWatchlist({
   );
   const overlays = BENCHMARK_WATCHLIST.map((benchmark) => {
     const instrument = instrumentsBySymbol.get(benchmark.symbol) ?? null;
-    const comparisonOverlay =
-      instrument == null
-        ? null
-        : getComparisonPayload(instrument).overlay;
+    const comparisonOverlay = instrument == null ? null : getComparisonPayload(instrument).overlay;
     const dailyPointCount =
       instrument == null
         ? 0

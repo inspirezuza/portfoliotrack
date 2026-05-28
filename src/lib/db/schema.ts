@@ -9,16 +9,12 @@ import {
   serial,
   timestamp,
   text,
-  uniqueIndex
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 const timestamps = {
-  createdAt: timestamp("created_at", { mode: "string" })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { mode: "string" })
-    .notNull()
-    .defaultNow()
+  createdAt: timestamp("created_at", { mode: "string" }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { mode: "string" }).notNull().defaultNow(),
 };
 
 export const instruments = pgTable(
@@ -38,12 +34,14 @@ export const instruments = pgTable(
     drRatio: doublePrecision("dr_ratio"),
     fxProviderSymbol: text("fx_provider_symbol"),
     isActive: boolean("is_active").notNull().default(true),
-    ...timestamps
+    ...timestamps,
   },
   (table) => ({
     symbolUniqueIdx: uniqueIndex("instruments_symbol_unique").on(table.symbol),
-    providerSymbolUniqueIdx: uniqueIndex("instruments_provider_symbol_unique").on(table.providerSymbol)
-  })
+    providerSymbolUniqueIdx: uniqueIndex("instruments_provider_symbol_unique").on(
+      table.providerSymbol,
+    ),
+  }),
 );
 
 export const portfolios = pgTable(
@@ -52,14 +50,14 @@ export const portfolios = pgTable(
     id: serial("id").primaryKey(),
     name: text("name").notNull(),
     isDefault: boolean("is_default").notNull().default(false),
-    ...timestamps
+    ...timestamps,
   },
   (table) => ({
     nameUniqueIdx: uniqueIndex("portfolios_name_unique").on(table.name),
-    defaultUniqueIdx: uniqueIndex("portfolios_default_unique").on(table.isDefault).where(
-      sql`${table.isDefault} = true`
-    )
-  })
+    defaultUniqueIdx: uniqueIndex("portfolios_default_unique")
+      .on(table.isDefault)
+      .where(sql`${table.isDefault} = true`),
+  }),
 );
 
 export const transactions = pgTable(
@@ -79,7 +77,7 @@ export const transactions = pgTable(
     price: doublePrecision("price").notNull(),
     fee: doublePrecision("fee").notNull().default(0),
     notes: text("notes"),
-    ...timestamps
+    ...timestamps,
   },
   (table) => ({
     // Deterministic same-day ordering is tradeDate, then createdAt, then id.
@@ -88,20 +86,20 @@ export const transactions = pgTable(
       table.instrumentId,
       table.tradeDate,
       table.createdAt,
-      table.id
+      table.id,
     ),
     portfolioExecutionOrderIdx: index("transactions_portfolio_execution_order_idx").on(
       table.portfolioId,
       table.tradeDate,
       table.createdAt,
-      table.id
+      table.id,
     ),
     quantityPositive: check("transactions_quantity_positive", sql`${table.quantity} > 0`),
     pricePositive: check("transactions_price_positive", sql`${table.price} >= 0`),
     feePositive: check("transactions_fee_positive", sql`${table.fee} >= 0`),
     sideCheck: check("transactions_side_check", sql`${table.side} in ('BUY', 'SELL')`),
-    brokerCheck: check("transactions_broker_check", sql`${table.broker} in ('DIME', 'WEBULL')`)
-  })
+    brokerCheck: check("transactions_broker_check", sql`${table.broker} in ('DIME', 'WEBULL')`),
+  }),
 );
 
 export const priceSnapshots = pgTable(
@@ -115,13 +113,13 @@ export const priceSnapshots = pgTable(
     currency: text("currency").notNull(),
     asOf: text("as_of").notNull(),
     source: text("source").notNull(),
-    createdAt: timestamps.createdAt
+    createdAt: timestamps.createdAt,
   },
   (table) => ({
     instrumentUniqueIdx: uniqueIndex("price_snapshots_instrument_unique").on(table.instrumentId),
     asOfIdx: index("price_snapshots_as_of_idx").on(table.asOf),
-    priceNonNegative: check("price_snapshots_price_non_negative", sql`${table.price} >= 0`)
-  })
+    priceNonNegative: check("price_snapshots_price_non_negative", sql`${table.price} >= 0`),
+  }),
 );
 
 export const historicalPrices = pgTable(
@@ -135,16 +133,16 @@ export const historicalPrices = pgTable(
     close: doublePrecision("close").notNull(),
     currency: text("currency").notNull(),
     source: text("source").notNull(),
-    createdAt: timestamps.createdAt
+    createdAt: timestamps.createdAt,
   },
   (table) => ({
     instrumentPriceDateUniqueIdx: uniqueIndex("historical_prices_instrument_date_unique").on(
       table.instrumentId,
-      table.priceDate
+      table.priceDate,
     ),
     priceDateIdx: index("historical_prices_price_date_idx").on(table.priceDate),
-    closeNonNegative: check("historical_prices_close_non_negative", sql`${table.close} >= 0`)
-  })
+    closeNonNegative: check("historical_prices_close_non_negative", sql`${table.close} >= 0`),
+  }),
 );
 
 export const intradayPrices = pgTable(
@@ -159,23 +157,24 @@ export const intradayPrices = pgTable(
     close: doublePrecision("close").notNull(),
     currency: text("currency").notNull(),
     source: text("source").notNull(),
-    createdAt: timestamps.createdAt
+    createdAt: timestamps.createdAt,
   },
   (table) => ({
-    instrumentIntervalObservedUniqueIdx: uniqueIndex("intraday_prices_instrument_interval_observed_unique").on(
-      table.instrumentId,
-      table.interval,
-      table.observedAt
-    ),
+    instrumentIntervalObservedUniqueIdx: uniqueIndex(
+      "intraday_prices_instrument_interval_observed_unique",
+    ).on(table.instrumentId, table.interval, table.observedAt),
     observedAtIdx: index("intraday_prices_observed_at_idx").on(table.observedAt),
     instrumentIntervalObservedIdx: index("intraday_prices_instrument_interval_observed_idx").on(
       table.instrumentId,
       table.interval,
-      table.observedAt
+      table.observedAt,
     ),
     closeNonNegative: check("intraday_prices_close_non_negative", sql`${table.close} >= 0`),
-    intervalCheck: check("intraday_prices_interval_check", sql`${table.interval} in ('5m', '15m', '1h')`)
-  })
+    intervalCheck: check(
+      "intraday_prices_interval_check",
+      sql`${table.interval} in ('5m', '15m', '1h')`,
+    ),
+  }),
 );
 
 export const appSettings = pgTable(
@@ -184,13 +183,11 @@ export const appSettings = pgTable(
     id: serial("id").primaryKey(),
     key: text("key").notNull(),
     value: text("value").notNull(),
-    updatedAt: timestamp("updated_at", { mode: "string" })
-      .notNull()
-      .defaultNow()
+    updatedAt: timestamp("updated_at", { mode: "string" }).notNull().defaultNow(),
   },
   (table) => ({
-    keyUniqueIdx: uniqueIndex("app_settings_key_unique").on(table.key)
-  })
+    keyUniqueIdx: uniqueIndex("app_settings_key_unique").on(table.key),
+  }),
 );
 
 export const marketRefreshRuns = pgTable(
@@ -217,26 +214,39 @@ export const marketRefreshRuns = pgTable(
     errorMessage: text("error_message"),
     startedAt: timestamp("started_at", { mode: "string" }),
     completedAt: timestamp("completed_at", { mode: "string" }),
-    ...timestamps
+    ...timestamps,
   },
   (table) => ({
-    dailyAutoPortfolioDateUniqueIdx: uniqueIndex("market_refresh_runs_daily_auto_portfolio_date_unique").on(
-      table.portfolioId,
-      table.refreshDate
-    ).where(sql`${table.mode} = 'daily-auto'`),
+    dailyAutoPortfolioDateUniqueIdx: uniqueIndex(
+      "market_refresh_runs_daily_auto_portfolio_date_unique",
+    )
+      .on(table.portfolioId, table.refreshDate)
+      .where(sql`${table.mode} = 'daily-auto'`),
     portfolioDateIdx: index("market_refresh_runs_portfolio_date_idx").on(
       table.portfolioId,
-      table.refreshDate
+      table.refreshDate,
     ),
-    modeCheck: check("market_refresh_runs_mode_check", sql`${table.mode} in ('daily-auto', 'manual')`),
-    statusCheck: check("market_refresh_runs_status_check", sql`${table.status} in ('running', 'success', 'failed')`),
-    attemptCountPositive: check("market_refresh_runs_attempt_count_positive", sql`${table.attemptCount} >= 0`),
-    targetCountPositive: check("market_refresh_runs_target_count_positive", sql`${table.targetCount} >= 0`),
+    modeCheck: check(
+      "market_refresh_runs_mode_check",
+      sql`${table.mode} in ('daily-auto', 'manual')`,
+    ),
+    statusCheck: check(
+      "market_refresh_runs_status_check",
+      sql`${table.status} in ('running', 'success', 'failed')`,
+    ),
+    attemptCountPositive: check(
+      "market_refresh_runs_attempt_count_positive",
+      sql`${table.attemptCount} >= 0`,
+    ),
+    targetCountPositive: check(
+      "market_refresh_runs_target_count_positive",
+      sql`${table.targetCount} >= 0`,
+    ),
     processedTargetCountPositive: check(
       "market_refresh_runs_processed_target_count_positive",
-      sql`${table.processedTargetCount} >= 0`
-    )
-  })
+      sql`${table.processedTargetCount} >= 0`,
+    ),
+  }),
 );
 
 export type Instrument = typeof instruments.$inferSelect;

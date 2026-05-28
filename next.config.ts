@@ -6,8 +6,8 @@ const nextConfig: NextConfig = {
       {
         source: "/holdings",
         destination: "/",
-        permanent: false
-      }
+        permanent: false,
+      },
     ];
   },
   images: {
@@ -15,10 +15,10 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "financialmodelingprep.com",
-        pathname: "/image-stock/**"
-      }
-    ]
-  }
+        pathname: "/image-stock/**",
+      },
+    ],
+  },
 };
 
 export default nextConfig;

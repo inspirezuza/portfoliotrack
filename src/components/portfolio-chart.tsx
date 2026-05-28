@@ -28,10 +28,7 @@ import {
   parseChartDate,
   type TimeAxisPoint,
 } from "@/lib/charts/time-axis";
-import {
-  getRechartsPayloadPoint,
-  type RechartsMouseState,
-} from "@/lib/charts/recharts-state";
+import { getRechartsPayloadPoint, type RechartsMouseState } from "@/lib/charts/recharts-state";
 import { useChartVisibilityKey } from "@/hooks/use-chart-visibility-key";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";

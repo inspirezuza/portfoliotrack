@@ -10,15 +10,12 @@ import {
   ReferenceLine,
   Tooltip,
   XAxis,
-  YAxis
+  YAxis,
 } from "recharts";
 import { formatCurrency } from "@/lib/format";
 import { useChartVisibilityKey } from "@/hooks/use-chart-visibility-key";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
-import type {
-  DashboardBenchmarkMonthlyReturn,
-  DashboardBenchmarkQuote
-} from "@/server/dashboard";
+import type { DashboardBenchmarkMonthlyReturn, DashboardBenchmarkQuote } from "@/server/dashboard";
 import styles from "./market-benchmarks.module.css";
 
 type MarketBenchmarksProps = {
@@ -44,7 +41,7 @@ const TIMEFRAME_OPTIONS: Array<{ key: BenchmarkTimeframe; label: string }> = [
   { key: "6M", label: "6M" },
   { key: "YTD", label: "YTD" },
   { key: "1Y", label: "1Y" },
-  { key: "ALL", label: "All" }
+  { key: "ALL", label: "All" },
 ];
 
 type BenchmarkComparison = {
@@ -82,14 +79,16 @@ function formatMonthLabel(month: string, locale: string) {
   return new Intl.DateTimeFormat(locale, {
     month: "short",
     timeZone: "UTC",
-    year: "2-digit"
+    year: "2-digit",
   }).format(date);
 }
 
 function getLatestMonth(monthlyReturns: DashboardBenchmarkMonthlyReturn[]) {
-  return monthlyReturns
-    .map((entry) => entry.month)
-    .sort((left, right) => right.localeCompare(left))[0] ?? null;
+  return (
+    monthlyReturns
+      .map((entry) => entry.month)
+      .sort((left, right) => right.localeCompare(left))[0] ?? null
+  );
 }
 
 function getTimeframeStartMonth(timeframe: BenchmarkTimeframe, latestMonth: string | null) {
@@ -117,7 +116,7 @@ function getTimeframeStartMonth(timeframe: BenchmarkTimeframe, latestMonth: stri
 function filterMonthlyReturnsByTimeframe<T extends { month: string }>({
   entries,
   latestMonth,
-  timeframe
+  timeframe,
 }: {
   entries: T[];
   latestMonth: string | null;
@@ -141,7 +140,7 @@ function compoundReturn(values: Array<number | null>) {
 function formatPeriodLabel({
   entries,
   locale,
-  timeframe
+  timeframe,
 }: {
   entries: Array<{ month: string }>;
   locale: string;
@@ -151,7 +150,9 @@ function formatPeriodLabel({
     return null;
   }
 
-  const orderedMonths = entries.map((entry) => entry.month).sort((left, right) => left.localeCompare(right));
+  const orderedMonths = entries
+    .map((entry) => entry.month)
+    .sort((left, right) => left.localeCompare(right));
   const firstMonth = orderedMonths[0];
   const lastMonth = orderedMonths[orderedMonths.length - 1];
 
@@ -173,7 +174,7 @@ function buildBenchmarkComparisons({
   locale,
   monthlyReturns,
   quotes,
-  timeframe
+  timeframe,
 }: {
   latestMonth: string | null;
   locale: string;
@@ -185,18 +186,23 @@ function buildBenchmarkComparisons({
     const timeframeReturns = filterMonthlyReturnsByTimeframe({
       entries: monthlyReturns.filter((entry) => entry.symbol === quote.symbol),
       latestMonth,
-      timeframe
+      timeframe,
     }).sort((left, right) => left.month.localeCompare(right.month));
-    const portfolioReturn = compoundReturn(timeframeReturns.map((entry) => entry.portfolioReturnPercent));
+    const portfolioReturn = compoundReturn(
+      timeframeReturns.map((entry) => entry.portfolioReturnPercent),
+    );
     const benchmarkReturn = compoundReturn(timeframeReturns.map((entry) => entry.returnPercent));
 
     return {
       benchmarkReturn,
       displayName: getBenchmarkLabel(quote.symbol),
-      gap: portfolioReturn == null || benchmarkReturn == null ? null : portfolioReturn - benchmarkReturn,
+      gap:
+        portfolioReturn == null || benchmarkReturn == null
+          ? null
+          : portfolioReturn - benchmarkReturn,
       periodLabel: formatPeriodLabel({ entries: timeframeReturns, locale, timeframe }),
       portfolioReturn,
-      quote
+      quote,
     };
   });
 }
@@ -206,7 +212,7 @@ function BenchmarkTooltip({
   benchmarkLabel,
   mode,
   label,
-  payload
+  payload,
 }: {
   active?: boolean;
   benchmarkLabel: string;
@@ -226,7 +232,13 @@ function BenchmarkTooltip({
       {mode === "GAP" ? (
         <div className="chart-tooltip-row">
           <span>Gap</span>
-          <strong className={point.excessReturn == null || point.excessReturn >= 0 ? "value-positive" : "value-negative"}>
+          <strong
+            className={
+              point.excessReturn == null || point.excessReturn >= 0
+                ? "value-positive"
+                : "value-negative"
+            }
+          >
             {formatSignedPercentagePoint(point.excessReturn)}
           </strong>
         </div>
@@ -234,13 +246,25 @@ function BenchmarkTooltip({
         <>
           <div className="chart-tooltip-row">
             <span>Portfolio</span>
-            <strong className={point.portfolioReturn == null || point.portfolioReturn >= 0 ? "value-positive" : "value-negative"}>
+            <strong
+              className={
+                point.portfolioReturn == null || point.portfolioReturn >= 0
+                  ? "value-positive"
+                  : "value-negative"
+              }
+            >
               {formatSignedPercent(point.portfolioReturn)}
             </strong>
           </div>
           <div className="chart-tooltip-row">
             <span>{benchmarkLabel}</span>
-            <strong className={point.benchmarkReturn == null || point.benchmarkReturn >= 0 ? "value-positive" : "value-negative"}>
+            <strong
+              className={
+                point.benchmarkReturn == null || point.benchmarkReturn >= 0
+                  ? "value-positive"
+                  : "value-negative"
+              }
+            >
               {formatSignedPercent(point.benchmarkReturn)}
             </strong>
           </div>
@@ -250,29 +274,26 @@ function BenchmarkTooltip({
   );
 }
 
-export function MarketBenchmarks({
-  language,
-  monthlyReturns,
-  quotes
-}: MarketBenchmarksProps) {
+export function MarketBenchmarks({ language, monthlyReturns, quotes }: MarketBenchmarksProps) {
   const locale = getUiLocale(language);
   const [selectedSymbol, setSelectedSymbol] = useState(quotes[0]?.symbol ?? "SPYM");
   const [mode, setMode] = useState<HistoricalMode>("GAP");
   const [timeframe, setTimeframe] = useState<BenchmarkTimeframe>("1Y");
   const { chartContainerRef, chartRenderKey } = useChartVisibilityKey();
-  const selectedQuote = quotes.find((quote) => quote.symbol === selectedSymbol) ?? quotes[0] ?? null;
+  const selectedQuote =
+    quotes.find((quote) => quote.symbol === selectedSymbol) ?? quotes[0] ?? null;
   const benchmarkLabel = getBenchmarkLabel(selectedSymbol);
   const latestMonth = useMemo(() => getLatestMonth(monthlyReturns), [monthlyReturns]);
   const comparisons = useMemo(
     () => buildBenchmarkComparisons({ latestMonth, locale, monthlyReturns, quotes, timeframe }),
-    [latestMonth, locale, monthlyReturns, quotes, timeframe]
+    [latestMonth, locale, monthlyReturns, quotes, timeframe],
   );
   const chartData = useMemo<ChartPoint[]>(
     () =>
       filterMonthlyReturnsByTimeframe({
         entries: monthlyReturns.filter((entry) => entry.symbol === selectedSymbol),
         latestMonth,
-        timeframe
+        timeframe,
       })
         .sort((left, right) => left.month.localeCompare(right.month))
         .map((entry) => ({
@@ -280,15 +301,15 @@ export function MarketBenchmarks({
           label: formatMonthLabel(entry.month, locale),
           benchmarkReturn: entry.returnPercent,
           excessReturn: entry.excessReturnPercent,
-          portfolioReturn: entry.portfolioReturnPercent
+          portfolioReturn: entry.portfolioReturnPercent,
         })),
-    [latestMonth, locale, monthlyReturns, selectedSymbol, timeframe]
+    [latestMonth, locale, monthlyReturns, selectedSymbol, timeframe],
   );
   const hasQuoteData = comparisons.some((comparison) => comparison.gap != null);
   const hasChartData = chartData.some((point) =>
     mode === "GAP"
       ? point.excessReturn != null
-      : point.portfolioReturn != null || point.benchmarkReturn != null
+      : point.portfolioReturn != null || point.benchmarkReturn != null,
   );
 
   return (
@@ -328,7 +349,13 @@ export function MarketBenchmarks({
           >
             <span className={styles.cardSymbol}>{comparison.quote.symbol}</span>
             <span className={styles.cardMetric}>
-              <strong className={comparison.gap == null || comparison.gap >= 0 ? "value-positive" : "value-negative"}>
+              <strong
+                className={
+                  comparison.gap == null || comparison.gap >= 0
+                    ? "value-positive"
+                    : "value-negative"
+                }
+              >
                 {formatSignedPercent(comparison.gap)}
               </strong>
               <span>Difference %</span>
@@ -336,13 +363,25 @@ export function MarketBenchmarks({
             <span className={styles.cardRows}>
               <span>
                 <b>Portfolio</b>
-                <em className={comparison.portfolioReturn == null || comparison.portfolioReturn >= 0 ? "value-positive" : "value-negative"}>
+                <em
+                  className={
+                    comparison.portfolioReturn == null || comparison.portfolioReturn >= 0
+                      ? "value-positive"
+                      : "value-negative"
+                  }
+                >
                   {formatSignedPercent(comparison.portfolioReturn)}
                 </em>
               </span>
               <span>
                 <b>{comparison.displayName}</b>
-                <em className={comparison.benchmarkReturn == null || comparison.benchmarkReturn >= 0 ? "value-positive" : "value-negative"}>
+                <em
+                  className={
+                    comparison.benchmarkReturn == null || comparison.benchmarkReturn >= 0
+                      ? "value-positive"
+                      : "value-negative"
+                  }
+                >
                   {formatSignedPercent(comparison.benchmarkReturn)}
                 </em>
               </span>
@@ -354,7 +393,7 @@ export function MarketBenchmarks({
                 : ` - ${formatCurrency(comparison.quote.price, {
                     currency: comparison.quote.currency,
                     locale,
-                    maximumFractionDigits: comparison.quote.price >= 100 ? 2 : 4
+                    maximumFractionDigits: comparison.quote.price >= 100 ? 2 : 4,
                   })}`}
             </small>
           </button>
@@ -372,7 +411,10 @@ export function MarketBenchmarks({
                 : "Portfolio and benchmark monthly returns side by side"}
             </span>
           </div>
-          <div className={`chart-view-modes ${styles.modeToggle}`} aria-label="Historical return mode">
+          <div
+            className={`chart-view-modes ${styles.modeToggle}`}
+            aria-label="Historical return mode"
+          >
             <button
               aria-pressed={mode === "GAP"}
               className={mode === "GAP" ? "active" : ""}
@@ -417,10 +459,19 @@ export function MarketBenchmarks({
                   cursor={{ fill: "rgba(17, 27, 23, 0.06)" }}
                 />
                 {mode === "GAP" ? (
-                  <Bar dataKey="excessReturn" name="Gap" radius={[5, 5, 0, 0]} isAnimationActive={false}>
+                  <Bar
+                    dataKey="excessReturn"
+                    name="Gap"
+                    radius={[5, 5, 0, 0]}
+                    isAnimationActive={false}
+                  >
                     {chartData.map((point) => (
                       <Cell
-                        fill={point.excessReturn == null || point.excessReturn >= 0 ? "var(--accent)" : "var(--danger)"}
+                        fill={
+                          point.excessReturn == null || point.excessReturn >= 0
+                            ? "var(--accent)"
+                            : "var(--danger)"
+                        }
                         key={point.month}
                       />
                     ))}
@@ -435,7 +486,11 @@ export function MarketBenchmarks({
                   >
                     {chartData.map((point) => (
                       <Cell
-                        fill={point.portfolioReturn == null || point.portfolioReturn >= 0 ? "var(--accent)" : "var(--danger)"}
+                        fill={
+                          point.portfolioReturn == null || point.portfolioReturn >= 0
+                            ? "var(--accent)"
+                            : "var(--danger)"
+                        }
                         key={`portfolio-${point.month}`}
                       />
                     ))}
@@ -450,7 +505,11 @@ export function MarketBenchmarks({
                   >
                     {chartData.map((point) => (
                       <Cell
-                        fill={point.benchmarkReturn == null || point.benchmarkReturn >= 0 ? "rgba(197, 125, 35, 0.92)" : "rgba(184, 75, 67, 0.62)"}
+                        fill={
+                          point.benchmarkReturn == null || point.benchmarkReturn >= 0
+                            ? "rgba(197, 125, 35, 0.92)"
+                            : "rgba(184, 75, 67, 0.62)"
+                        }
                         key={`benchmark-${point.month}`}
                       />
                     ))}

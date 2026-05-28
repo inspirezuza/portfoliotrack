@@ -9,11 +9,11 @@ export function withOperationTimeout<T>(
   operation: Promise<T>,
   {
     label,
-    timeoutMs
+    timeoutMs,
   }: {
     label: string;
     timeoutMs: number;
-  }
+  },
 ) {
   if (timeoutMs <= 0) {
     return operation;

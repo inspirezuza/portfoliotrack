@@ -6,10 +6,7 @@ import { LoadingIndicator } from "@/components/loading-indicator";
 import { formatCurrency } from "@/lib/format";
 import { normalizeInstrumentSearchValue } from "@/lib/transactions/instrument-selection";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
-import type {
-  DashboardBenchmarkOverlay,
-  DashboardBenchmarkQuote
-} from "@/server/dashboard";
+import type { DashboardBenchmarkOverlay, DashboardBenchmarkQuote } from "@/server/dashboard";
 import styles from "./benchmark-comparison-picker.module.css";
 
 export type BenchmarkComparisonPickerItem = {
@@ -97,7 +94,7 @@ function getToneClassName(value: number | null) {
 function formatPrice({
   currency,
   locale,
-  price
+  price,
 }: {
   currency: string;
   locale: string;
@@ -110,7 +107,7 @@ function formatPrice({
   return formatCurrency(price, {
     currency,
     locale,
-    maximumFractionDigits: price >= 100 ? 2 : 4
+    maximumFractionDigits: price >= 100 ? 2 : 4,
   });
 }
 
@@ -122,9 +119,13 @@ function getErrorMessage(error: ApiErrorResponse["error"], fallbackMessage: stri
   return error?.message ?? fallbackMessage;
 }
 
-function matchesExistingItem(item: BenchmarkComparisonPickerItem, instrument: InstrumentSearchResult) {
+function matchesExistingItem(
+  item: BenchmarkComparisonPickerItem,
+  instrument: InstrumentSearchResult,
+) {
   return (
-    normalizeInstrumentSearchValue(item.symbol) === normalizeInstrumentSearchValue(instrument.symbol) ||
+    normalizeInstrumentSearchValue(item.symbol) ===
+      normalizeInstrumentSearchValue(instrument.symbol) ||
     normalizeInstrumentSearchValue(item.providerSymbol) ===
       normalizeInstrumentSearchValue(instrument.providerSymbol)
   );
@@ -137,7 +138,7 @@ export function BenchmarkComparisonPicker({
   onAddComparison,
   onClear,
   onToggle,
-  selectedSymbols
+  selectedSymbols,
 }: BenchmarkComparisonPickerProps) {
   const locale = getUiLocale(language);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -146,10 +147,7 @@ export function BenchmarkComparisonPicker({
   const [isSearching, setIsSearching] = useState(false);
   const [addingProviderSymbol, setAddingProviderSymbol] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const availableItems = useMemo(
-    () => items.filter((item) => !item.selected),
-    [items]
-  );
+  const availableItems = useMemo(() => items.filter((item) => !item.selected), [items]);
 
   useEffect(() => {
     if (!isDialogOpen) {
@@ -188,7 +186,7 @@ export function BenchmarkComparisonPicker({
 
       try {
         const response = await fetch(`/api/instruments/search?query=${encodeURIComponent(query)}`, {
-          signal: abortController.signal
+          signal: abortController.signal,
         });
         const payload = (await response.json()) as InstrumentSearchApiResponse;
 
@@ -246,9 +244,9 @@ export function BenchmarkComparisonPicker({
       const response = await fetch("/api/benchmark-comparisons", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(instrument)
+        body: JSON.stringify(instrument),
       });
       const payload = (await response.json()) as BenchmarkComparisonApiResponse;
 
@@ -333,7 +331,11 @@ export function BenchmarkComparisonPicker({
                     <span className={styles.resultSymbol}>{instrument.symbol}</span>
                     <span className={styles.resultName}>{instrument.displayName}</span>
                     <span className={styles.resultMeta}>
-                      {isAdding ? labels.adding : isSelected ? labels.saved : instrument.instrumentType}
+                      {isAdding
+                        ? labels.adding
+                        : isSelected
+                          ? labels.saved
+                          : instrument.instrumentType}
                       {" / "}
                       {instrument.market}
                       {" / "}
@@ -381,11 +383,7 @@ export function BenchmarkComparisonPicker({
   return (
     <section className={styles.section} aria-label={labels.aria}>
       <div className={styles.toolbar}>
-        <button
-          className={styles.addButton}
-          onClick={() => setIsDialogOpen(true)}
-          type="button"
-        >
+        <button className={styles.addButton} onClick={() => setIsDialogOpen(true)} type="button">
           {labels.add}
         </button>
         <button
@@ -421,7 +419,9 @@ export function BenchmarkComparisonPicker({
         </div>
       ) : null}
 
-      {typeof document === "undefined" || dialog == null ? null : createPortal(dialog, document.body)}
+      {typeof document === "undefined" || dialog == null
+        ? null
+        : createPortal(dialog, document.body)}
     </section>
   );
 }

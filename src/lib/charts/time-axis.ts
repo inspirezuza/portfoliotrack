@@ -18,7 +18,9 @@ export function isIntradayInterval(interval: string | null | undefined) {
 }
 
 export function isIntradayPoint(point: { date: string; interval?: string | null }) {
-  return isIntradayInterval(point.interval) || (point.interval == null && isIntradayDate(point.date));
+  return (
+    isIntradayInterval(point.interval) || (point.interval == null && isIntradayDate(point.date))
+  );
 }
 
 export function isDailyPoint(point: { date: string; interval?: string | null }) {
@@ -32,7 +34,7 @@ export function getUtcDateTime(value: string) {
 export function attachTimeAxis<T extends { date: string }>(points: T[]) {
   return points.map((point) => ({
     ...point,
-    timestamp: getUtcDateTime(point.date)
+    timestamp: getUtcDateTime(point.date),
   }));
 }
 
@@ -43,7 +45,7 @@ export function getTimeAxisDomain(points: TimeAxisPoint[]) {
 
   return [
     Math.min(...points.map((point) => point.timestamp)),
-    Math.max(...points.map((point) => point.timestamp))
+    Math.max(...points.map((point) => point.timestamp)),
   ] satisfies [number, number];
 }
 
@@ -61,7 +63,7 @@ export function buildTimeAxisTicks(points: TimeAxisPoint[], maxTicks = 6) {
   }
 
   const uniqueDataTicks = Array.from(new Set(points.map((point) => point.timestamp))).sort(
-    (left, right) => left - right
+    (left, right) => left - right,
   );
 
   if (uniqueDataTicks.length <= maxTicks) {
@@ -72,7 +74,7 @@ export function buildTimeAxisTicks(points: TimeAxisPoint[], maxTicks = 6) {
   const step = (end - start) / (safeTickCount - 1);
 
   return Array.from({ length: safeTickCount }, (_, index) =>
-    index === safeTickCount - 1 ? end : Math.round(start + step * index)
+    index === safeTickCount - 1 ? end : Math.round(start + step * index),
   );
 }
 
@@ -88,7 +90,7 @@ export function formatTimeAxisTick(value: number | string, locale: string, spanM
     return new Intl.DateTimeFormat(locale, {
       hour: "2-digit",
       minute: "2-digit",
-      timeZone: "UTC"
+      timeZone: "UTC",
     }).format(date);
   }
 
@@ -96,7 +98,7 @@ export function formatTimeAxisTick(value: number | string, locale: string, spanM
     return new Intl.DateTimeFormat(locale, {
       month: "short",
       day: "numeric",
-      timeZone: "UTC"
+      timeZone: "UTC",
     }).format(date);
   }
 
@@ -104,12 +106,12 @@ export function formatTimeAxisTick(value: number | string, locale: string, spanM
     return new Intl.DateTimeFormat(locale, {
       month: "short",
       year: "numeric",
-      timeZone: "UTC"
+      timeZone: "UTC",
     }).format(date);
   }
 
   return new Intl.DateTimeFormat(locale, {
     year: "numeric",
-    timeZone: "UTC"
+    timeZone: "UTC",
   }).format(date);
 }

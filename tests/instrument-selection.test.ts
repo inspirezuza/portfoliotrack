@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   findExactInstrumentSearchMatch,
   getInstrumentSearchScore,
-  normalizeInstrumentSearchValue
+  normalizeInstrumentSearchValue,
 } from "../src/lib/transactions/instrument-selection";
 
 const instruments = [
@@ -15,7 +15,7 @@ const instruments = [
     instrumentType: "ETF",
     currency: "USD",
     providerSymbol: "SPY",
-    label: "SPY - SPDR S&P 500 ETF Trust - US - USD"
+    label: "SPY - SPDR S&P 500 ETF Trust - US - USD",
   },
   {
     id: 2,
@@ -25,8 +25,8 @@ const instruments = [
     instrumentType: "DR",
     currency: "THB",
     providerSymbol: "AAPL80.BK",
-    label: "AAPL80 - Apple DR - TH - THB"
-  }
+    label: "AAPL80 - Apple DR - TH - THB",
+  },
 ];
 
 test("normalizes search text so symbols and provider symbols compare consistently", () => {

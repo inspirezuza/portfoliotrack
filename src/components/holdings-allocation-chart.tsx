@@ -41,14 +41,7 @@ type AllocationTooltipProps = {
   }>;
 };
 
-const HOLDING_COLORS = [
-  "#08745d",
-  "#b87824",
-  "#3d6fb6",
-  "#9a5bb5",
-  "#d05a47",
-  "#2f8f9d"
-];
+const HOLDING_COLORS = ["#08745d", "#b87824", "#3d6fb6", "#9a5bb5", "#d05a47", "#2f8f9d"];
 
 const MAX_PRIMARY_SLICES = 5;
 
@@ -60,13 +53,13 @@ function getHoldingChartValue(holding: AllocationHolding, useValuationCurrency: 
       ? null
       : {
           currency: holding.valuationCurrency,
-          value
+          value,
         };
   }
 
   return {
     currency: holding.currency,
-    value: holding.marketValue ?? holding.totalCost
+    value: holding.marketValue ?? holding.totalCost,
   };
 }
 
@@ -82,7 +75,7 @@ function buildAllocationSlices(holdings: AllocationHolding[], language: UiLangua
         : {
             ...holding,
             chartCurrency: chartValue.currency,
-            chartValue: chartValue.value
+            chartValue: chartValue.value,
           };
     })
     .filter((holding): holding is NonNullable<typeof holding> => holding != null)
@@ -103,7 +96,7 @@ function buildAllocationSlices(holdings: AllocationHolding[], language: UiLangua
     currency: holding.chartCurrency,
     value: holding.chartValue,
     weight: holding.portfolioWeight ?? holding.chartValue / totalValue,
-    color: HOLDING_COLORS[index % HOLDING_COLORS.length]
+    color: HOLDING_COLORS[index % HOLDING_COLORS.length],
   }));
 
   if (otherHoldings.length > 0) {
@@ -116,7 +109,7 @@ function buildAllocationSlices(holdings: AllocationHolding[], language: UiLangua
       currency: primaryHoldings[0]?.chartCurrency ?? otherHoldings[0].chartCurrency,
       value: otherValue,
       weight: otherValue / totalValue,
-      color: HOLDING_COLORS[MAX_PRIMARY_SLICES]
+      color: HOLDING_COLORS[MAX_PRIMARY_SLICES],
     });
   }
 

@@ -18,7 +18,7 @@ function joinClassNames(...classNames: Array<string | false | null | undefined>)
 export function LoadingIndicator({
   className,
   label = "Loading",
-  size = "md"
+  size = "md",
 }: LoadingIndicatorProps) {
   return (
     <span
@@ -32,13 +32,7 @@ export function LoadingIndicator({
   );
 }
 
-export function ButtonLoadingContent({
-  children,
-  label
-}: {
-  children: ReactNode;
-  label: string;
-}) {
+export function ButtonLoadingContent({ children, label }: { children: ReactNode; label: string }) {
   return (
     <span className="button-loading-content">
       <LoadingIndicator label={label} size="sm" />
@@ -57,7 +51,7 @@ export function PendingBanner({ label }: { label: string }) {
 
 export function RouteLoadingSkeleton({
   eyebrow = "Loading",
-  title = "Preparing workspace"
+  title = "Preparing workspace",
 }: RouteLoadingSkeletonProps) {
   return (
     <section className="workstation-page route-loading-shell" aria-busy="true">

@@ -13,19 +13,19 @@ import {
   type Instrument,
   type Portfolio,
   type NewTransaction,
-  type Transaction
+  type Transaction,
 } from "@/lib/db/schema";
 import {
   InsufficientQuantityError,
   calculatePositionForInstrument,
   calculatePositions,
-  type PositionTransaction
+  type PositionTransaction,
 } from "@/lib/portfolio/positions";
 import { instrumentInputSchema } from "@/lib/validation/instrument";
 import {
   transactionInputSchema,
   type TransactionBroker,
-  type TransactionInput
+  type TransactionInput,
 } from "@/lib/validation/transaction";
 import { parsePortfolioId } from "@/server/portfolios";
 
@@ -84,7 +84,7 @@ export class InstrumentServiceError extends Error {
   constructor(
     code: InstrumentServiceError["code"],
     message: string,
-    details?: Record<string, unknown>
+    details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "InstrumentServiceError";
@@ -105,7 +105,7 @@ export class TransactionServiceError extends Error {
   constructor(
     code: TransactionServiceError["code"],
     message: string,
-    details?: Record<string, unknown>
+    details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "TransactionServiceError";
@@ -118,7 +118,7 @@ export function toChronologicalPositionTransaction(
   row: Pick<
     Transaction,
     "instrumentId" | "tradeDate" | "side" | "quantity" | "price" | "fee" | "createdAt" | "id"
-  >
+  >,
 ): PositionTransaction {
   return {
     instrumentId: row.instrumentId,
@@ -128,7 +128,7 @@ export function toChronologicalPositionTransaction(
     price: row.price,
     fee: row.fee,
     createdAt: row.createdAt,
-    id: row.id
+    id: row.id,
   };
 }
 
@@ -165,11 +165,12 @@ function mapTransactionListItem(row: {
       instrumentType: row.instrument.instrumentType,
       currency: row.instrument.currency,
       providerSymbol: row.instrument.providerSymbol,
-      underlyingProviderSymbol: row.instrument.underlyingProviderSymbol
+      underlyingProviderSymbol: row.instrument.underlyingProviderSymbol,
     },
     grossAmount,
     netAmount,
-    signedQuantity: row.transaction.side === "BUY" ? row.transaction.quantity : -row.transaction.quantity
+    signedQuantity:
+      row.transaction.side === "BUY" ? row.transaction.quantity : -row.transaction.quantity,
   };
 }
 
@@ -178,14 +179,17 @@ function parseInstrumentInput(input: unknown) {
 
   if (!result.success) {
     throw new InstrumentServiceError("VALIDATION_ERROR", "Instrument input is invalid.", {
-      issues: result.error.flatten()
+      issues: result.error.flatten(),
     });
   }
 
   return result.data;
 }
 
-function mapInstrumentOption(instrument: Instrument, currentQuantity = 0): TransactionInstrumentOption {
+function mapInstrumentOption(
+  instrument: Instrument,
+  currentQuantity = 0,
+): TransactionInstrumentOption {
   return {
     id: instrument.id,
     symbol: instrument.symbol,
@@ -196,7 +200,7 @@ function mapInstrumentOption(instrument: Instrument, currentQuantity = 0): Trans
     providerSymbol: instrument.providerSymbol,
     isActive: instrument.isActive,
     currentQuantity,
-    label: `${instrument.symbol} - ${instrument.displayName} - ${instrument.market} - ${instrument.currency}`
+    label: `${instrument.symbol} - ${instrument.displayName} - ${instrument.market} - ${instrument.currency}`,
   };
 }
 
@@ -206,10 +210,18 @@ function isUniqueConstraintError(error: unknown) {
 
 function getTransactionOrder(order: TransactionListOrder) {
   if (order === "asc") {
-    return [asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id)] as const;
+    return [
+      asc(transactions.tradeDate),
+      asc(transactions.createdAt),
+      asc(transactions.id),
+    ] as const;
   }
 
-  return [desc(transactions.tradeDate), desc(transactions.createdAt), desc(transactions.id)] as const;
+  return [
+    desc(transactions.tradeDate),
+    desc(transactions.createdAt),
+    desc(transactions.id),
+  ] as const;
 }
 
 function parseTransactionInput(input: unknown) {
@@ -217,7 +229,7 @@ function parseTransactionInput(input: unknown) {
 
   if (!result.success) {
     throw new TransactionServiceError("VALIDATION_ERROR", "Transaction input is invalid.", {
-      issues: result.error.flatten()
+      issues: result.error.flatten(),
     });
   }
 
@@ -228,7 +240,10 @@ function parseTransactionId(input: unknown) {
   const id = Number(input);
 
   if (!Number.isInteger(id) || id <= 0) {
-    throw new TransactionServiceError("VALIDATION_ERROR", "Transaction id must be a positive integer.");
+    throw new TransactionServiceError(
+      "VALIDATION_ERROR",
+      "Transaction id must be a positive integer.",
+    );
   }
 
   return id;
@@ -244,7 +259,7 @@ function buildInsertValues(input: TransactionInput, portfolioId: number): NewTra
     quantity: input.quantity,
     price: input.price,
     fee: input.fee,
-    notes: input.notes
+    notes: input.notes,
   };
 }
 
@@ -252,7 +267,7 @@ function getInsufficientQuantityDetails(error: InsufficientQuantityError) {
   return {
     instrumentId: error.instrumentId,
     availableQuantity: error.availableQuantity,
-    attemptedQuantity: error.attemptedQuantity
+    attemptedQuantity: error.attemptedQuantity,
   };
 }
 
@@ -264,7 +279,7 @@ async function getJoinedTransactionById(id: number, portfolioId: number) {
   const [row] = await db
     .select({
       transaction: transactions,
-      instrument: instruments
+      instrument: instruments,
     })
     .from(transactions)
     .innerJoin(instruments, eq(transactions.instrumentId, instruments.id))
@@ -284,7 +299,8 @@ export async function createInstrument(input: unknown) {
         symbol: parsedInput.symbol,
         displayName: parsedInput.displayName,
         market: parsedInput.market,
-        instrumentType: knownDrMetadata?.instrumentType ?? normalizeInstrumentType(parsedInput.instrumentType),
+        instrumentType:
+          knownDrMetadata?.instrumentType ?? normalizeInstrumentType(parsedInput.instrumentType),
         currency: parsedInput.currency,
         providerSymbol: parsedInput.providerSymbol,
         underlyingSymbol: knownDrMetadata?.underlyingSymbol ?? null,
@@ -293,7 +309,7 @@ export async function createInstrument(input: unknown) {
         underlyingProviderSymbol: knownDrMetadata?.underlyingProviderSymbol ?? null,
         drRatio: knownDrMetadata?.drRatio ?? null,
         fxProviderSymbol: knownDrMetadata?.fxProviderSymbol ?? null,
-        isActive: true
+        isActive: true,
       })
       .returning();
 
@@ -305,8 +321,8 @@ export async function createInstrument(input: unknown) {
         "An instrument with that app symbol or provider symbol already exists.",
         {
           symbol: parsedInput.symbol,
-          providerSymbol: parsedInput.providerSymbol
-        }
+          providerSymbol: parsedInput.providerSymbol,
+        },
       );
     }
 
@@ -314,14 +330,17 @@ export async function createInstrument(input: unknown) {
   }
 }
 
-export async function createTransaction(input: unknown, { portfolioId: portfolioIdInput }: { portfolioId: number }) {
+export async function createTransaction(
+  input: unknown,
+  { portfolioId: portfolioIdInput }: { portfolioId: number },
+) {
   const parsedInput = parseTransactionInput(input);
   const portfolioId = parsePortfolioId(portfolioIdInput);
 
   const insertedTransactionId = await db.transaction(async (tx) => {
     const [instrument] = await tx
       .select({
-        id: instruments.id
+        id: instruments.id,
       })
       .from(instruments)
       .where(eq(instruments.id, parsedInput.instrumentId));
@@ -329,7 +348,7 @@ export async function createTransaction(input: unknown, { portfolioId: portfolio
     if (!instrument) {
       throw new TransactionServiceError(
         "INSTRUMENT_NOT_FOUND",
-        `Instrument ${parsedInput.instrumentId} does not exist.`
+        `Instrument ${parsedInput.instrumentId} does not exist.`,
       );
     }
 
@@ -343,10 +362,15 @@ export async function createTransaction(input: unknown, { portfolioId: portfolio
           quantity: transactions.quantity,
           price: transactions.price,
           fee: transactions.fee,
-          createdAt: transactions.createdAt
+          createdAt: transactions.createdAt,
         })
         .from(transactions)
-        .where(and(eq(transactions.portfolioId, portfolioId), eq(transactions.instrumentId, parsedInput.instrumentId)))
+        .where(
+          and(
+            eq(transactions.portfolioId, portfolioId),
+            eq(transactions.instrumentId, parsedInput.instrumentId),
+          ),
+        )
         .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id));
       const existingTransactions = existingTransactionRows.map(toChronologicalPositionTransaction);
 
@@ -361,15 +385,15 @@ export async function createTransaction(input: unknown, { portfolioId: portfolio
             price: parsedInput.price,
             fee: parsedInput.fee,
             createdAt: getPendingTransactionOrderMarker(),
-            id: Number.MAX_SAFE_INTEGER
-          }
+            id: Number.MAX_SAFE_INTEGER,
+          },
         ]);
       } catch (error) {
         if (error instanceof InsufficientQuantityError) {
           throw new TransactionServiceError(
             "INSUFFICIENT_QUANTITY",
             "Sell quantity exceeds current holdings.",
-            getInsufficientQuantityDetails(error)
+            getInsufficientQuantityDetails(error),
           );
         }
 
@@ -390,7 +414,7 @@ export async function createTransaction(input: unknown, { portfolioId: portfolio
   if (!insertedTransaction) {
     throw new TransactionServiceError(
       "INTERNAL_ERROR",
-      "Transaction was created but could not be reloaded."
+      "Transaction was created but could not be reloaded.",
     );
   }
 
@@ -400,7 +424,7 @@ export async function createTransaction(input: unknown, { portfolioId: portfolio
 export async function updateTransaction(
   idInput: unknown,
   input: unknown,
-  { portfolioId: portfolioIdInput }: { portfolioId: number }
+  { portfolioId: portfolioIdInput }: { portfolioId: number },
 ) {
   const id = parseTransactionId(idInput);
   const parsedInput = parseTransactionInput(input);
@@ -409,7 +433,7 @@ export async function updateTransaction(
   await db.transaction(async (tx) => {
     const [existingTransaction] = await tx
       .select({
-        id: transactions.id
+        id: transactions.id,
       })
       .from(transactions)
       .where(and(eq(transactions.id, id), eq(transactions.portfolioId, portfolioId)));
@@ -417,13 +441,13 @@ export async function updateTransaction(
     if (!existingTransaction) {
       throw new TransactionServiceError(
         "TRANSACTION_NOT_FOUND",
-        `Transaction ${id} does not exist.`
+        `Transaction ${id} does not exist.`,
       );
     }
 
     const [instrument] = await tx
       .select({
-        id: instruments.id
+        id: instruments.id,
       })
       .from(instruments)
       .where(eq(instruments.id, parsedInput.instrumentId));
@@ -431,7 +455,7 @@ export async function updateTransaction(
     if (!instrument) {
       throw new TransactionServiceError(
         "INSTRUMENT_NOT_FOUND",
-        `Instrument ${parsedInput.instrumentId} does not exist.`
+        `Instrument ${parsedInput.instrumentId} does not exist.`,
       );
     }
 
@@ -444,7 +468,7 @@ export async function updateTransaction(
         quantity: transactions.quantity,
         price: transactions.price,
         fee: transactions.fee,
-        createdAt: transactions.createdAt
+        createdAt: transactions.createdAt,
       })
       .from(transactions)
       .where(eq(transactions.portfolioId, portfolioId))
@@ -463,7 +487,7 @@ export async function updateTransaction(
         price: parsedInput.price,
         fee: parsedInput.fee,
         createdAt: transaction.createdAt,
-        id
+        id,
       };
     });
 
@@ -474,17 +498,18 @@ export async function updateTransaction(
         throw new TransactionServiceError(
           "INSUFFICIENT_QUANTITY",
           "Edited transaction would make holdings negative.",
-          getInsufficientQuantityDetails(error)
+          getInsufficientQuantityDetails(error),
         );
       }
 
       throw error;
     }
 
-    await tx.update(transactions)
+    await tx
+      .update(transactions)
       .set({
         ...buildInsertValues(parsedInput, portfolioId),
-        updatedAt: getPendingTransactionOrderMarker()
+        updatedAt: getPendingTransactionOrderMarker(),
       })
       .where(and(eq(transactions.id, id), eq(transactions.portfolioId, portfolioId)));
   });
@@ -494,7 +519,7 @@ export async function updateTransaction(
   if (!updatedTransaction) {
     throw new TransactionServiceError(
       "INTERNAL_ERROR",
-      "Transaction was updated but could not be reloaded."
+      "Transaction was updated but could not be reloaded.",
     );
   }
 
@@ -503,7 +528,7 @@ export async function updateTransaction(
 
 export async function deleteTransaction(
   idInput: unknown,
-  { portfolioId: portfolioIdInput }: { portfolioId: number }
+  { portfolioId: portfolioIdInput }: { portfolioId: number },
 ) {
   const id = parseTransactionId(idInput);
   const portfolioId = parsePortfolioId(portfolioIdInput);
@@ -518,7 +543,7 @@ export async function deleteTransaction(
         quantity: transactions.quantity,
         price: transactions.price,
         fee: transactions.fee,
-        createdAt: transactions.createdAt
+        createdAt: transactions.createdAt,
       })
       .from(transactions)
       .where(eq(transactions.portfolioId, portfolioId))
@@ -529,7 +554,7 @@ export async function deleteTransaction(
     if (!hasMatchingTransaction) {
       throw new TransactionServiceError(
         "TRANSACTION_NOT_FOUND",
-        `Transaction ${id} does not exist.`
+        `Transaction ${id} does not exist.`,
       );
     }
 
@@ -537,21 +562,23 @@ export async function deleteTransaction(
       calculatePositions(
         transactionRows
           .filter((transaction) => transaction.id !== id)
-          .map(toChronologicalPositionTransaction)
+          .map(toChronologicalPositionTransaction),
       );
     } catch (error) {
       if (error instanceof InsufficientQuantityError) {
         throw new TransactionServiceError(
           "INSUFFICIENT_QUANTITY",
           "Deleting this transaction would make holdings negative.",
-          getInsufficientQuantityDetails(error)
+          getInsufficientQuantityDetails(error),
         );
       }
 
       throw error;
     }
 
-    await tx.delete(transactions).where(and(eq(transactions.id, id), eq(transactions.portfolioId, portfolioId)));
+    await tx
+      .delete(transactions)
+      .where(and(eq(transactions.id, id), eq(transactions.portfolioId, portfolioId)));
   });
 
   return { id };
@@ -560,7 +587,7 @@ export async function deleteTransaction(
 export async function listTransactions({
   portfolioId: portfolioIdInput,
   instrumentId,
-  order = "desc"
+  order = "desc",
 }: {
   portfolioId: number;
   instrumentId?: number;
@@ -570,7 +597,7 @@ export async function listTransactions({
   const query = db
     .select({
       transaction: transactions,
-      instrument: instruments
+      instrument: instruments,
     })
     .from(transactions)
     .innerJoin(instruments, eq(transactions.instrumentId, instruments.id));
@@ -581,7 +608,12 @@ export async function listTransactions({
           .where(eq(transactions.portfolioId, portfolioId))
           .orderBy(...getTransactionOrder(order))
       : await query
-          .where(and(eq(transactions.portfolioId, portfolioId), eq(transactions.instrumentId, instrumentId)))
+          .where(
+            and(
+              eq(transactions.portfolioId, portfolioId),
+              eq(transactions.instrumentId, instrumentId),
+            ),
+          )
           .orderBy(...getTransactionOrder(order));
 
   return rows.map(mapTransactionListItem);
@@ -589,7 +621,7 @@ export async function listTransactions({
 
 export async function listTransactionInstrumentOptions({
   portfolioId: portfolioIdInput,
-  activeOnly = true
+  activeOnly = true,
 }: {
   portfolioId: number;
   activeOnly?: boolean;
@@ -612,7 +644,7 @@ export async function listTransactionInstrumentOptions({
       quantity: transactions.quantity,
       price: transactions.price,
       fee: transactions.fee,
-      createdAt: transactions.createdAt
+      createdAt: transactions.createdAt,
     })
     .from(transactions)
     .where(eq(transactions.portfolioId, portfolioId))
@@ -627,7 +659,11 @@ export async function listTransactionInstrumentOptions({
   });
 }
 
-export async function listSelectableTransactionInstrumentOptions({ portfolioId }: { portfolioId: number }) {
+export async function listSelectableTransactionInstrumentOptions({
+  portfolioId,
+}: {
+  portfolioId: number;
+}) {
   const instruments = await listTransactionInstrumentOptions({ portfolioId, activeOnly: false });
 
   return instruments.filter(isTransactionInstrumentSelectable);
@@ -635,7 +671,7 @@ export async function listSelectableTransactionInstrumentOptions({ portfolioId }
 
 export async function getTransactionWorkspace({
   editTransactionId,
-  portfolioId: portfolioIdInput
+  portfolioId: portfolioIdInput,
 }: {
   editTransactionId: number | null;
   portfolioId: number;
@@ -645,31 +681,34 @@ export async function getTransactionWorkspace({
     db
       .select({
         transaction: transactions,
-        instrument: instruments
+        instrument: instruments,
       })
       .from(transactions)
       .innerJoin(instruments, eq(transactions.instrumentId, instruments.id))
       .where(eq(transactions.portfolioId, portfolioId))
       .orderBy(...getTransactionOrder("desc")),
-    db.select().from(instruments).orderBy(asc(instruments.symbol))
+    db.select().from(instruments).orderBy(asc(instruments.symbol)),
   ]);
   const transactionsList = transactionRows.map(mapTransactionListItem);
   const positions = calculatePositions(
-    transactionRows.map((row) => toChronologicalPositionTransaction(row.transaction))
+    transactionRows.map((row) => toChronologicalPositionTransaction(row.transaction)),
   );
   const allInstruments = instrumentRows.map((instrument) =>
-    mapInstrumentOption(instrument, positions.get(instrument.id)?.quantity ?? 0)
+    mapInstrumentOption(instrument, positions.get(instrument.id)?.quantity ?? 0),
   );
   const selectableInstruments = allInstruments.filter(isTransactionInstrumentSelectable);
   const editingTransaction =
     editTransactionId == null
       ? null
-      : transactionsList.find((transaction) => transaction.id === editTransactionId) ?? null;
+      : (transactionsList.find((transaction) => transaction.id === editTransactionId) ?? null);
   const formInstruments =
-    editingTransaction && !selectableInstruments.some((instrument) => instrument.id === editingTransaction.instrumentId)
+    editingTransaction &&
+    !selectableInstruments.some((instrument) => instrument.id === editingTransaction.instrumentId)
       ? sortInstrumentOptions([
           ...selectableInstruments,
-          ...allInstruments.filter((instrument) => instrument.id === editingTransaction.instrumentId)
+          ...allInstruments.filter(
+            (instrument) => instrument.id === editingTransaction.instrumentId,
+          ),
         ])
       : selectableInstruments;
 
@@ -681,17 +720,20 @@ export async function getTransactionWorkspace({
     summary: {
       allInstrumentCount: allInstruments.length,
       latestTradeDate: transactionsList[0]?.tradeDate ?? null,
-      openInstrumentCount: allInstruments.filter((instrument) => instrument.currentQuantity > 0).length,
+      openInstrumentCount: allInstruments.filter((instrument) => instrument.currentQuantity > 0)
+        .length,
       selectableInstrumentCount: selectableInstruments.length,
       transactionCount: transactionsList.length,
-      uniqueInstrumentCount: new Set(transactionsList.map((transaction) => transaction.instrumentId)).size
+      uniqueInstrumentCount: new Set(
+        transactionsList.map((transaction) => transaction.instrumentId),
+      ).size,
     },
-    transactions: transactionsList
+    transactions: transactionsList,
   };
 }
 
 export async function getAggregateTransactionWorkspace({
-  editTransactionId
+  editTransactionId,
 }: {
   editTransactionId: number | null;
 }) {
@@ -700,26 +742,26 @@ export async function getAggregateTransactionWorkspace({
       .select({
         transaction: transactions,
         instrument: instruments,
-        portfolio: portfolios
+        portfolio: portfolios,
       })
       .from(transactions)
       .innerJoin(instruments, eq(transactions.instrumentId, instruments.id))
       .innerJoin(portfolios, eq(transactions.portfolioId, portfolios.id))
       .orderBy(...getTransactionOrder("desc")),
-    db.select().from(instruments).orderBy(asc(instruments.symbol))
+    db.select().from(instruments).orderBy(asc(instruments.symbol)),
   ]);
   const transactionsList = transactionRows.map(mapTransactionListItem);
   const positions = calculatePositions(
-    transactionRows.map((row) => toChronologicalPositionTransaction(row.transaction))
+    transactionRows.map((row) => toChronologicalPositionTransaction(row.transaction)),
   );
   const allInstruments = instrumentRows.map((instrument) =>
-    mapInstrumentOption(instrument, positions.get(instrument.id)?.quantity ?? 0)
+    mapInstrumentOption(instrument, positions.get(instrument.id)?.quantity ?? 0),
   );
   const selectableInstruments = allInstruments.filter(isTransactionInstrumentSelectable);
   const editingTransaction =
     editTransactionId == null
       ? null
-      : transactionsList.find((transaction) => transaction.id === editTransactionId) ?? null;
+      : (transactionsList.find((transaction) => transaction.id === editTransactionId) ?? null);
 
   return {
     allInstruments,
@@ -729,11 +771,14 @@ export async function getAggregateTransactionWorkspace({
     summary: {
       allInstrumentCount: allInstruments.length,
       latestTradeDate: transactionsList[0]?.tradeDate ?? null,
-      openInstrumentCount: allInstruments.filter((instrument) => instrument.currentQuantity > 0).length,
+      openInstrumentCount: allInstruments.filter((instrument) => instrument.currentQuantity > 0)
+        .length,
       selectableInstrumentCount: selectableInstruments.length,
       transactionCount: transactionsList.length,
-      uniqueInstrumentCount: new Set(transactionsList.map((transaction) => transaction.instrumentId)).size
+      uniqueInstrumentCount: new Set(
+        transactionsList.map((transaction) => transaction.instrumentId),
+      ).size,
     },
-    transactions: transactionsList
+    transactions: transactionsList,
   };
 }

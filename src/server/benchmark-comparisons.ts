@@ -58,7 +58,7 @@ export class BenchmarkComparisonServiceError extends Error {
   constructor(
     code: BenchmarkComparisonServiceError["code"],
     message: string,
-    details?: Record<string, unknown>
+    details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "BenchmarkComparisonServiceError";
@@ -83,9 +83,13 @@ function parseInstrumentInput(input: unknown): InstrumentInput {
   const result = instrumentInputSchema.safeParse(input);
 
   if (!result.success) {
-    throw new BenchmarkComparisonServiceError("VALIDATION_ERROR", "Comparison instrument is invalid.", {
-      issues: result.error.flatten()
-    });
+    throw new BenchmarkComparisonServiceError(
+      "VALIDATION_ERROR",
+      "Comparison instrument is invalid.",
+      {
+        issues: result.error.flatten(),
+      },
+    );
   }
 
   return result.data;
@@ -122,7 +126,7 @@ async function ensureComparisonInstrument(input: unknown) {
     if (instrument == null) {
       throw new BenchmarkComparisonServiceError(
         "INSTRUMENT_NOT_FOUND",
-        "Comparison instrument was created but could not be loaded."
+        "Comparison instrument was created but could not be loaded.",
       );
     }
 
@@ -144,7 +148,10 @@ async function ensureComparisonInstrument(input: unknown) {
       throw error;
     }
 
-    throw new BenchmarkComparisonServiceError("INTERNAL_ERROR", "Comparison instrument could not be saved.");
+    throw new BenchmarkComparisonServiceError(
+      "INTERNAL_ERROR",
+      "Comparison instrument could not be saved.",
+    );
   }
 }
 
@@ -152,7 +159,7 @@ export function buildBenchmarkComparisonPayload({
   historicalPriceRows,
   instrument,
   intradayPriceRows,
-  priceSnapshotRows
+  priceSnapshotRows,
 }: {
   historicalPriceRows: HistoricalPriceRow[];
   instrument: InstrumentRow;
@@ -167,12 +174,12 @@ export function buildBenchmarkComparisonPayload({
       (row) =>
         row.instrumentId === instrument.id &&
         row.currency === instrument.currency &&
-        isTimelineIntradayInterval(row.interval)
+        isTimelineIntradayInterval(row.interval),
     )
     .sort((left, right) => left.observedAt.localeCompare(right.observedAt));
   const snapshot =
     priceSnapshotRows.find(
-      (row) => row.instrumentId === instrument.id && row.currency === instrument.currency
+      (row) => row.instrumentId === instrument.id && row.currency === instrument.currency,
     ) ?? null;
   const latestHistory = historyRows[historyRows.length - 1] ?? null;
   const previousHistory = historyRows[historyRows.length - 2] ?? null;
@@ -181,12 +188,12 @@ export function buildBenchmarkComparisonPayload({
   const dailyPoints: BenchmarkComparisonOverlayPoint[] = historyRows.map((row) => ({
     date: row.priceDate,
     interval: "1d",
-    value: row.close
+    value: row.close,
   }));
   const intradayPoints: BenchmarkComparisonOverlayPoint[] = intradayRows.map((row) => ({
     date: row.observedAt,
     interval: row.interval as TimelinePointInterval,
-    value: row.close
+    value: row.close,
   }));
 
   return {
@@ -197,8 +204,8 @@ export function buildBenchmarkComparisonPayload({
       market: instrument.market,
       currency: instrument.currency,
       points: [...dailyPoints, ...intradayPoints].sort((left, right) =>
-        left.date.localeCompare(right.date)
-      )
+        left.date.localeCompare(right.date),
+      ),
     },
     quote: {
       symbol: instrument.symbol,
@@ -209,8 +216,8 @@ export function buildBenchmarkComparisonPayload({
       price,
       asOf: snapshot?.asOf ?? latestHistory?.priceDate ?? null,
       dailyChange: price == null || previousClose == null ? null : price - previousClose,
-      dailyChangePercent: calculateReturnPercent(previousClose, price)
-    }
+      dailyChangePercent: calculateReturnPercent(previousClose, price),
+    },
   };
 }
 
@@ -218,14 +225,14 @@ async function loadComparisonPayload(instrument: InstrumentRow) {
   const [historicalPriceRows, intradayPriceRows, priceSnapshotRows] = await Promise.all([
     db.select().from(historicalPrices).where(eq(historicalPrices.instrumentId, instrument.id)),
     db.select().from(intradayPrices).where(eq(intradayPrices.instrumentId, instrument.id)),
-    db.select().from(priceSnapshots).where(eq(priceSnapshots.instrumentId, instrument.id))
+    db.select().from(priceSnapshots).where(eq(priceSnapshots.instrumentId, instrument.id)),
   ]);
 
   return buildBenchmarkComparisonPayload({
     historicalPriceRows,
     instrument,
     intradayPriceRows,
-    priceSnapshotRows
+    priceSnapshotRows,
   });
 }
 
@@ -236,9 +243,9 @@ export async function ensureBenchmarkComparison(input: unknown) {
     targets: [
       {
         instrument,
-        historyStartDate: COMPARISON_HISTORY_START_DATE
-      }
-    ]
+        historyStartDate: COMPARISON_HISTORY_START_DATE,
+      },
+    ],
   });
 
   const payload = await loadComparisonPayload(instrument);
@@ -246,7 +253,7 @@ export async function ensureBenchmarkComparison(input: unknown) {
   if (payload.overlay.points.length < 2) {
     throw new BenchmarkComparisonServiceError(
       "MARKET_DATA_UNAVAILABLE",
-      "Comparison history is unavailable for this symbol."
+      "Comparison history is unavailable for this symbol.",
     );
   }
 

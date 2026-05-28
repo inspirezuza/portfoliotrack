@@ -54,7 +54,10 @@ function getErrorMessage(error: ImportApiResponse["error"], fallback: string) {
   return error?.message ?? fallback;
 }
 
-function getRowStatusLabel(status: ImportRowStatus, copy: ReturnType<typeof getUiCopy>["transactions"]["excel"]) {
+function getRowStatusLabel(
+  status: ImportRowStatus,
+  copy: ReturnType<typeof getUiCopy>["transactions"]["excel"],
+) {
   switch (status) {
     case "ready":
       return copy.ready;
@@ -65,7 +68,10 @@ function getRowStatusLabel(status: ImportRowStatus, copy: ReturnType<typeof getU
   }
 }
 
-export function TransactionExcelTools({ language, onWorkspaceRefresh }: TransactionExcelToolsProps) {
+export function TransactionExcelTools({
+  language,
+  onWorkspaceRefresh,
+}: TransactionExcelToolsProps) {
   const copy = getUiCopy(language).transactions.excel;
   const locale = getUiLocale(language);
   const router = useRouter();
@@ -120,7 +126,7 @@ export function TransactionExcelTools({ language, onWorkspaceRefresh }: Transact
     try {
       const response = await fetch("/api/transactions/import", {
         method: "POST",
-        body: formData
+        body: formData,
       });
       const payload = (await response.json()) as ImportApiResponse;
       const nextPreview = payload.preview ?? payload.error?.details?.preview ?? null;
@@ -296,12 +302,11 @@ export function TransactionExcelTools({ language, onWorkspaceRefresh }: Transact
               </span>
               <strong>{copy.row(row.rowNumber)}</strong>
               <span>
-                {[row.symbol, row.tradeDate, row.side, row.broker].filter(Boolean).join(" / ") || "-"}
+                {[row.symbol, row.tradeDate, row.side, row.broker].filter(Boolean).join(" / ") ||
+                  "-"}
               </span>
               <span>
-                {row.quantity == null
-                  ? "-"
-                  : formatQuantity(row.quantity, { locale })}
+                {row.quantity == null ? "-" : formatQuantity(row.quantity, { locale })}
                 {row.price == null
                   ? ""
                   : ` @ ${row.price.toLocaleString(locale, { maximumFractionDigits: 4 })}`}

@@ -19,7 +19,7 @@ export function TransactionEditModal({
   editingTransaction,
   language,
   onClose,
-  onWorkspaceRefresh
+  onWorkspaceRefresh,
 }: TransactionEditModalProps) {
   const copy = getUiCopy(language).transactions.form;
 

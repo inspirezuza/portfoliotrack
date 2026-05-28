@@ -14,7 +14,7 @@ export default async function PortfoliosPage() {
 
   const { portfolios, selectedPortfolio } = await getPortfolioSelection();
   const selectedPortfolioId = isAllPortfoliosSelection(selectedPortfolio)
-    ? portfolios.find((portfolio) => portfolio.isDefault)?.id ?? portfolios[0]?.id ?? 0
+    ? (portfolios.find((portfolio) => portfolio.isDefault)?.id ?? portfolios[0]?.id ?? 0)
     : selectedPortfolio.id;
 
   return (
