@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildBenchmarkChartDataWithOverlays,
   buildBenchmarkComparisonItems,
   getBenchmarkYAxisValues,
   getComparisonColor,
@@ -184,6 +185,51 @@ test("comparison item helper joins overlays, quotes, selection, colors, and retu
       },
     ],
   );
+});
+
+test("chart data overlay helper preserves base chart points and selected overlay returns", () => {
+  const visibleSeries = [
+    {
+      benchmarkIndex: 100,
+      benchmarkReturnPercent: 0,
+      date: "2026-01-01T00:00:00.000Z",
+      portfolioIndex: 100,
+      portfolioReturnPercent: 0,
+    },
+    {
+      benchmarkIndex: 105,
+      benchmarkReturnPercent: 5,
+      date: "2026-01-31T00:00:00.000Z",
+      portfolioIndex: 110,
+      portfolioReturnPercent: 10,
+    },
+  ];
+  const spyPoints: DashboardBenchmarkOverlay["points"] = [
+    { date: "2026-01-01T00:00:00.000Z", interval: null, value: 100 },
+    { date: "2026-01-31T00:00:00.000Z", interval: null, value: 120 },
+  ];
+  const qqqPoints: DashboardBenchmarkOverlay["points"] = [
+    { date: "2026-01-01T00:00:00.000Z", interval: null, value: 200 },
+    { date: "2026-01-31T00:00:00.000Z", interval: null, value: 210 },
+  ];
+
+  const chartData = buildBenchmarkChartDataWithOverlays({
+    mode: "INDEXED",
+    returnBasis: "TWR",
+    selectedOverlays: [createOverlay("SPY", spyPoints)],
+    shouldShowOverlayComparisons: true,
+    visibleOverlayPointsBySymbol: new Map([
+      ["SPY", spyPoints],
+      ["QQQ", qqqPoints],
+    ]),
+    visibleSeries,
+  });
+
+  assert.equal(chartData[1]?.portfolioReturn, 10);
+  assert.equal(chartData[1]?.benchmarkReturn, 5);
+  assert.equal(chartData[0]?.[getOverlayDataKey("SPY")], 0);
+  assert.equal(chartData[1]?.[getOverlayDataKey("SPY")], 20);
+  assert.equal(chartData[1]?.[getOverlayDataKey("QQQ")], undefined);
 });
 
 test("y-axis value helper preserves primary and overlay visibility rules", () => {

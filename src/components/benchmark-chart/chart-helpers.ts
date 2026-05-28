@@ -1,4 +1,5 @@
 import {
+  buildBenchmarkChartData,
   calculateOverlayReturnAtDate,
   selectVisibleTimeframePoints,
 } from "@/components/benchmark-chart/chart-data";
@@ -127,6 +128,52 @@ export function getVisibleOverlayPoints(
     includeBaselinePoint: true,
     points,
     timeframe,
+  });
+}
+
+export function buildBenchmarkChartDataWithOverlays({
+  mode,
+  returnBasis,
+  selectedOverlays,
+  shouldShowOverlayComparisons,
+  visibleOverlayPointsBySymbol,
+  visibleSeries,
+}: {
+  mode: PerformanceMode;
+  returnBasis: ReturnBasis;
+  selectedOverlays: DashboardBenchmarkOverlay[];
+  shouldShowOverlayComparisons: boolean;
+  visibleOverlayPointsBySymbol: Map<string, DashboardBenchmarkOverlay["points"]>;
+  visibleSeries: ActivePerformancePoint[];
+}): ChartPoint[] {
+  const firstPoint = visibleSeries[0] ?? null;
+  const baseChartData = buildBenchmarkChartData({
+    mode,
+    points: visibleSeries,
+    returnBasis,
+  });
+
+  if (!shouldShowOverlayComparisons || firstPoint == null) {
+    return baseChartData;
+  }
+
+  return baseChartData.map((point) => {
+    const overlayReturns = Object.fromEntries(
+      selectedOverlays.map((overlay) => [
+        getOverlayDataKey(overlay.symbol),
+        calculateOverlayReturnAtDate({
+          points: visibleOverlayPointsBySymbol.get(overlay.symbol) ?? [],
+          returnBasis,
+          startDate: firstPoint.date,
+          targetDate: point.date,
+        }),
+      ]),
+    );
+
+    return {
+      ...point,
+      ...overlayReturns,
+    };
   });
 }
 

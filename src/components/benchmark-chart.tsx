@@ -21,10 +21,7 @@ import { getRechartsPayloadPoint, type RechartsMouseState } from "@/lib/charts/r
 import { useChartVisibilityKey } from "@/hooks/use-chart-visibility-key";
 import { BenchmarkComparisonPicker } from "@/components/benchmark-comparison-picker";
 import {
-  buildBenchmarkChartData,
-  calculateOverlayReturnAtDate,
-} from "@/components/benchmark-chart/chart-data";
-import {
+  buildBenchmarkChartDataWithOverlays,
   buildBenchmarkComparisonItems,
   getBenchmarkYAxisValues,
   getInitialSelectedComparisonSymbols,
@@ -191,37 +188,13 @@ export function BenchmarkChart({
     );
   }, [comparisonOverlays, timeframe, visibleSeries]);
   const chartData = useMemo<ChartPoint[]>(() => {
-    const firstPoint = visibleSeries[0] ?? null;
-    const baseChartData = buildBenchmarkChartData({
+    return buildBenchmarkChartDataWithOverlays({
       mode,
-      points: visibleSeries,
       returnBasis,
-    });
-
-    if (!shouldShowOverlayComparisons || firstPoint == null) {
-      return baseChartData;
-    }
-
-    return baseChartData.map((point) => {
-      const overlayReturns =
-        firstPoint != null
-          ? Object.fromEntries(
-              selectedOverlays.map((overlay) => [
-                getOverlayDataKey(overlay.symbol),
-                calculateOverlayReturnAtDate({
-                  points: visibleOverlayPointsBySymbol.get(overlay.symbol) ?? [],
-                  returnBasis,
-                  startDate: firstPoint.date,
-                  targetDate: point.date,
-                }),
-              ]),
-            )
-          : {};
-
-      return {
-        ...point,
-        ...overlayReturns,
-      };
+      selectedOverlays,
+      shouldShowOverlayComparisons,
+      visibleOverlayPointsBySymbol,
+      visibleSeries,
     });
   }, [
     mode,
