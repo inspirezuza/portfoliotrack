@@ -1,5 +1,8 @@
 import { getUtcDateTime } from "@/lib/charts/time-axis";
-import { selectVisibleTimeframePoints } from "@/components/benchmark-chart/chart-data";
+import {
+  calculateSelectionChange,
+  selectVisibleTimeframePoints,
+} from "@/components/benchmark-chart/chart-data";
 import type {
   ActivePerformancePoint,
   ChartPoint,
@@ -46,4 +49,40 @@ export function getSelectionPoints(data: ChartPoint[], selection: SelectionRange
 
 export function hasSelectionSpan(points: ReturnType<typeof getSelectionPoints>) {
   return points != null && points.startPoint.date !== points.endPoint.date;
+}
+
+export function getSelectionChangeSummary({
+  points,
+  returnBasis,
+}: {
+  points: ReturnType<typeof getSelectionPoints>;
+  returnBasis: ReturnBasis;
+}) {
+  if (points == null) {
+    return {
+      portfolioChange: null,
+      benchmarkChange: null,
+      gap: null,
+    };
+  }
+
+  const portfolioChange = calculateSelectionChange({
+    startPoint: points.startPoint,
+    endPoint: points.endPoint,
+    key: "portfolio",
+    returnBasis,
+  });
+  const benchmarkChange = calculateSelectionChange({
+    startPoint: points.startPoint,
+    endPoint: points.endPoint,
+    key: "benchmark",
+    returnBasis,
+  });
+
+  return {
+    portfolioChange,
+    benchmarkChange,
+    gap:
+      portfolioChange == null || benchmarkChange == null ? null : portfolioChange - benchmarkChange,
+  };
 }

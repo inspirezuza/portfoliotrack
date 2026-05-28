@@ -4,6 +4,7 @@ import {
   PERFORMANCE_MODE_OPTIONS,
   RETURN_BASIS_OPTIONS,
   TIMEFRAME_OPTIONS,
+  getSelectionChangeSummary,
   getSelectionPoints,
   getVisibleSeries,
   hasSelectionSpan,
@@ -27,7 +28,7 @@ function createPerformancePoint(
   };
 }
 
-function createChartPoint(date: string): ChartPoint {
+function createChartPoint(date: string, overrides: Partial<ChartPoint> = {}): ChartPoint {
   const time = Date.parse(date);
 
   return {
@@ -48,6 +49,7 @@ function createChartPoint(date: string): ChartPoint {
     portfolioReturnPercent: 0,
     time,
     timestamp: time,
+    ...overrides,
   };
 }
 
@@ -90,4 +92,36 @@ test("benchmark chart selection helpers preserve timeframe and reversed drag beh
     false,
   );
   assert.equal(getSelectionPoints(chartData, null), null);
+});
+
+test("benchmark chart selection helper calculates portfolio, benchmark, and gap changes", () => {
+  const startPoint = createChartPoint("2026-05-01T00:00:00.000Z", {
+    benchmarkReturn: 4,
+    benchmarkRaw: 104,
+    portfolioReturn: 7,
+    portfolioRaw: 107,
+  });
+  const endPoint = createChartPoint("2026-05-27T00:00:00.000Z", {
+    benchmarkReturn: 9,
+    benchmarkRaw: 109,
+    portfolioReturn: 15,
+    portfolioRaw: 115,
+  });
+
+  assert.deepEqual(
+    getSelectionChangeSummary({
+      points: { startPoint, endPoint },
+      returnBasis: "ABSOLUTE",
+    }),
+    {
+      benchmarkChange: 5,
+      gap: 3,
+      portfolioChange: 8,
+    },
+  );
+  assert.deepEqual(getSelectionChangeSummary({ points: null, returnBasis: "TWR" }), {
+    benchmarkChange: null,
+    gap: null,
+    portfolioChange: null,
+  });
 });

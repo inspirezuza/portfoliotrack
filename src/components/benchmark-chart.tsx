@@ -23,7 +23,6 @@ import { BenchmarkComparisonPicker } from "@/components/benchmark-comparison-pic
 import {
   buildBenchmarkChartData,
   calculateOverlayReturnAtDate,
-  calculateSelectionChange,
 } from "@/components/benchmark-chart/chart-data";
 import {
   buildBenchmarkComparisonItems,
@@ -39,6 +38,7 @@ import {
   PERFORMANCE_MODE_OPTIONS,
   RETURN_BASIS_OPTIONS,
   TIMEFRAME_OPTIONS,
+  getSelectionChangeSummary,
   getSelectionPoints,
   getVisibleSeries,
   hasSelectionSpan,
@@ -252,28 +252,11 @@ export function BenchmarkChart({
   }, [chartData]);
   const selectionPoints = getSelectionPoints(chartData, selection);
   const hasActiveSelection = hasSelectionSpan(selectionPoints);
-  const selectedPortfolioChange =
-    selectionPoints == null
-      ? null
-      : calculateSelectionChange({
-          startPoint: selectionPoints.startPoint,
-          endPoint: selectionPoints.endPoint,
-          key: "portfolio",
-          returnBasis,
-        });
-  const selectedBenchmarkChange =
-    selectionPoints == null
-      ? null
-      : calculateSelectionChange({
-          startPoint: selectionPoints.startPoint,
-          endPoint: selectionPoints.endPoint,
-          key: "benchmark",
-          returnBasis,
-        });
-  const selectedGap =
-    selectedPortfolioChange == null || selectedBenchmarkChange == null
-      ? null
-      : selectedPortfolioChange - selectedBenchmarkChange;
+  const {
+    portfolioChange: selectedPortfolioChange,
+    benchmarkChange: selectedBenchmarkChange,
+    gap: selectedGap,
+  } = getSelectionChangeSummary({ points: selectionPoints, returnBasis });
   const modeCopy =
     mode === "INDEXED"
       ? {
