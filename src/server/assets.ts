@@ -29,6 +29,15 @@ import type {
   MarketQuoteSnapshot,
 } from "@/lib/market/types";
 import { calculatePositionForInstrument } from "@/lib/portfolio/positions";
+import {
+  combineAssetPriceHistory,
+  getAssetHistoryStartDate,
+  getAssetHistoryStatus,
+  getAssetIntradayStartAt,
+  getCurrentLocalIsoDate,
+  getProviderHistoryUrl,
+  type AssetPricePoint,
+} from "@/server/assets/history";
 import { toChronologicalPositionTransaction } from "@/server/transactions";
 import { parsePortfolioId } from "@/server/portfolios";
 
@@ -62,12 +71,6 @@ const ASSET_INTRADAY_WINDOWS: Array<{
   { interval: "5m", lookbackDays: 2 },
   { interval: "1h", lookbackDays: 35 },
 ];
-
-export type AssetPricePoint = {
-  date: string;
-  close: number;
-  interval?: "1d" | MarketIntradayInterval;
-};
 
 export type AssetDetail = {
   instrument: {
@@ -143,36 +146,6 @@ export type AssetDetail = {
     analyticsIssue: string | null;
   } | null;
 };
-
-function toIsoDate(value: Date) {
-  return value.toISOString().slice(0, 10);
-}
-
-function subtractUtcDays(date: Date, days: number) {
-  const nextDate = new Date(date);
-  nextDate.setUTCDate(nextDate.getUTCDate() - days);
-  return nextDate;
-}
-
-function getCurrentLocalIsoDate(now = new Date()) {
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function getHistoryStartDate(firstTradeDate: string | null) {
-  if (firstTradeDate != null) {
-    return firstTradeDate;
-  }
-
-  return toIsoDate(subtractUtcDays(new Date(), 365));
-}
-
-function getProviderHistoryUrl(providerSymbol: string) {
-  return `https://finance.yahoo.com/quote/${encodeURIComponent(providerSymbol)}/history`;
-}
 
 function hasDrMetadata(instrument: Instrument) {
   return (
@@ -381,60 +354,6 @@ function filterMatchingIntradayRows(rows: IntradayPrice[], instrument: Instrumen
     .sort((left, right) => left.observedAt.localeCompare(right.observedAt));
 }
 
-function combineAssetPriceHistory({
-  historyRows,
-  intradayRows,
-}: {
-  historyRows: HistoricalPrice[];
-  intradayRows: IntradayPrice[];
-}) {
-  const pointsByKey = new Map<string, AssetPricePoint>();
-
-  for (const row of historyRows) {
-    pointsByKey.set(`1d:${row.priceDate}`, {
-      date: row.priceDate,
-      close: row.close,
-      interval: "1d",
-    });
-  }
-
-  for (const row of intradayRows) {
-    pointsByKey.set(`${row.interval}:${row.observedAt}`, {
-      date: row.observedAt,
-      close: row.close,
-      interval: row.interval as MarketIntradayInterval,
-    });
-  }
-
-  return Array.from(pointsByKey.values()).sort((left, right) =>
-    left.date.localeCompare(right.date),
-  );
-}
-
-function getHistoryStatus({
-  requestedHistoryStartDate,
-  firstHistoryDate,
-  historyCount,
-}: {
-  requestedHistoryStartDate: string | null;
-  firstHistoryDate: string | null;
-  historyCount: number;
-}): AssetDetail["marketData"]["historyStatus"] {
-  if (historyCount === 0) {
-    return "unavailable";
-  }
-
-  if (
-    requestedHistoryStartDate != null &&
-    firstHistoryDate != null &&
-    firstHistoryDate > requestedHistoryStartDate
-  ) {
-    return "partial";
-  }
-
-  return "full";
-}
-
 async function refreshAssetQuote({
   instrument,
 }: {
@@ -576,7 +495,7 @@ async function refreshAssetIntraday({
     ASSET_INTRADAY_WINDOWS.map(async (window) => {
       const series = await provider.getIntradayPrices(instrument.providerSymbol, {
         interval: window.interval,
-        startAt: subtractUtcDays(now, window.lookbackDays).toISOString(),
+        startAt: getAssetIntradayStartAt(now, window.lookbackDays),
       });
 
       return {
@@ -738,7 +657,7 @@ export async function getAssetDetail(
   const currentTransactionRows = transactionRows.filter((row) => row.tradeDate <= asOfDate);
   const marketSettings = await getMarketSettings();
   const firstTradeDate = currentTransactionRows[0]?.tradeDate ?? null;
-  const requestedHistoryStartDate = getHistoryStartDate(firstTradeDate);
+  const requestedHistoryStartDate = getAssetHistoryStartDate(firstTradeDate);
   const initialSnapshot = initialRows.snapshot ?? null;
   const matchingInitialSnapshot = quoteMatchesInstrumentCurrency(initialSnapshot, instrument)
     ? initialSnapshot
@@ -831,7 +750,7 @@ export async function getAssetDetail(
     marketValue != null ? normalizeMoney(marketValue - position.totalCost) : null;
   const firstHistoryDate = matchingHistory[0]?.priceDate ?? null;
   const latestHistoryDate = matchingHistory[matchingHistory.length - 1]?.priceDate ?? null;
-  const historyStatus = getHistoryStatus({
+  const historyStatus = getAssetHistoryStatus({
     requestedHistoryStartDate,
     firstHistoryDate,
     historyCount: matchingHistory.length,
