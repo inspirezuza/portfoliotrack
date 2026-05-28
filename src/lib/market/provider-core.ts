@@ -11,6 +11,15 @@ import {
 } from "@/lib/db/schema";
 import { applyKnownDrMetadata } from "@/lib/instruments/dr-metadata";
 import {
+  BENCHMARK_HISTORY_START_DATE,
+  BENCHMARK_WATCHLIST,
+  DEFAULT_AUTO_REFRESH_TIMEOUT_MS,
+  DEFAULT_BASE_CURRENCY,
+  DEFAULT_BENCHMARK_SYMBOL,
+  DEFAULT_MARKET_REFRESH_MINUTES,
+  ensureBenchmarkWatchlistInstruments,
+} from "@/lib/market/benchmark-watchlist";
+import {
   getCurrentLocalIsoDate,
   getExpectedHistoryTailDate,
   isMarketDataStale,
@@ -25,56 +34,11 @@ import type {
 import { yahooProvider } from "@/lib/market/yahoo-provider-core";
 import { parsePortfolioId } from "@/lib/portfolio/portfolio-id";
 
+export {
+  BENCHMARK_WATCHLIST,
+  ensureBenchmarkWatchlistInstruments,
+} from "@/lib/market/benchmark-watchlist";
 export { getPriceAgeMinutes, isMarketDataStale } from "@/lib/market/freshness";
-
-const DEFAULT_BENCHMARK_SYMBOL = "SPYM";
-const DEFAULT_BASE_CURRENCY = "THB";
-const DEFAULT_MARKET_REFRESH_MINUTES = 30;
-const DEFAULT_AUTO_REFRESH_TIMEOUT_MS = 3500;
-const BENCHMARK_HISTORY_START_DATE = "2020-01-01";
-
-export const BENCHMARK_WATCHLIST = [
-  {
-    symbol: "SPYM",
-    displayName: "State Street SPDR Portfolio S&P 500 ETF",
-    market: "US",
-    instrumentType: "ETF",
-    currency: "USD",
-    providerSymbol: "SPYM",
-  },
-  {
-    symbol: "QQQ",
-    displayName: "Invesco QQQ Trust",
-    market: "US",
-    instrumentType: "ETF",
-    currency: "USD",
-    providerSymbol: "QQQ",
-  },
-  {
-    symbol: "TDEX",
-    displayName: "ThaiDEX SET50 ETF",
-    market: "TH",
-    instrumentType: "ETF",
-    currency: "THB",
-    providerSymbol: "TDEX.BK",
-  },
-  {
-    symbol: "NVDA",
-    displayName: "NVIDIA Corporation",
-    market: "US",
-    instrumentType: "STOCK",
-    currency: "USD",
-    providerSymbol: "NVDA",
-  },
-  {
-    symbol: "GOOGL",
-    displayName: "Alphabet Inc.",
-    market: "US",
-    instrumentType: "STOCK",
-    currency: "USD",
-    providerSymbol: "GOOGL",
-  },
-] as const;
 
 export type MarketSettings = {
   benchmarkSymbol: string | null;
@@ -184,32 +148,6 @@ function addDays(date: Date, days: number) {
   const nextDate = new Date(date);
   nextDate.setUTCDate(nextDate.getUTCDate() + days);
   return nextDate;
-}
-
-export async function ensureBenchmarkWatchlistInstruments() {
-  const benchmarkSymbols = BENCHMARK_WATCHLIST.map((benchmark) => benchmark.symbol);
-  const existingRows = await db
-    .select({ symbol: instruments.symbol })
-    .from(instruments)
-    .where(inArray(instruments.symbol, benchmarkSymbols));
-  const existingSymbols = new Set(existingRows.map((instrument) => instrument.symbol));
-  const missingBenchmarks = BENCHMARK_WATCHLIST.filter(
-    (benchmark) => !existingSymbols.has(benchmark.symbol),
-  );
-
-  if (missingBenchmarks.length === 0) {
-    return;
-  }
-
-  await db
-    .insert(instruments)
-    .values(
-      missingBenchmarks.map((benchmark) => ({
-        ...benchmark,
-        isActive: true,
-      })),
-    )
-    .onConflictDoNothing();
 }
 
 async function getHistoryCoverageByInstrument(targets: RefreshTarget[]) {
