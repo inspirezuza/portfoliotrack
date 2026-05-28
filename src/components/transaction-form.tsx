@@ -9,7 +9,6 @@ import {
 import { formatQuantity } from "@/lib/format";
 import {
   findExactInstrumentSearchMatch,
-  getInstrumentSearchScore,
   normalizeInstrumentSearchValue,
   sortInstrumentOptions,
 } from "@/lib/transactions/instrument-selection";
@@ -24,6 +23,7 @@ import {
   getInstrumentLookupLabel,
   getSynchronizedInstrumentId,
   getTransactionInstrumentLabel,
+  getVisibleInstrumentOptions,
   type ApiErrorResponse,
   type InstrumentApiResponse,
   type InstrumentSearchApiResponse,
@@ -83,23 +83,10 @@ export function TransactionForm({
   const selectedInstrument =
     instrumentOptions.find((instrument) => String(instrument.id) === values.instrumentId) ?? null;
 
-  const visibleInstrumentOptions = useMemo(() => {
-    const rankedOptions = instrumentOptions
-      .map((instrument) => ({
-        instrument,
-        score: getInstrumentSearchScore(instrument, instrumentSearch),
-      }))
-      .filter((item) => item.score > 0)
-      .sort((left, right) => {
-        if (right.score !== left.score) {
-          return right.score - left.score;
-        }
-
-        return left.instrument.symbol.localeCompare(right.instrument.symbol);
-      });
-
-    return rankedOptions.map((item) => item.instrument);
-  }, [instrumentOptions, instrumentSearch]);
+  const visibleInstrumentOptions = useMemo(
+    () => getVisibleInstrumentOptions(instrumentOptions, instrumentSearch),
+    [instrumentOptions, instrumentSearch],
+  );
 
   const isDisabled = instrumentOptions.length === 0 || isSubmitting || isRefreshing;
   const isSubmitDisabled = isDisabled || selectedInstrument == null;

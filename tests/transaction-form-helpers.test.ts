@@ -6,6 +6,7 @@ import {
   getInitialInstrumentSearch,
   getSynchronizedInstrumentId,
   getTransactionInstrumentLabel,
+  getVisibleInstrumentOptions,
   type ApiErrorResponse,
 } from "../src/components/transaction-form/form-helpers";
 import type { TransactionInstrumentOption, TransactionListItem } from "../src/server/transactions";
@@ -100,6 +101,33 @@ test("transaction form helpers preserve edit values and instrument search labels
     getTransactionInstrumentLabel(createTransaction({ instrumentId: 30 }), instruments),
     "AAPL - Apple Inc. - NASDAQ - USD",
   );
+});
+
+test("transaction form helper ranks visible instrument options by search score then symbol", () => {
+  const apple = createInstrument({ id: 1, symbol: "AAPL", displayName: "Apple Inc." });
+  const alphabet = createInstrument({
+    id: 2,
+    symbol: "GOOGL",
+    displayName: "Alphabet Inc.",
+    label: "GOOGL - Alphabet Inc. - NASDAQ - USD",
+    providerSymbol: "GOOGL",
+  });
+  const aad = createInstrument({
+    id: 3,
+    symbol: "AAD",
+    displayName: "Asia Aviation",
+    label: "AAD - Asia Aviation - SET - THB",
+    market: "SET",
+    providerSymbol: "AAD.BK",
+  });
+
+  assert.deepEqual(
+    getVisibleInstrumentOptions([alphabet, apple, aad], "aa").map(
+      (instrument) => instrument.symbol,
+    ),
+    ["AAD", "AAPL"],
+  );
+  assert.deepEqual(getVisibleInstrumentOptions([alphabet, apple], "missing"), []);
 });
 
 test("transaction form error helper preserves validation priority and insufficient quantity copy", () => {

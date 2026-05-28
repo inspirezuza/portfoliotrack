@@ -1,4 +1,5 @@
 import { formatQuantity } from "@/lib/format";
+import { getInstrumentSearchScore } from "@/lib/transactions/instrument-selection";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
 import type { TransactionBroker } from "@/lib/validation/transaction";
@@ -100,6 +101,27 @@ export function getInitialInstrumentSearch(instruments: TransactionInstrumentOpt
 
 export function getInstrumentLookupLabel(instrument: InstrumentSearchResult) {
   return `${instrument.symbol} - ${instrument.displayName} - ${instrument.market} - ${instrument.currency}`;
+}
+
+export function getVisibleInstrumentOptions(
+  instruments: TransactionInstrumentOption[],
+  searchQuery: string,
+) {
+  const rankedOptions = instruments
+    .map((instrument) => ({
+      instrument,
+      score: getInstrumentSearchScore(instrument, searchQuery),
+    }))
+    .filter((item) => item.score > 0)
+    .sort((left, right) => {
+      if (right.score !== left.score) {
+        return right.score - left.score;
+      }
+
+      return left.instrument.symbol.localeCompare(right.instrument.symbol);
+    });
+
+  return rankedOptions.map((item) => item.instrument);
 }
 
 export function getTransactionInstrumentLabel(
