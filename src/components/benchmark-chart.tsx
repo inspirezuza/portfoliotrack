@@ -27,7 +27,6 @@ import {
   buildBenchmarkChartData,
   calculateOverlayReturnAtDate,
   calculateSelectionChange,
-  selectVisibleTimeframePoints,
 } from "@/components/benchmark-chart/chart-data";
 import {
   getComparisonColor,
@@ -38,6 +37,15 @@ import {
   mergeOverlays,
   mergeQuotes,
 } from "@/components/benchmark-chart/chart-helpers";
+import {
+  PERFORMANCE_MODE_OPTIONS,
+  RETURN_BASIS_OPTIONS,
+  TIMEFRAME_OPTIONS,
+  getSelectionPoints,
+  getVisibleSeries,
+  hasSelectionSpan,
+  type SelectionRange,
+} from "@/components/benchmark-chart/chart-selection";
 import {
   formatAbsoluteReturn,
   formatChartDate,
@@ -54,7 +62,6 @@ import {
   type BenchmarkPerformanceSummaryStatus,
 } from "@/components/benchmark-chart/formatting";
 import type {
-  ActivePerformancePoint,
   ChartPoint,
   PerformanceMode,
   ReturnBasis,
@@ -90,11 +97,6 @@ type BenchmarkPerformanceSummary = {
   absoluteReturn: number | null;
 };
 
-type SelectionRange = {
-  startDate: string;
-  endDate: string;
-};
-
 type BenchmarkComparisonPayload = {
   overlay: DashboardBenchmarkOverlay;
   quote: DashboardBenchmarkQuote;
@@ -110,41 +112,6 @@ type BenchmarkChartTooltipProps = {
     value?: number;
   }>;
 };
-
-const TIMEFRAME_OPTIONS: TimeframeKey[] = ["1D", "5D", "1W", "1M", "3M", "YTD", "1Y", "ALL"];
-
-const PERFORMANCE_MODE_OPTIONS: PerformanceMode[] = ["INDEXED", "GAP", "DRAWDOWN"];
-const RETURN_BASIS_OPTIONS: ReturnBasis[] = ["TWR", "MWR", "ABSOLUTE"];
-
-function getVisibleSeries(series: ActivePerformancePoint[], timeframe: TimeframeKey) {
-  return selectVisibleTimeframePoints({ points: series, timeframe });
-}
-
-function getSelectionPoints(data: ChartPoint[], selection: SelectionRange | null) {
-  if (selection == null) {
-    return null;
-  }
-
-  const startTime = getUtcDateTime(selection.startDate);
-  const endTime = getUtcDateTime(selection.endDate);
-  const minTime = Math.min(startTime, endTime);
-  const maxTime = Math.max(startTime, endTime);
-  const startPoint = data.find((point) => getUtcDateTime(point.date) === minTime) ?? null;
-  const endPoint = data.find((point) => getUtcDateTime(point.date) === maxTime) ?? null;
-
-  if (startPoint == null || endPoint == null) {
-    return null;
-  }
-
-  return {
-    startPoint,
-    endPoint,
-  };
-}
-
-function hasSelectionSpan(points: ReturnType<typeof getSelectionPoints>) {
-  return points != null && points.startPoint.date !== points.endPoint.date;
-}
 
 function BenchmarkChartTooltip({
   active,
