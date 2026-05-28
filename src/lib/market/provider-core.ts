@@ -2,7 +2,6 @@ import { asc, eq, inArray } from "drizzle-orm";
 import { OperationTimeoutError, withOperationTimeout } from "@/lib/async/timeout";
 import { db } from "@/lib/db/runtime-core";
 import {
-  appSettings,
   historicalPrices,
   instruments,
   intradayPrices,
@@ -14,9 +13,6 @@ import {
   BENCHMARK_HISTORY_START_DATE,
   BENCHMARK_WATCHLIST,
   DEFAULT_AUTO_REFRESH_TIMEOUT_MS,
-  DEFAULT_BASE_CURRENCY,
-  DEFAULT_BENCHMARK_SYMBOL,
-  DEFAULT_MARKET_REFRESH_MINUTES,
   ensureBenchmarkWatchlistInstruments,
 } from "@/lib/market/benchmark-watchlist";
 import {
@@ -24,6 +20,7 @@ import {
   getExpectedHistoryTailDate,
   isMarketDataStale,
 } from "@/lib/market/freshness";
+import { getMarketSettings } from "@/lib/market/settings";
 import type {
   MarketDataProvider,
   MarketHistoricalSeries,
@@ -39,12 +36,7 @@ export {
   ensureBenchmarkWatchlistInstruments,
 } from "@/lib/market/benchmark-watchlist";
 export { getPriceAgeMinutes, isMarketDataStale } from "@/lib/market/freshness";
-
-export type MarketSettings = {
-  benchmarkSymbol: string | null;
-  baseCurrency: string;
-  marketRefreshMinutes: number;
-};
+export { getMarketSettings, type MarketSettings } from "@/lib/market/settings";
 
 export type MarketRefreshIssue = {
   symbol: string;
@@ -106,38 +98,6 @@ const INTRADAY_REFRESH_WINDOWS: Array<{
 
 export function getMarketDataProvider(): MarketDataProvider {
   return yahooProvider;
-}
-
-function parseRefreshMinutes(value: string | undefined) {
-  const parsed = Number.parseInt(value ?? "", 10);
-
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return DEFAULT_MARKET_REFRESH_MINUTES;
-  }
-
-  return parsed;
-}
-
-function normalizeBenchmarkSymbol(value: string) {
-  const symbol = value.trim().toUpperCase();
-
-  return symbol === "SPY" ? DEFAULT_BENCHMARK_SYMBOL : symbol;
-}
-
-export async function getMarketSettings(): Promise<MarketSettings> {
-  const settings = await db.select().from(appSettings);
-  const settingsMap = new Map(settings.map((setting) => [setting.key, setting.value]));
-  const benchmarkSymbol = normalizeBenchmarkSymbol(
-    settingsMap.get("benchmarkSymbol") || DEFAULT_BENCHMARK_SYMBOL,
-  );
-  const baseCurrency =
-    settingsMap.get("baseCurrency")?.trim().toUpperCase() || DEFAULT_BASE_CURRENCY;
-
-  return {
-    benchmarkSymbol,
-    baseCurrency,
-    marketRefreshMinutes: parseRefreshMinutes(settingsMap.get("marketRefreshMinutes")),
-  };
 }
 
 function compareIsoTimestampsDescending(left: string, right: string) {
