@@ -20,6 +20,18 @@ import {
 import { TransactionDeleteDialog } from "@/components/transaction-delete-dialog";
 import { TransactionEditModal } from "@/components/transaction-edit-modal";
 import {
+  formatHoldingDateTime,
+  formatHoldingPercent,
+  formatHoldingValuationMoney,
+  formatParentMoney,
+  formatSignedHoldingPercent,
+  formatSummaryMoney,
+  formatValuationMoneyText,
+  getPnlToneClass,
+  isNativeCurrencyVisible,
+} from "@/components/holdings-table/display-helpers";
+import { HoldingLotsPanel } from "@/components/holdings-table/holding-lots-panel";
+import {
   compareHoldings,
   getHoldingLotInstrumentOption,
   getHoldingLotTransaction,
@@ -28,7 +40,6 @@ import {
   getPerformanceKey,
   getValuationAverageCost,
   getValuationLastPrice,
-  isNativeCurrencyVisible,
   matchesHoldingFilter,
   PERFORMANCE_TIMEFRAMES,
   type HoldingFilter,
@@ -36,7 +47,7 @@ import {
   type PerformanceBasis,
   type SortState,
 } from "@/components/holdings-table/table-helpers";
-import { formatCurrency, formatPercentRatio, formatQuantity } from "@/lib/format";
+import { formatQuantity } from "@/lib/format";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
 import type { HoldingPerformanceTimeframe, HoldingLot, HoldingRow } from "@/server/holdings";
@@ -87,148 +98,6 @@ function getPerformanceColumnLabel({
     : copy.holdings.table.columns.performance(timeframeLabel);
 }
 
-function formatHoldingValuationMoney({
-  emptyLabel,
-  holding,
-  locale,
-  nativeValue,
-  primaryValue,
-  maximumFractionDigits = 2,
-}: {
-  emptyLabel: string;
-  holding: HoldingRow;
-  locale: string;
-  nativeValue: number | null;
-  primaryValue: number | null;
-  maximumFractionDigits?: number;
-}) {
-  if (primaryValue == null) {
-    return <span className="data-pending">{emptyLabel}</span>;
-  }
-
-  return (
-    <>
-      <span>
-        {formatCurrency(primaryValue, {
-          currency: holding.valuationCurrency,
-          locale,
-          maximumFractionDigits,
-        })}
-      </span>
-      {!isNativeCurrencyVisible(holding) || nativeValue == null ? null : (
-        <span className="table-subtext">
-          {formatCurrency(nativeValue, {
-            currency: holding.currency,
-            locale,
-            maximumFractionDigits,
-          })}
-        </span>
-      )}
-    </>
-  );
-}
-
-function formatHoldingPercent(value: number | null, locale: string, emptyLabel: string) {
-  if (value == null) {
-    return <span className="data-pending">{emptyLabel}</span>;
-  }
-
-  return formatPercentRatio(value, { locale });
-}
-
-function formatValuationMoneyText({
-  currency,
-  locale,
-  value,
-}: {
-  currency: string;
-  locale: string;
-  value: number | null;
-}) {
-  if (value == null) {
-    return null;
-  }
-
-  return formatCurrency(value, {
-    currency,
-    locale,
-    maximumFractionDigits: 2,
-  });
-}
-
-function formatSignedHoldingPercent(value: number | null, locale: string, emptyLabel: string) {
-  if (value == null) {
-    return <span className="data-pending">{emptyLabel}</span>;
-  }
-
-  const formattedValue = formatPercentRatio(value, { locale });
-
-  return value > 0 ? `+${formattedValue}` : formattedValue;
-}
-
-function getPnlToneClass(value: number | null) {
-  if (value == null || value === 0) {
-    return undefined;
-  }
-
-  return value > 0 ? "value-positive" : "value-negative";
-}
-
-function formatBroker(value: string) {
-  return value === "WEBULL" ? "Webull" : "Dime";
-}
-
-function formatHoldingDateTime(value: string, locale: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat(locale, {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "short",
-    timeZone: "Asia/Bangkok",
-    year: "numeric",
-  }).format(date);
-}
-
-function formatParentMoney(value: number | null, currency: string | null, locale: string) {
-  if (value == null || currency == null) {
-    return null;
-  }
-
-  return formatCurrency(value, {
-    currency,
-    locale,
-    maximumFractionDigits: 4,
-  });
-}
-
-function formatHoldingLotMoney({
-  emptyLabel,
-  holding,
-  locale,
-  nativeValue,
-  valuationValue,
-}: {
-  emptyLabel: string;
-  holding: HoldingRow;
-  locale: string;
-  nativeValue: number | null;
-  valuationValue: number | null;
-}) {
-  return formatHoldingValuationMoney({
-    emptyLabel,
-    holding,
-    locale,
-    nativeValue,
-    primaryValue: isNativeCurrencyVisible(holding) ? valuationValue : nativeValue,
-  });
-}
-
 function shouldIgnoreHoldingRowToggle(event: MouseEvent<HTMLTableRowElement>) {
   const target = event.target;
 
@@ -239,19 +108,6 @@ function shouldIgnoreHoldingRowToggle(event: MouseEvent<HTMLTableRowElement>) {
 
 function getDeleteErrorMessage(error: ApiErrorResponse["error"], fallback: string) {
   return error?.message ?? fallback;
-}
-
-function formatSummaryMoney(
-  value: number | null,
-  currency: string | null,
-  locale: string,
-  mixedLabel: string,
-) {
-  if (value == null || currency == null) {
-    return <span className="data-pending">{mixedLabel}</span>;
-  }
-
-  return formatCurrency(value, { currency, locale });
 }
 
 function SortableHeader({
@@ -1097,187 +953,5 @@ export function HoldingsTable({
         </>
       )}
     </article>
-  );
-}
-
-function HoldingLotsPanel({
-  canEdit,
-  deletingTransactionId,
-  holding,
-  id,
-  language,
-  lots,
-  onDelete,
-  onEdit,
-}: {
-  canEdit: boolean;
-  deletingTransactionId: number | null;
-  holding: HoldingRow;
-  id: string;
-  language: UiLanguage;
-  lots: HoldingLot[];
-  onDelete: (holding: HoldingRow, lot: HoldingLot) => void;
-  onEdit: (holding: HoldingRow, lot: HoldingLot) => void;
-}) {
-  const copy = getUiCopy(language);
-  const locale = getUiLocale(language);
-
-  return (
-    <div id={id} className="holdings-lot-panel">
-      {lots.length === 0 ? (
-        <p className="table-empty-cell">{copy.holdings.table.lots.noOpenLots}</p>
-      ) : (
-        <table className="holdings-lot-table">
-          <colgroup>
-            <col className="holdings-lot-col-date" />
-            <col className="holdings-lot-col-price" />
-            <col className="holdings-lot-col-quantity" />
-            <col className="holdings-lot-col-gain" />
-            <col className="holdings-lot-col-value" />
-            {canEdit ? <col className="holdings-lot-col-actions" /> : null}
-          </colgroup>
-          <thead>
-            <tr>
-              <th scope="col">{copy.holdings.table.lots.columns.date}</th>
-              <th scope="col" className="table-heading-number">
-                {copy.holdings.table.lots.columns.price}
-              </th>
-              <th scope="col" className="table-heading-number">
-                {copy.holdings.table.lots.columns.quantity}
-              </th>
-              <th scope="col" className="table-heading-number">
-                {copy.holdings.table.lots.columns.gain}
-              </th>
-              <th scope="col" className="table-heading-number">
-                {copy.holdings.table.lots.columns.value}
-              </th>
-              {canEdit ? (
-                <th scope="col" className="holdings-lot-actions-heading">
-                  {copy.transactions.table.columns.actions}
-                </th>
-              ) : null}
-            </tr>
-          </thead>
-          <tbody>
-            {lots.map((lot) => {
-              const gainTone = getPnlToneClass(lot.totalGainInValuationCurrency ?? lot.totalGain);
-              const isDeleting = deletingTransactionId === lot.transactionId;
-
-              return (
-                <tr key={lot.transactionId}>
-                  <td>
-                    <div className="holdings-lot-cell-stack">
-                      <strong>{lot.tradeDate}</strong>
-                      <span>
-                        {lot.portfolioName == null
-                          ? formatBroker(lot.broker)
-                          : `${lot.portfolioName} / ${formatBroker(lot.broker)}`}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="table-number">
-                    <div className="holdings-value-stack">
-                      {formatCurrency(lot.price, {
-                        currency: holding.currency,
-                        locale,
-                        maximumFractionDigits: 4,
-                      })}
-                      <span className="table-subtext">
-                        {copy.holdings.table.lots.fee(
-                          formatCurrency(lot.fee, { currency: holding.currency, locale }),
-                        )}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="table-number">
-                    <div className="holdings-value-stack">
-                      <span>{formatQuantity(lot.remainingQuantity, { locale })}</span>
-                      {lot.remainingQuantity === lot.originalQuantity ? null : (
-                        <span className="table-subtext">
-                          {copy.holdings.table.lots.originalQuantity(
-                            formatQuantity(lot.originalQuantity, { locale }),
-                          )}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="table-number">
-                    <div className="holdings-value-stack">
-                      <span className={gainTone}>
-                        {formatHoldingLotMoney({
-                          emptyLabel: copy.shared.waiting,
-                          holding,
-                          locale,
-                          nativeValue: lot.totalGain,
-                          valuationValue: lot.totalGainInValuationCurrency,
-                        })}
-                      </span>
-                      <span className={`holdings-pnl-percent ${gainTone ?? ""}`.trim()}>
-                        {formatSignedHoldingPercent(
-                          lot.totalGainPercent,
-                          locale,
-                          copy.shared.waiting,
-                        )}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="table-number">
-                    <div className="holdings-value-stack">
-                      {formatHoldingLotMoney({
-                        emptyLabel: copy.shared.waiting,
-                        holding,
-                        locale,
-                        nativeValue: lot.marketValue,
-                        valuationValue: lot.marketValueInValuationCurrency,
-                      })}
-                      <span className="table-subtext">
-                        {copy.holdings.table.lots.costLabel}{" "}
-                        {formatHoldingLotMoney({
-                          emptyLabel: copy.shared.waiting,
-                          holding,
-                          locale,
-                          nativeValue: lot.costBasis,
-                          valuationValue: lot.costBasisInValuationCurrency,
-                        })}
-                      </span>
-                    </div>
-                  </td>
-                  {canEdit ? (
-                    <td>
-                      <div className="table-actions table-actions-icon" data-row-toggle-ignore>
-                        <button
-                          type="button"
-                          className="table-icon-button"
-                          aria-label={`${copy.transactions.table.edit} ${holding.symbol} ${lot.tradeDate}`}
-                          title={copy.transactions.table.edit}
-                          onClick={() => onEdit(holding, lot)}
-                          disabled={deletingTransactionId != null}
-                        >
-                          <span className="table-icon table-icon-edit" aria-hidden="true" />
-                        </button>
-                        <button
-                          type="button"
-                          className="table-icon-button table-icon-button-danger"
-                          aria-label={`${copy.transactions.table.delete} ${holding.symbol} ${lot.tradeDate}`}
-                          title={copy.transactions.table.delete}
-                          onClick={() => onDelete(holding, lot)}
-                          disabled={deletingTransactionId != null}
-                        >
-                          {isDeleting ? (
-                            <span className="table-icon-spinner" aria-hidden="true" />
-                          ) : (
-                            <span className="table-icon table-icon-delete" aria-hidden="true" />
-                          )}
-                        </button>
-                      </div>
-                    </td>
-                  ) : null}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
-    </div>
   );
 }
