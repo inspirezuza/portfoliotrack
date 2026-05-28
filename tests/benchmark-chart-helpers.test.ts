@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildBenchmarkComparisonItems,
+  getBenchmarkYAxisValues,
   getComparisonColor,
   getOverlayDataKey,
   getRoundedPercentAxis,
@@ -11,6 +12,7 @@ import {
 } from "../src/components/benchmark-chart/chart-helpers";
 import type { DashboardBenchmarkOverlay, DashboardBenchmarkQuote } from "../src/server/dashboard";
 import type { ActivePerformancePoint } from "../src/components/benchmark-chart/types";
+import type { ChartPoint } from "../src/components/benchmark-chart/types";
 
 function createOverlay(
   providerSymbol: string,
@@ -47,6 +49,32 @@ function createPerformancePoint(date: string): ActivePerformancePoint {
     date,
     portfolioIndex: 100,
     portfolioReturnPercent: 0,
+  };
+}
+
+function createChartPoint(overrides: Partial<ChartPoint> = {}): ChartPoint {
+  const date = overrides.date ?? "2026-01-31T00:00:00.000Z";
+  const time = Date.parse(date);
+
+  return {
+    annualized: false,
+    benchmarkChangeFromRangeStart: null,
+    benchmarkDisplay: 8,
+    benchmarkDrawdown: -4,
+    benchmarkRaw: 108,
+    benchmarkReturn: 8,
+    benchmarkReturnPercent: 8,
+    date,
+    gap: 2,
+    portfolioChangeFromRangeStart: null,
+    portfolioDisplay: 10,
+    portfolioDrawdown: -2,
+    portfolioRaw: 110,
+    portfolioReturn: 10,
+    portfolioReturnPercent: 10,
+    time,
+    timestamp: time,
+    ...overrides,
   };
 }
 
@@ -155,5 +183,34 @@ test("comparison item helper joins overlays, quotes, selection, colors, and retu
         symbol: "QQQ",
       },
     ],
+  );
+});
+
+test("y-axis value helper preserves primary and overlay visibility rules", () => {
+  const chartPoint = createChartPoint({
+    [getOverlayDataKey("SPY")]: 12,
+    [getOverlayDataKey("QQQ")]: "missing",
+  });
+
+  assert.deepEqual(
+    getBenchmarkYAxisValues({
+      chartData: [chartPoint],
+      mode: "INDEXED",
+      selectedOverlaySymbols: ["SPY", "QQQ"],
+      shouldShowOverlayComparisons: true,
+      shouldShowPrimaryBenchmarkLine: false,
+    }),
+    [10, 12],
+  );
+
+  assert.deepEqual(
+    getBenchmarkYAxisValues({
+      chartData: [chartPoint],
+      mode: "GAP",
+      selectedOverlaySymbols: ["SPY"],
+      shouldShowOverlayComparisons: false,
+      shouldShowPrimaryBenchmarkLine: true,
+    }),
+    [10, 8],
   );
 });

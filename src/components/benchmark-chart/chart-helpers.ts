@@ -4,6 +4,8 @@ import {
 } from "@/components/benchmark-chart/chart-data";
 import type {
   ActivePerformancePoint,
+  ChartPoint,
+  PerformanceMode,
   ReturnBasis,
   TimeframeKey,
 } from "@/components/benchmark-chart/types";
@@ -50,6 +52,36 @@ export function getRoundedPercentAxis(values: number[]) {
 
 export function getOverlayDataKey(symbol: string) {
   return `overlay_${symbol.replace(/[^a-zA-Z0-9]/g, "_")}`;
+}
+
+export function getBenchmarkYAxisValues({
+  chartData,
+  mode,
+  selectedOverlaySymbols,
+  shouldShowOverlayComparisons,
+  shouldShowPrimaryBenchmarkLine,
+}: {
+  chartData: ChartPoint[];
+  mode: PerformanceMode;
+  selectedOverlaySymbols: string[];
+  shouldShowOverlayComparisons: boolean;
+  shouldShowPrimaryBenchmarkLine: boolean;
+}) {
+  return chartData.flatMap((point) => {
+    const primaryValues =
+      mode === "INDEXED"
+        ? shouldShowPrimaryBenchmarkLine
+          ? [point.portfolioDisplay, point.benchmarkDisplay]
+          : [point.portfolioDisplay]
+        : [point.portfolioDisplay, point.benchmarkDisplay];
+    const overlayValues = shouldShowOverlayComparisons
+      ? selectedOverlaySymbols
+          .map((symbol) => point[getOverlayDataKey(symbol)])
+          .filter((value): value is number => typeof value === "number")
+      : [];
+
+    return [...primaryValues, ...overlayValues];
+  });
 }
 
 export function getComparisonColor(symbol: string, index: number, benchmarkSymbol: string | null) {

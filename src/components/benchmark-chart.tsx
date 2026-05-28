@@ -27,6 +27,7 @@ import {
 } from "@/components/benchmark-chart/chart-data";
 import {
   buildBenchmarkComparisonItems,
+  getBenchmarkYAxisValues,
   getInitialSelectedComparisonSymbols,
   getOverlayDataKey,
   getRoundedPercentAxis,
@@ -285,20 +286,12 @@ export function BenchmarkChart({
   const yAxis = useMemo(
     () =>
       getRoundedPercentAxis(
-        chartData.flatMap((point) => {
-          const primaryValues =
-            mode === "INDEXED"
-              ? shouldShowPrimaryBenchmarkLine
-                ? [point.portfolioDisplay, point.benchmarkDisplay]
-                : [point.portfolioDisplay]
-              : [point.portfolioDisplay, point.benchmarkDisplay];
-          const overlayValues = shouldShowOverlayComparisons
-            ? selectedOverlays
-                .map((overlay) => point[getOverlayDataKey(overlay.symbol)])
-                .filter((value): value is number => typeof value === "number")
-            : [];
-
-          return [...primaryValues, ...overlayValues];
+        getBenchmarkYAxisValues({
+          chartData,
+          mode,
+          selectedOverlaySymbols: selectedOverlays.map((overlay) => overlay.symbol),
+          shouldShowOverlayComparisons,
+          shouldShowPrimaryBenchmarkLine,
         }),
       ),
     [
