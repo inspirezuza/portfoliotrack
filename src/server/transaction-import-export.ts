@@ -4,7 +4,7 @@ import { asc, eq, or } from "drizzle-orm";
 import YahooFinance from "yahoo-finance2";
 import { withOperationTimeout } from "@/lib/async/timeout";
 import { db } from "@/lib/db/runtime";
-import { instruments, transactions, type Instrument, type NewTransaction } from "@/lib/db/schema";
+import { instruments, transactions, type NewTransaction } from "@/lib/db/schema";
 import {
   getInstrumentTypeFromYahooQuoteType,
   normalizeInstrumentType,
@@ -25,6 +25,10 @@ import {
 import { listTransactions, toChronologicalPositionTransaction } from "@/server/transactions";
 import { parsePortfolioId } from "@/server/portfolios";
 import { getImportPositionValidationErrors } from "@/server/transaction-import-export/position-validation";
+import {
+  resolveImportInstrument,
+  type ImportInstrument,
+} from "@/server/transaction-import-export/instrument-resolution";
 import {
   getCreateInstrumentKey,
   getErrorMessage,
@@ -83,11 +87,6 @@ type ReadyImportRow = TransactionImportPreviewRow & {
   createInstrumentInput?: InstrumentInput;
   createInstrumentKey?: string;
 };
-
-type ImportInstrument = Pick<
-  Instrument,
-  "id" | "symbol" | "displayName" | "market" | "instrumentType" | "currency" | "providerSymbol"
->;
 
 type PendingImportInstrument = Omit<ImportInstrument, "id"> & {
   id: null;
@@ -259,59 +258,6 @@ async function buildCreateInstrument(row: ParsedTransactionExcelRow) {
   };
 }
 
-function resolveInstrument(
-  row: ParsedTransactionExcelRow,
-  instrumentById: Map<number, ImportInstrument>,
-  instrumentByProviderSymbol: Map<string, ImportInstrument>,
-  instrumentBySymbol: Map<string, ImportInstrument>,
-) {
-  const instrumentIdValue = row.values.instrumentId;
-  const normalizedInstrumentId =
-    instrumentIdValue == null || String(instrumentIdValue).trim().length === 0
-      ? null
-      : Number(instrumentIdValue);
-
-  if (normalizedInstrumentId != null) {
-    if (!Number.isInteger(normalizedInstrumentId) || normalizedInstrumentId <= 0) {
-      return { instrument: null, error: "Instrument ID must be a positive integer." };
-    }
-
-    const instrument = instrumentById.get(normalizedInstrumentId);
-    return instrument
-      ? { instrument, error: null }
-      : {
-          instrument: null,
-          error: `Instrument ID ${normalizedInstrumentId} was not found. Clear Instrument ID to create a new instrument.`,
-        };
-  }
-
-  const providerSymbol = normalizeLookupValue(row.values.providerSymbol);
-
-  if (providerSymbol.length > 0) {
-    const instrument = instrumentByProviderSymbol.get(providerSymbol);
-
-    if (instrument) {
-      return { instrument, error: null };
-    }
-  }
-
-  const symbol = normalizeLookupValue(row.values.symbol);
-
-  if (symbol.length > 0) {
-    const instrument = instrumentBySymbol.get(symbol);
-
-    if (instrument) {
-      return { instrument, error: null };
-    }
-  }
-
-  return {
-    instrument: null,
-    error:
-      providerSymbol || symbol ? null : "Instrument ID, provider symbol, or symbol is required.",
-  };
-}
-
 async function getImportContext(portfolioId: number) {
   const instrumentRows = db
     .select({
@@ -388,7 +334,7 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
 
   for (const row of parsedRows) {
     const { action, error: actionError } = parseInstrumentAction(row);
-    const existingInstrumentResult = resolveInstrument(
+    const existingInstrumentResult = resolveImportInstrument(
       row,
       instrumentById,
       instrumentByProviderSymbol,

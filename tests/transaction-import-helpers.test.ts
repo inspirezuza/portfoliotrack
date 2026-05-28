@@ -14,6 +14,10 @@ import {
   normalizeLookupValue,
   parseInstrumentAction,
 } from "../src/server/transaction-import-export/import-helpers";
+import {
+  resolveImportInstrument,
+  type ImportInstrument,
+} from "../src/server/transaction-import-export/instrument-resolution";
 
 function createParsedRow(
   values: Partial<ParsedTransactionExcelRow["values"]> = {},
@@ -121,4 +125,80 @@ test("transaction import helpers infer provider symbols and fallback instrument 
   assert.equal(fallback.currency, "THB");
   assert.equal(fallback.providerSymbol, "AAPL80.BK");
   assert.equal(getCreateInstrumentKey(fallback), "AAPL80.BK");
+});
+
+test("transaction import instrument resolution preserves ID, provider symbol, and symbol priority", () => {
+  const instrument: ImportInstrument = {
+    id: 7,
+    symbol: "AAPL80",
+    displayName: "Apple DR",
+    market: "TH",
+    instrumentType: "DR",
+    currency: "THB",
+    providerSymbol: "AAPL80.BK",
+  };
+  const instrumentById = new Map([[instrument.id, instrument]]);
+  const instrumentByProviderSymbol = new Map([
+    [normalizeLookupValue(instrument.providerSymbol), instrument],
+  ]);
+  const instrumentBySymbol = new Map([[normalizeLookupValue(instrument.symbol), instrument]]);
+
+  assert.deepEqual(
+    resolveImportInstrument(
+      createParsedRow({
+        instrumentId: "7",
+        providerSymbol: "UNKNOWN",
+        symbol: "UNKNOWN",
+      }),
+      instrumentById,
+      instrumentByProviderSymbol,
+      instrumentBySymbol,
+    ),
+    { instrument, error: null },
+  );
+  assert.deepEqual(
+    resolveImportInstrument(
+      createParsedRow({
+        providerSymbol: " aapl80.bk ",
+      }),
+      instrumentById,
+      instrumentByProviderSymbol,
+      instrumentBySymbol,
+    ),
+    { instrument, error: null },
+  );
+  assert.deepEqual(
+    resolveImportInstrument(
+      createParsedRow({
+        symbol: " aapl80 ",
+      }),
+      instrumentById,
+      instrumentByProviderSymbol,
+      instrumentBySymbol,
+    ),
+    { instrument, error: null },
+  );
+  assert.deepEqual(
+    resolveImportInstrument(
+      createParsedRow({
+        instrumentId: "bad",
+      }),
+      instrumentById,
+      instrumentByProviderSymbol,
+      instrumentBySymbol,
+    ),
+    { instrument: null, error: "Instrument ID must be a positive integer." },
+  );
+  assert.deepEqual(
+    resolveImportInstrument(
+      createParsedRow(),
+      instrumentById,
+      instrumentByProviderSymbol,
+      instrumentBySymbol,
+    ),
+    {
+      instrument: null,
+      error: "Instrument ID, provider symbol, or symbol is required.",
+    },
+  );
 });
