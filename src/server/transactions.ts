@@ -4,22 +4,21 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/runtime";
 import { normalizeInstrumentType } from "@/lib/instruments/instrument-types";
 import { getKnownDrMetadata } from "@/lib/instruments/dr-metadata";
-import {
-  instruments,
-  portfolios,
-  transactions,
-  type NewTransaction,
-  type Transaction,
-} from "@/lib/db/schema";
+import { instruments, portfolios, transactions, type Transaction } from "@/lib/db/schema";
 import {
   InsufficientQuantityError,
   calculatePositionForInstrument,
   calculatePositions,
   type PositionTransaction,
 } from "@/lib/portfolio/positions";
-import { instrumentInputSchema } from "@/lib/validation/instrument";
-import { transactionInputSchema, type TransactionInput } from "@/lib/validation/transaction";
 import { parsePortfolioId } from "@/server/portfolios";
+import { InstrumentServiceError, TransactionServiceError } from "@/server/transactions/errors";
+import {
+  buildTransactionInsertValues,
+  parseInstrumentInput,
+  parseTransactionId,
+  parseTransactionInput,
+} from "@/server/transactions/input";
 import {
   isTransactionInstrumentSelectable,
   mapInstrumentOption,
@@ -31,46 +30,10 @@ export type {
   TransactionInstrumentOption,
   TransactionListItem,
 } from "@/server/transactions/mappers";
+export { InstrumentServiceError, TransactionServiceError } from "@/server/transactions/errors";
 export { isTransactionInstrumentSelectable } from "@/server/transactions/mappers";
 
 export type TransactionListOrder = "asc" | "desc";
-
-export class InstrumentServiceError extends Error {
-  readonly code: "VALIDATION_ERROR" | "DUPLICATE_INSTRUMENT" | "INTERNAL_ERROR";
-  readonly details?: Record<string, unknown>;
-
-  constructor(
-    code: InstrumentServiceError["code"],
-    message: string,
-    details?: Record<string, unknown>,
-  ) {
-    super(message);
-    this.name = "InstrumentServiceError";
-    this.code = code;
-    this.details = details;
-  }
-}
-
-export class TransactionServiceError extends Error {
-  readonly code:
-    | "VALIDATION_ERROR"
-    | "INSTRUMENT_NOT_FOUND"
-    | "TRANSACTION_NOT_FOUND"
-    | "INSUFFICIENT_QUANTITY"
-    | "INTERNAL_ERROR";
-  readonly details?: Record<string, unknown>;
-
-  constructor(
-    code: TransactionServiceError["code"],
-    message: string,
-    details?: Record<string, unknown>,
-  ) {
-    super(message);
-    this.name = "TransactionServiceError";
-    this.code = code;
-    this.details = details;
-  }
-}
 
 export function toChronologicalPositionTransaction(
   row: Pick<
@@ -88,18 +51,6 @@ export function toChronologicalPositionTransaction(
     createdAt: row.createdAt,
     id: row.id,
   };
-}
-
-function parseInstrumentInput(input: unknown) {
-  const result = instrumentInputSchema.safeParse(input);
-
-  if (!result.success) {
-    throw new InstrumentServiceError("VALIDATION_ERROR", "Instrument input is invalid.", {
-      issues: result.error.flatten(),
-    });
-  }
-
-  return result.data;
 }
 
 function isUniqueConstraintError(error: unknown) {
@@ -120,45 +71,6 @@ function getTransactionOrder(order: TransactionListOrder) {
     desc(transactions.createdAt),
     desc(transactions.id),
   ] as const;
-}
-
-function parseTransactionInput(input: unknown) {
-  const result = transactionInputSchema.safeParse(input);
-
-  if (!result.success) {
-    throw new TransactionServiceError("VALIDATION_ERROR", "Transaction input is invalid.", {
-      issues: result.error.flatten(),
-    });
-  }
-
-  return result.data;
-}
-
-function parseTransactionId(input: unknown) {
-  const id = Number(input);
-
-  if (!Number.isInteger(id) || id <= 0) {
-    throw new TransactionServiceError(
-      "VALIDATION_ERROR",
-      "Transaction id must be a positive integer.",
-    );
-  }
-
-  return id;
-}
-
-function buildInsertValues(input: TransactionInput, portfolioId: number): NewTransaction {
-  return {
-    portfolioId,
-    instrumentId: input.instrumentId,
-    tradeDate: input.tradeDate,
-    side: input.side,
-    broker: input.broker ?? "DIME",
-    quantity: input.quantity,
-    price: input.price,
-    fee: input.fee,
-    notes: input.notes,
-  };
 }
 
 function getInsufficientQuantityDetails(error: InsufficientQuantityError) {
@@ -301,7 +213,7 @@ export async function createTransaction(
 
     const [insertedRow] = await tx
       .insert(transactions)
-      .values(buildInsertValues(parsedInput, portfolioId))
+      .values(buildTransactionInsertValues(parsedInput, portfolioId))
       .returning({ id: transactions.id });
 
     return insertedRow.id;
@@ -406,7 +318,7 @@ export async function updateTransaction(
     await tx
       .update(transactions)
       .set({
-        ...buildInsertValues(parsedInput, portfolioId),
+        ...buildTransactionInsertValues(parsedInput, portfolioId),
         updatedAt: getPendingTransactionOrderMarker(),
       })
       .where(and(eq(transactions.id, id), eq(transactions.portfolioId, portfolioId)));
