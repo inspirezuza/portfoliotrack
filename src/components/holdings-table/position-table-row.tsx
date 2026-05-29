@@ -34,6 +34,7 @@ type HoldingsPositionRowProps = {
   locale: string;
   onDeleteHoldingLot: (holding: HoldingRow, lot: HoldingLot) => void;
   onEditHoldingLot: (holding: HoldingRow, lot: HoldingLot) => void;
+  onOpenHoldingDetail: (symbol: string) => void;
   onToggleHoldingLots: (instrumentId: number) => void;
   selectedPerformanceKey: HoldingPerformanceKey;
 };
@@ -56,6 +57,7 @@ export function HoldingsPositionRow({
   locale,
   onDeleteHoldingLot,
   onEditHoldingLot,
+  onOpenHoldingDetail,
   onToggleHoldingLots,
   selectedPerformanceKey,
 }: HoldingsPositionRowProps) {
@@ -92,6 +94,19 @@ export function HoldingsPositionRow({
                 {holding.displayName} - {holding.market}
               </span>
             </div>
+            <button
+              type="button"
+              className="table-icon-button holdings-detail-button"
+              data-row-toggle-ignore
+              aria-label={copy.holdings.table.detail.open(holding.symbol)}
+              title={copy.holdings.table.detail.title}
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenHoldingDetail(holding.symbol);
+              }}
+            >
+              <span className="table-icon table-icon-search" aria-hidden="true" />
+            </button>
           </div>
         </td>
         <td className="table-number">{formatQuantity(holding.quantity, { locale })}</td>

@@ -113,7 +113,7 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
   const xAxisSpan = xDomain == null ? 0 : xDomain[1] - xDomain[0];
 
   function handleChartMouseDown(state: RechartsMouseState | undefined) {
-    const point = getRechartsPayloadPoint<ChartPoint>(state);
+    const point = getRechartsPayloadPoint<ChartPoint>(state, chartData);
 
     if (point == null) {
       return;
@@ -127,7 +127,7 @@ export function AssetPriceChart({ asset }: AssetPriceChartProps) {
   }
 
   function handleChartMouseMove(state: RechartsMouseState | undefined) {
-    const point = getRechartsPayloadPoint<ChartPoint>(state);
+    const point = getRechartsPayloadPoint<ChartPoint>(state, chartData);
 
     if (!isDraggingRef.current || point == null) {
       return;

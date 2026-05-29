@@ -28,6 +28,7 @@ type HoldingsPositionTableProps = {
   locale: string;
   onDeleteHoldingLot: (holding: HoldingRow, lot: HoldingLot) => void;
   onEditHoldingLot: (holding: HoldingRow, lot: HoldingLot) => void;
+  onOpenHoldingDetail: (symbol: string) => void;
   onSort: (sortKey: HoldingSortKey) => void;
   onToggleHoldingLots: (instrumentId: number) => void;
   performanceBasis: PerformanceBasis;
@@ -48,6 +49,7 @@ export function HoldingsPositionTable({
   locale,
   onDeleteHoldingLot,
   onEditHoldingLot,
+  onOpenHoldingDetail,
   onSort,
   onToggleHoldingLots,
   performanceBasis,
@@ -101,6 +103,7 @@ export function HoldingsPositionTable({
                   locale={locale}
                   onDeleteHoldingLot={onDeleteHoldingLot}
                   onEditHoldingLot={onEditHoldingLot}
+                  onOpenHoldingDetail={onOpenHoldingDetail}
                   onToggleHoldingLots={onToggleHoldingLots}
                   selectedPerformanceKey={selectedPerformanceKey}
                 />

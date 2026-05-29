@@ -43,7 +43,18 @@ function createChartPoint(date: string, value: number): ChartPoint {
 test("portfolio chart helper formatters preserve display copy", () => {
   const copy = getUiCopy("EN").charts.portfolio;
 
-  assert.deepEqual(TIMEFRAME_OPTIONS, ["1D", "5D", "1W", "1M", "3M", "YTD", "1Y", "ALL"]);
+  assert.deepEqual(TIMEFRAME_OPTIONS, [
+    "1D",
+    "5D",
+    "1W",
+    "1M",
+    "3M",
+    "YTD",
+    "1Y",
+    "3Y",
+    "5Y",
+    "ALL",
+  ]);
   assert.equal(formatChartDate("2026-01-05", "en-US"), "Jan 5, 2026");
   assert.equal(formatChartValue(1234.56, "USD", "en-US"), "$1,235");
   assert.equal(formatChartValue(12.345, "USD", "en-US"), "$12.35");

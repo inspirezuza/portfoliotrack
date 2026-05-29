@@ -8,7 +8,18 @@ import {
 } from "@/lib/charts/time-axis";
 import type { AssetDetail } from "@/server/assets";
 
-export type TimeframeKey = "1D" | "5D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "START" | "ALL";
+export type TimeframeKey =
+  | "1D"
+  | "5D"
+  | "1W"
+  | "1M"
+  | "3M"
+  | "YTD"
+  | "1Y"
+  | "3Y"
+  | "5Y"
+  | "START"
+  | "ALL";
 
 export type ChartPoint = AssetDetail["marketData"]["priceHistory"][number] &
   TimeAxisPoint & {
@@ -31,6 +42,8 @@ export const TIMEFRAME_OPTIONS: Array<{
   { key: "3M", label: "3M" },
   { key: "YTD", label: "YTD" },
   { key: "1Y", label: "1Y" },
+  { key: "3Y", label: "3Y" },
+  { key: "5Y", label: "5Y" },
   { key: "START", label: "Start" },
   { key: "ALL", label: "All" },
 ];
@@ -71,6 +84,8 @@ export function getTimeframeStartDate(
     "1M": 30,
     "3M": 90,
     "1Y": 365,
+    "3Y": 1095,
+    "5Y": 1825,
   };
   latest.setUTCDate(latest.getUTCDate() - daysByKey[key]);
 
@@ -134,7 +149,7 @@ export function getVisibleHistory(
     }
   }
 
-  return filteredHistory.length > 0 ? filteredHistory : history;
+  return filteredHistory.length > 0 ? filteredHistory : [latestPoint];
 }
 
 export function calculatePercentChange(startValue: number, endValue: number) {

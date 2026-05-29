@@ -16,7 +16,18 @@ export type SelectionRange = {
   endDate: string;
 };
 
-export const TIMEFRAME_OPTIONS: TimeframeKey[] = ["1D", "5D", "1W", "1M", "3M", "YTD", "1Y", "ALL"];
+export const TIMEFRAME_OPTIONS: TimeframeKey[] = [
+  "1D",
+  "5D",
+  "1W",
+  "1M",
+  "3M",
+  "YTD",
+  "1Y",
+  "3Y",
+  "5Y",
+  "ALL",
+];
 
 export const PERFORMANCE_MODE_OPTIONS: PerformanceMode[] = ["INDEXED", "GAP", "DRAWDOWN"];
 export const RETURN_BASIS_OPTIONS: ReturnBasis[] = ["TWR", "MWR", "ABSOLUTE"];

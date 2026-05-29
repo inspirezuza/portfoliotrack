@@ -1,7 +1,7 @@
 import type { DashboardBenchmarkMonthlyReturn, DashboardBenchmarkQuote } from "@/server/dashboard";
 
 export type HistoricalMode = "GAP" | "RETURN";
-export type BenchmarkTimeframe = "1M" | "3M" | "6M" | "YTD" | "1Y" | "ALL";
+export type BenchmarkTimeframe = "1M" | "3M" | "6M" | "YTD" | "1Y" | "3Y" | "5Y" | "ALL";
 
 export type ChartPoint = {
   month: string;
@@ -26,6 +26,8 @@ export const TIMEFRAME_OPTIONS: Array<{ key: BenchmarkTimeframe; label: string }
   { key: "6M", label: "6M" },
   { key: "YTD", label: "YTD" },
   { key: "1Y", label: "1Y" },
+  { key: "3Y", label: "3Y" },
+  { key: "5Y", label: "5Y" },
   { key: "ALL", label: "All" },
 ];
 
@@ -82,7 +84,18 @@ export function getTimeframeStartMonth(timeframe: BenchmarkTimeframe, latestMont
     return `${latestMonth.slice(0, 4)}-01`;
   }
 
-  const months = timeframe === "1M" ? 1 : timeframe === "3M" ? 3 : timeframe === "6M" ? 6 : 12;
+  const months =
+    timeframe === "1M"
+      ? 1
+      : timeframe === "3M"
+        ? 3
+        : timeframe === "6M"
+          ? 6
+          : timeframe === "3Y"
+            ? 36
+            : timeframe === "5Y"
+              ? 60
+              : 12;
   const startDate = new Date(latestDate);
   startDate.setUTCMonth(startDate.getUTCMonth() - months + 1);
 

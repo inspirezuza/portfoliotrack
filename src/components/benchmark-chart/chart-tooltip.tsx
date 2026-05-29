@@ -2,9 +2,9 @@ import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
 import {
   formatChartDate,
   formatModeValue,
-  formatSignedPercent,
+  getValueClassName,
 } from "@/components/benchmark-chart/formatting";
-import type { ChartPoint, PerformanceMode, ReturnBasis } from "@/components/benchmark-chart/types";
+import type { ChartPoint, PerformanceMode } from "@/components/benchmark-chart/types";
 
 export type BenchmarkChartTooltipProps = {
   active?: boolean;
@@ -17,7 +17,6 @@ export type BenchmarkChartTooltipProps = {
     payload?: ChartPoint;
     value?: number;
   }>;
-  returnBasis: ReturnBasis;
 };
 
 export function BenchmarkChartTooltip({
@@ -26,7 +25,6 @@ export function BenchmarkChartTooltip({
   language,
   mode,
   payload,
-  returnBasis,
 }: BenchmarkChartTooltipProps) {
   const point = payload?.[0]?.payload;
   const locale = getUiLocale(language);
@@ -45,22 +43,12 @@ export function BenchmarkChartTooltip({
           return null;
         }
 
-        const change =
-          item.dataKey === "portfolioDisplay"
-            ? point.portfolioChangeFromRangeStart
-            : item.dataKey === "benchmarkDisplay"
-              ? point.benchmarkChangeFromRangeStart
-              : null;
-
         return (
           <div className="chart-tooltip-row" key={item.dataKey}>
             <span>{item.name ?? item.dataKey}</span>
-            <strong>{formatModeValue(value, mode, locale)}</strong>
-            {mode !== "INDEXED" || returnBasis !== "TWR" || change == null ? null : (
-              <em className={change >= 0 ? "value-positive" : "value-negative"}>
-                {formatSignedPercent(change)}
-              </em>
-            )}
+            <strong className={getValueClassName(value)}>
+              {formatModeValue(value, mode, locale)}
+            </strong>
           </div>
         );
       })}

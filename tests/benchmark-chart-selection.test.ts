@@ -54,7 +54,18 @@ function createChartPoint(date: string, overrides: Partial<ChartPoint> = {}): Ch
 }
 
 test("benchmark chart option lists preserve visible control ordering", () => {
-  assert.deepEqual(TIMEFRAME_OPTIONS, ["1D", "5D", "1W", "1M", "3M", "YTD", "1Y", "ALL"]);
+  assert.deepEqual(TIMEFRAME_OPTIONS, [
+    "1D",
+    "5D",
+    "1W",
+    "1M",
+    "3M",
+    "YTD",
+    "1Y",
+    "3Y",
+    "5Y",
+    "ALL",
+  ]);
   assert.deepEqual(PERFORMANCE_MODE_OPTIONS, ["INDEXED", "GAP", "DRAWDOWN"]);
   assert.deepEqual(RETURN_BASIS_OPTIONS, ["TWR", "MWR", "ABSOLUTE"]);
 });

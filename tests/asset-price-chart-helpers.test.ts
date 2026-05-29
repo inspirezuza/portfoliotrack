@@ -40,11 +40,11 @@ function createChartPoint(date: string, close: number): ChartPoint {
 test("asset price chart helpers preserve timeframe options and unavailable copy", () => {
   assert.deepEqual(
     TIMEFRAME_OPTIONS.map((option) => option.key),
-    ["1D", "5D", "1W", "1M", "3M", "YTD", "1Y", "START", "ALL"],
+    ["1D", "5D", "1W", "1M", "3M", "YTD", "1Y", "3Y", "5Y", "START", "ALL"],
   );
   assert.deepEqual(
     TIMEFRAME_OPTIONS.map((option) => option.label),
-    ["1D", "5D", "1W", "1M", "3M", "YTD", "1Y", "Start", "All"],
+    ["1D", "5D", "1W", "1M", "3M", "YTD", "1Y", "3Y", "5Y", "Start", "All"],
   );
   assert.equal(
     getUnavailableMessage({ marketData: { historyUnavailableReason: "Provider cooldown" } }),

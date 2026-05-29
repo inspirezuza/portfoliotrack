@@ -735,6 +735,25 @@ html[data-theme="dark"] .route-card {
   overflow: visible;
 }
 
+/*
+ * recharts v3 enables its accessibility layer by default and marks the wrapper,
+ * SVG surface, and several inner <g> layers (e.g. the reference-area / z-index
+ * layers) as focusable. A mousedown then focuses one of those nodes and the
+ * browser draws its default focus ring — a black box, sometimes hugging the
+ * drag selection rectangle. Suppress the visual outline on the chart and every
+ * descendant while keeping the elements keyboard-reachable.
+ */
+.recharts-wrapper:focus,
+.recharts-wrapper:focus-visible,
+.recharts-wrapper :focus,
+.recharts-wrapper :focus-visible,
+.recharts-surface:focus,
+.recharts-surface:focus-visible,
+.recharts-surface :focus,
+.recharts-surface :focus-visible {
+  outline: none;
+}
+
 .chart-workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -906,9 +925,13 @@ html[data-theme="dark"] .chart-stat-strip div {
 }
 
 .chart-selection-readout-idle {
+  /*
+   * Keep the same vertical footprint as the active pill (base min-height +
+   * margins) so dragging a selection swaps the content in place instead of
+   * growing the box and pushing the comparison picker below it.
+   */
   width: auto;
-  min-height: auto;
-  margin: 7px 0 0;
+  margin: 8px 0 2px;
   border: 0;
   border-radius: 0;
   padding: 0;
@@ -1814,6 +1837,36 @@ html[data-theme="dark"] .portfolio-name-field input {
 
 .transaction-edit-dialog .transaction-panel {
   box-shadow: 0 24px 80px rgba(18, 31, 25, 0.32);
+}
+
+.holding-detail-dialog {
+  position: relative;
+  z-index: 1;
+  width: min(1080px, 100%);
+}
+
+.holding-detail-content {
+  display: grid;
+  gap: 18px;
+}
+
+.holding-detail-loading {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 18px;
+  background: var(--surface-strong);
+  box-shadow: 0 24px 80px rgba(18, 31, 25, 0.32);
+}
+
+.holding-detail-dialog .form-banner {
+  box-shadow: 0 24px 80px rgba(18, 31, 25, 0.32);
+}
+
+.holding-detail-footer {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .transaction-edit-dialog .transaction-panel-header {
@@ -3040,56 +3093,74 @@ html[data-theme="dark"] .transaction-table > tbody > tr[data-expanded="true"] > 
   background: rgba(113, 232, 176, 0.06);
 }
 
+/*
+ * The expanded lot panel is a continuation of its parent holding row, not a
+ * floating card. Match the expanded-row tint, drop the inner table's border /
+ * opaque background, and keep a continuous left accent ribbon so the whole
+ * group reads as one block — no inset "margin", no clashing surfaces.
+ */
+/* When a holding is expanded, merge its summary row into the lot panel as one block. */
+.transaction-table > tbody > tr[data-expanded="true"] > td {
+  padding-bottom: 8px;
+  border-bottom-color: transparent;
+}
+
 .holdings-lot-row > td {
   padding: 0;
-  background: transparent;
+  background: rgba(8, 116, 93, 0.04);
 }
 
 .transaction-table > tbody > tr.holdings-lot-row > td,
 .transaction-table > tbody > tr.holdings-lot-row:hover > td {
-  background: transparent;
+  background: rgba(8, 116, 93, 0.04);
 }
 
-.holdings-lot-row > td:first-child,
-.transaction-table > tbody > tr.holdings-lot-row:hover > td:first-child {
-  border-left-color: rgba(8, 116, 93, 0.42);
-  padding-left: 0;
+/*
+ * The lot panel has no left accent ribbon. Collapse the first cell's left
+ * border to zero width (out-specifying the generic base rule) so the generic
+ * `:hover` / dark-theme rules have no border to paint a colour onto, and the
+ * compensating padding keeps the content position identical in both states.
+ */
+.transaction-table > tbody > tr.holdings-lot-row > td:first-child {
+  border-left-width: 0;
+  padding-left: 3px;
 }
 
 html[data-theme="dark"] .holdings-lot-row > td,
 html[data-theme="dark"] .transaction-table > tbody > tr.holdings-lot-row:hover > td {
-  background: transparent;
+  background: rgba(113, 232, 176, 0.06);
 }
 
 .holdings-lot-panel {
   margin: 0;
   padding: 0;
-  background:
-    linear-gradient(90deg, rgba(8, 116, 93, 0.09), transparent 34%), rgba(8, 116, 93, 0.026);
+  background: transparent;
 }
 
 .holdings-lot-table {
   width: 100%;
   overflow: hidden;
-  border: 1px solid rgba(18, 31, 25, 0.08);
+  border: 0;
   border-collapse: separate;
   border-spacing: 0;
   border-radius: 0;
-  background: color-mix(in srgb, var(--surface-strong) 92%, white);
+  background: transparent;
   table-layout: fixed;
 }
 
 .holdings-lot-table th,
 .holdings-lot-table td {
-  border-bottom: 1px solid rgba(18, 31, 25, 0.08);
-  padding: 9px 10px;
+  border-bottom: 1px solid rgba(18, 31, 25, 0.07);
+  padding: 9px 12px;
   text-align: left;
   vertical-align: top;
 }
 
 .holdings-lot-table th {
+  padding-top: 6px;
+  padding-bottom: 7px;
   color: rgba(77, 90, 83, 0.88);
-  background: rgba(18, 31, 25, 0.025);
+  background: transparent;
   font-size: 0.68rem;
   font-weight: 780;
   letter-spacing: 0;
@@ -3115,31 +3186,37 @@ html[data-theme="dark"] .transaction-table > tbody > tr.holdings-lot-row:hover >
 }
 
 .holdings-lot-table tbody tr:hover td {
-  background: rgba(8, 116, 93, 0.035);
+  background: rgba(8, 116, 93, 0.07);
 }
 
 .holdings-lot-table tr:last-child td {
   border-bottom: 0;
+  padding-bottom: 11px;
+}
+
+/* Keep the action buttons still on hover inside the lot panel (no vertical lift). */
+.holdings-lot-table .table-icon-button:hover:not(:disabled),
+.holdings-lot-table .table-icon-button:focus-visible {
+  transform: none;
 }
 
 html[data-theme="dark"] .holdings-lot-panel {
-  background:
-    linear-gradient(90deg, rgba(113, 232, 176, 0.09), transparent 34%), rgba(113, 232, 176, 0.035);
+  background: transparent;
 }
 
 html[data-theme="dark"] .holdings-lot-table th,
 html[data-theme="dark"] .holdings-lot-table td {
-  border-bottom-color: rgba(255, 255, 255, 0.08);
+  border-bottom-color: rgba(255, 255, 255, 0.07);
 }
 
 html[data-theme="dark"] .holdings-lot-table {
-  border-color: rgba(255, 255, 255, 0.08);
-  background: color-mix(in srgb, var(--surface-strong) 90%, #000);
+  border: 0;
+  background: transparent;
 }
 
 html[data-theme="dark"] .holdings-lot-table th {
   color: rgba(184, 200, 191, 0.9);
-  background: rgba(255, 255, 255, 0.035);
+  background: transparent;
 }
 
 html[data-theme="dark"] .holdings-lot-table td {
@@ -3147,7 +3224,7 @@ html[data-theme="dark"] .holdings-lot-table td {
 }
 
 html[data-theme="dark"] .holdings-lot-table tbody tr:hover td {
-  background: rgba(113, 232, 176, 0.055);
+  background: rgba(113, 232, 176, 0.1);
 }
 
 .holdings-lot-cell-stack {
@@ -3387,6 +3464,22 @@ html[data-theme="dark"] .transaction-table > tbody > tr:hover > td:first-child {
     center / contain no-repeat;
 }
 
+.table-icon-search {
+  -webkit-mask: url("data:image/svg+xml,%3Csvg%20viewBox='0%200%2024%2024'%20xmlns='http://www.w3.org/2000/svg'%20fill='none'%20stroke='black'%20stroke-width='2.2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Ccircle%20cx='11'%20cy='11'%20r='7'/%3E%3Cpath%20d='M21%2021l-4.35-4.35'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg%20viewBox='0%200%2024%2024'%20xmlns='http://www.w3.org/2000/svg'%20fill='none'%20stroke='black'%20stroke-width='2.2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Ccircle%20cx='11'%20cy='11'%20r='7'/%3E%3Cpath%20d='M21%2021l-4.35-4.35'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+.holdings-table .instrument-cell-with-logo {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.holdings-detail-button {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
 .table-icon-spinner {
   display: block;
   width: 15px;
@@ -3608,6 +3701,19 @@ html[data-theme="dark"] .side-pill-sell {
   color: var(--muted);
   overflow-wrap: anywhere;
   text-align: right;
+}
+
+.workstation-topbar.asset-topbar {
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-strong);
+}
+
+html[data-theme="dark"] .asset-topbar {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0)),
+    var(--surface-strong);
 }
 
 .asset-title-lockup {

@@ -165,9 +165,7 @@ export function BenchmarkChartPlot({
               strokeDasharray: "2 1",
               strokeWidth: 1.25,
             }}
-            content={
-              <BenchmarkChartTooltip language={language} mode={mode} returnBasis={returnBasis} />
-            }
+            content={<BenchmarkChartTooltip language={language} mode={mode} />}
           />
           {!hasActiveSelection || selection == null ? null : (
             <ReferenceArea

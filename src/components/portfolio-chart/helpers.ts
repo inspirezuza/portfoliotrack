@@ -14,7 +14,7 @@ import {
 } from "@/lib/charts/time-axis";
 import type { getUiCopy } from "@/lib/ui/copy";
 
-export type TimeframeKey = "1D" | "5D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "ALL";
+export type TimeframeKey = "1D" | "5D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "3Y" | "5Y" | "ALL";
 
 export type ChartPoint = PortfolioTimelinePoint &
   TimeAxisPoint & {
@@ -26,7 +26,18 @@ export type SelectionRange = {
   endDate: string;
 };
 
-export const TIMEFRAME_OPTIONS: TimeframeKey[] = ["1D", "5D", "1W", "1M", "3M", "YTD", "1Y", "ALL"];
+export const TIMEFRAME_OPTIONS: TimeframeKey[] = [
+  "1D",
+  "5D",
+  "1W",
+  "1M",
+  "3M",
+  "YTD",
+  "1Y",
+  "3Y",
+  "5Y",
+  "ALL",
+];
 
 export function formatChartDate(value: string, locale: string) {
   const hasTime = isIntradayDate(value);
@@ -100,6 +111,8 @@ export function getTimeframeStartDate(key: TimeframeKey, latestDate: string) {
     "1M": 30,
     "3M": 90,
     "1Y": 365,
+    "3Y": 1095,
+    "5Y": 1825,
   };
   latest.setUTCDate(latest.getUTCDate() - daysByKey[key]);
 
@@ -157,7 +170,7 @@ export function getVisibleSeries(series: PortfolioTimelinePoint[], timeframe: Ti
     }
   }
 
-  return filteredSeries.length > 0 ? filteredSeries : series;
+  return filteredSeries.length > 0 ? filteredSeries : [latestPoint];
 }
 
 export function calculatePercentChange(startValue: number, endValue: number) {

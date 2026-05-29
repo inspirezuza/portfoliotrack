@@ -7,6 +7,7 @@ import {
   MarketRefreshStatus,
   type MarketRefreshStatusRun,
 } from "@/components/market-refresh-status";
+import { HoldingDetailDialog } from "@/components/holding-detail-dialog";
 import { TransactionDeleteDialog } from "@/components/transaction-delete-dialog";
 import { TransactionEditModal } from "@/components/transaction-edit-modal";
 import { HoldingsPositionTable } from "@/components/holdings-table/position-table";
@@ -78,6 +79,7 @@ export function HoldingsTable({
   const [performanceTimeframe, setPerformanceTimeframe] =
     useState<HoldingPerformanceTimeframe>("1D");
   const [expandedHoldingIds, setExpandedHoldingIds] = useState<Set<number>>(() => new Set());
+  const [detailSymbol, setDetailSymbol] = useState<string | null>(null);
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
   const [refreshTone, setRefreshTone] = useState<"success" | "warning">("success");
   const selectedPerformanceKey = getPerformanceKey({
@@ -279,6 +281,15 @@ export function HoldingsTable({
         />
       ) : null}
 
+      {detailSymbol ? (
+        <HoldingDetailDialog
+          key={detailSymbol}
+          symbol={detailSymbol}
+          language={language}
+          onClose={() => setDetailSymbol(null)}
+        />
+      ) : null}
+
       {pendingDeleteTransaction ? (
         <TransactionDeleteDialog
           transaction={pendingDeleteTransaction}
@@ -331,6 +342,7 @@ export function HoldingsTable({
             locale={locale}
             onDeleteHoldingLot={handleDeleteHoldingLot}
             onEditHoldingLot={handleEditHoldingLot}
+            onOpenHoldingDetail={setDetailSymbol}
             onSort={handleSort}
             onToggleHoldingLots={toggleHoldingLots}
             performanceBasis={performanceBasis}

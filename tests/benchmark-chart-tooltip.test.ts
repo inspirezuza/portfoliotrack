@@ -31,7 +31,7 @@ function createChartPoint(overrides: Partial<ChartPoint> = {}): ChartPoint {
   };
 }
 
-test("benchmark chart tooltip renders active indexed rows with range changes", () => {
+test("benchmark chart tooltip renders active indexed rows without duplicating the return value", () => {
   const point = createChartPoint();
   const label = Date.parse(point.date);
   const html = renderToStaticMarkup(
@@ -40,7 +40,6 @@ test("benchmark chart tooltip renders active indexed rows with range changes", (
       label,
       language: "EN",
       mode: "INDEXED",
-      returnBasis: "TWR",
       payload: [
         {
           dataKey: "portfolioDisplay",
@@ -67,14 +66,32 @@ test("benchmark chart tooltip renders active indexed rows with range changes", (
   assert.match(html, /15 May 2026, 10:30/);
   assert.match(html, /Portfolio/);
   assert.match(html, /105.0%/);
-  assert.match(html, /\+5.00%/);
   assert.match(html, /Benchmark/);
   assert.match(html, /98.0%/);
-  assert.match(html, /-2.00%/);
+  // Positive values are tinted green via the value-positive class.
+  assert.match(html, /class="value-positive">\s*105.0%/);
+  // The indexed return value is shown once; the redundant signed range-change is gone.
+  assert.doesNotMatch(html, /<em/);
   assert.doesNotMatch(html, /Ignored empty/);
 });
 
-test("benchmark chart tooltip hides inactive and non-indexed range change states", () => {
+test("benchmark chart tooltip tints negative values red", () => {
+  const point = createChartPoint({ portfolioDisplay: -3, portfolioReturn: -3 });
+  const label = Date.parse(point.date);
+  const html = renderToStaticMarkup(
+    createElement(BenchmarkChartTooltip, {
+      active: true,
+      label,
+      language: "EN",
+      mode: "INDEXED",
+      payload: [{ dataKey: "portfolioDisplay", name: "Portfolio", payload: point, value: -3 }],
+    }),
+  );
+
+  assert.match(html, /class="value-negative">\s*-3.0%/);
+});
+
+test("benchmark chart tooltip hides inactive states and formats other modes", () => {
   const point = createChartPoint();
   const label = Date.parse(point.date);
 
@@ -85,7 +102,6 @@ test("benchmark chart tooltip hides inactive and non-indexed range change states
         label,
         language: "EN",
         mode: "INDEXED",
-        returnBasis: "TWR",
         payload: [{ dataKey: "portfolioDisplay", payload: point, value: 105 }],
       }),
     ),
@@ -98,11 +114,9 @@ test("benchmark chart tooltip hides inactive and non-indexed range change states
       label,
       language: "EN",
       mode: "GAP",
-      returnBasis: "TWR",
       payload: [{ dataKey: "portfolioDisplay", name: "Portfolio", payload: point, value: 7 }],
     }),
   );
 
   assert.match(gapHtml, /\+7.00 pp/);
-  assert.doesNotMatch(gapHtml, /\+5.00%/);
 });

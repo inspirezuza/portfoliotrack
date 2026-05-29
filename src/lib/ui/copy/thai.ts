@@ -62,6 +62,8 @@ export const thaiUiCopy = {
         "3M": "3M",
         YTD: "YTD",
         "1Y": "1Y",
+        "3Y": "3Y",
+        "5Y": "5Y",
         START: "เริ่มต้น",
         ALL: "ทั้งหมด",
       },
@@ -287,6 +289,13 @@ export const thaiUiCopy = {
           value: "มูลค่า",
           note: "โน้ต",
         },
+      },
+      detail: {
+        title: "รายละเอียดหุ้น",
+        open: (symbol: string) => `ดูรายละเอียด ${symbol}`,
+        loading: "กำลังโหลดรายละเอียด...",
+        error: "โหลดรายละเอียดหุ้นไม่สำเร็จ",
+        viewFullPage: "ดูหน้าเต็ม",
       },
     },
     summary: {

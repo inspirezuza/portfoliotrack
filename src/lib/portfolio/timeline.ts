@@ -30,10 +30,10 @@ export type {
   TimelineTransaction,
 } from "@/lib/portfolio/timeline-types";
 
-function getCurrentLocalIsoDate(now = new Date()) {
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
+function getCurrentUtcIsoDate(now = new Date()) {
+  const year = now.getUTCFullYear();
+  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(now.getUTCDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
 }
@@ -55,7 +55,7 @@ export function buildPortfolioBenchmarkTimeline({
   benchmarkCurrency?: string | null;
   benchmarkSymbol: string | null;
 }): PortfolioBenchmarkTimeline {
-  const today = getCurrentLocalIsoDate();
+  const today = getCurrentUtcIsoDate();
   const nonFutureTransactions = transactions.filter(
     (transaction) => transaction.tradeDate <= today,
   );

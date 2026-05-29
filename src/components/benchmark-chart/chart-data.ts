@@ -49,6 +49,8 @@ function getTimeframeStartDate(key: TimeframeKey, latestDate: string) {
     "1M": 30,
     "3M": 90,
     "1Y": 365,
+    "3Y": 1095,
+    "5Y": 1825,
   };
   latest.setUTCDate(latest.getUTCDate() - daysByKey[key]);
 
@@ -136,7 +138,7 @@ export function selectVisibleTimeframePoints<TPoint extends TimeframePoint>({
     }
   }
 
-  return addBaselinePoint(filteredPoints.length >= 2 ? filteredPoints : points);
+  return addBaselinePoint(filteredPoints);
 }
 
 export function calculatePercentChange(startValue: number, endValue: number) {

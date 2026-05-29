@@ -4,7 +4,7 @@ import type {
   ReturnPerformancePoint,
 } from "@/lib/portfolio/performance-series";
 
-export type TimeframeKey = "1D" | "5D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "ALL";
+export type TimeframeKey = "1D" | "5D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "3Y" | "5Y" | "ALL";
 export type PerformanceMode = "INDEXED" | "GAP" | "DRAWDOWN";
 export type ReturnBasis = "TWR" | "MWR" | "ABSOLUTE";
 

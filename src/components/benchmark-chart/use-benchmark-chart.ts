@@ -307,7 +307,7 @@ export function useBenchmarkChart({
   }
 
   function handleChartMouseDown(state: RechartsMouseState | undefined) {
-    const point = getRechartsPayloadPoint<ChartPoint>(state);
+    const point = getRechartsPayloadPoint<ChartPoint>(state, chartData);
 
     if (point == null) {
       return;
@@ -321,7 +321,7 @@ export function useBenchmarkChart({
   }
 
   function handleChartMouseMove(state: RechartsMouseState | undefined) {
-    const point = getRechartsPayloadPoint<ChartPoint>(state);
+    const point = getRechartsPayloadPoint<ChartPoint>(state, chartData);
 
     if (point != null) {
       setHoverPoint(point);

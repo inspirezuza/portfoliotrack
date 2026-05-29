@@ -62,6 +62,8 @@ export const englishUiCopy = {
         "3M": "3M",
         YTD: "YTD",
         "1Y": "1Y",
+        "3Y": "3Y",
+        "5Y": "5Y",
         START: "Start",
         ALL: "All",
       },
@@ -289,6 +291,13 @@ export const englishUiCopy = {
           value: "Value",
           note: "Note",
         },
+      },
+      detail: {
+        title: "Stock details",
+        open: (symbol: string) => `View ${symbol} details`,
+        loading: "Loading details...",
+        error: "Could not load stock details.",
+        viewFullPage: "View full page",
       },
     },
     summary: {
