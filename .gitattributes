@@ -1,0 +1,11 @@
+# Normalize line endings to LF in the repository for all text files.
+# Windows working copies may check out as CRLF (core.autocrlf); Prettier is
+# configured with endOfLine: "auto" so it accepts either locally.
+* text=auto eol=lf
+
+# Keep binary assets untouched.
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
