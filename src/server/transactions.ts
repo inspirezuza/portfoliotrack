@@ -25,6 +25,9 @@ import {
   type TransactionInstrumentOption,
 } from "@/server/transactions/mappers";
 import {
+  buildEditedPositionTransactions,
+  buildPendingPositionTransaction,
+  buildRemainingPositionTransactionsAfterDelete,
   getInsufficientQuantityDetails,
   getPendingTransactionOrderMarker,
   toChronologicalPositionTransaction,
@@ -162,16 +165,7 @@ export async function createTransaction(
       try {
         calculatePositionForInstrument([
           ...existingTransactions,
-          {
-            instrumentId: parsedInput.instrumentId,
-            tradeDate: parsedInput.tradeDate,
-            side: parsedInput.side,
-            quantity: parsedInput.quantity,
-            price: parsedInput.price,
-            fee: parsedInput.fee,
-            createdAt: getPendingTransactionOrderMarker(),
-            id: Number.MAX_SAFE_INTEGER,
-          },
+          buildPendingPositionTransaction(parsedInput),
         ]);
       } catch (error) {
         if (error instanceof InsufficientQuantityError) {
@@ -259,22 +253,7 @@ export async function updateTransaction(
       .where(eq(transactions.portfolioId, portfolioId))
       .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id));
 
-    const editedTransactions = transactionRows.map((transaction) => {
-      if (transaction.id !== id) {
-        return toChronologicalPositionTransaction(transaction);
-      }
-
-      return {
-        instrumentId: parsedInput.instrumentId,
-        tradeDate: parsedInput.tradeDate,
-        side: parsedInput.side,
-        quantity: parsedInput.quantity,
-        price: parsedInput.price,
-        fee: parsedInput.fee,
-        createdAt: transaction.createdAt,
-        id,
-      };
-    });
+    const editedTransactions = buildEditedPositionTransactions(transactionRows, id, parsedInput);
 
     try {
       calculatePositions(editedTransactions);
@@ -344,11 +323,7 @@ export async function deleteTransaction(
     }
 
     try {
-      calculatePositions(
-        transactionRows
-          .filter((transaction) => transaction.id !== id)
-          .map(toChronologicalPositionTransaction),
-      );
+      calculatePositions(buildRemainingPositionTransactionsAfterDelete(transactionRows, id));
     } catch (error) {
       if (error instanceof InsufficientQuantityError) {
         throw new TransactionServiceError(
