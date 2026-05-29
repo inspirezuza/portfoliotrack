@@ -1,54 +1,7 @@
+import { thaiCoreUiCopy } from "@/lib/ui/copy/core";
+
 export const thaiUiCopy = {
-  shared: {
-    all: "ทั้งหมด",
-    add: "เพิ่ม",
-    saved: "บันทึกแล้ว",
-    search: "ค้นหา",
-    waiting: "รอข้อมูล",
-    noData: "ไม่มีข้อมูล",
-    noCache: "ไม่มีแคช",
-    noPositions: "ไม่มีสถานะลงทุน",
-    noOpenPositions: "ไม่มีสถานะลงทุนที่เปิดอยู่",
-    noTradesYet: "ยังไม่มีรายการซื้อขาย",
-    mixed: "หลายสกุลเงิน",
-    pending: "รอข้อมูล",
-    sortAscending: "น้อยไปมาก",
-    sortDescending: "มากไปน้อย",
-    sortLabel: (label: string, direction: string) => `เรียง ${label} ${direction}`,
-    countOf: (visible: number, total: number, unit: string) =>
-      `แสดง ${visible} จาก ${total} ${unit}`,
-    positionCount: (count: number) => `${count} สถานะ`,
-    transactionCount: (count: number) => `${count} รายการ`,
-    separator: " / ",
-  },
-  shell: {
-    appTagline: "",
-    mainNavigation: "เมนูหลัก",
-    homeLabel: "PortfolioTrack หน้าแรก",
-    primaryNavigation: "การนำทางหลัก",
-    portfolioLabel: "พอร์ต",
-    allPortfolios: "พอร์ตรวม",
-    managePortfolios: "จัดการ",
-    nav: {
-      dashboard: "ภาพรวม",
-      holdings: "หุ้นที่ถือ",
-      transactions: "รายการซื้อขาย",
-    },
-    navShort: {
-      dashboard: "ภาพ",
-      holdings: "หุ้น",
-      transactions: "ซื้อขาย",
-    },
-    language: "ภาษา",
-    themeLabel: "ธีม",
-    theme: {
-      light: "สว่าง",
-      dark: "มืด",
-    },
-    changingLanguage: "กำลังเปลี่ยนภาษา...",
-    switchingPortfolio: "กำลังเปลี่ยนพอร์ต...",
-    signingOut: "กำลังออกจากระบบ...",
-  },
+  ...thaiCoreUiCopy,
   dashboard: {
     workspace: "พื้นที่ทำงาน",
     title: "ภาพรวม",

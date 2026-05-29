@@ -1,54 +1,7 @@
+import { englishCoreUiCopy } from "@/lib/ui/copy/core";
+
 export const englishUiCopy = {
-  shared: {
-    all: "All",
-    add: "Add",
-    saved: "Saved",
-    search: "Search",
-    waiting: "Waiting",
-    noData: "No data",
-    noCache: "No cache",
-    noPositions: "No positions",
-    noOpenPositions: "No open positions",
-    noTradesYet: "No trades yet",
-    mixed: "Mixed",
-    pending: "Pending",
-    sortAscending: "ascending",
-    sortDescending: "descending",
-    sortLabel: (label: string, direction: string) => `Sort ${label} ${direction}`,
-    countOf: (visible: number, total: number, unit: string) =>
-      `Showing ${visible} of ${total} ${unit}`,
-    positionCount: (count: number) => `${count} positions`,
-    transactionCount: (count: number) => `${count} transactions`,
-    separator: " / ",
-  },
-  shell: {
-    appTagline: "",
-    mainNavigation: "Main navigation",
-    homeLabel: "PortfolioTrack home",
-    primaryNavigation: "Primary",
-    portfolioLabel: "Portfolio",
-    allPortfolios: "All portfolios",
-    managePortfolios: "Manage",
-    nav: {
-      dashboard: "Dashboard",
-      holdings: "Holdings",
-      transactions: "Transactions",
-    },
-    navShort: {
-      dashboard: "Dash",
-      holdings: "Hold",
-      transactions: "Trade",
-    },
-    language: "Language",
-    themeLabel: "Theme",
-    theme: {
-      light: "Light",
-      dark: "Dark",
-    },
-    changingLanguage: "Changing language...",
-    switchingPortfolio: "Switching portfolio...",
-    signingOut: "Signing out...",
-  },
+  ...englishCoreUiCopy,
   dashboard: {
     workspace: "Workspace",
     title: "Dashboard",
