@@ -149,6 +149,58 @@ export function formatSeriesPointValue(value: number, mode: PerformanceMode, loc
   return formatModeValue(value, mode, locale);
 }
 
+export function getBenchmarkModeCopy({
+  copy,
+  mode,
+  returnBasis,
+}: {
+  copy: ReturnType<typeof getUiCopy>["charts"]["benchmark"];
+  mode: PerformanceMode;
+  returnBasis: ReturnBasis;
+}) {
+  const returnBasisCopy = copy.returnBasis[returnBasis];
+
+  if (mode === "INDEXED") {
+    return {
+      portfolioName: returnBasisCopy.portfolioName,
+      benchmarkName: copy.modeCopy.INDEXED.benchmarkName,
+      yAxisLabel: returnBasisCopy.yAxisLabel,
+    };
+  }
+
+  return copy.modeCopy[mode];
+}
+
+export function getShouldShowPrimaryBenchmarkLine({
+  mode,
+  shouldShowOverlayComparisons,
+}: {
+  mode: PerformanceMode;
+  shouldShowOverlayComparisons: boolean;
+}) {
+  return mode !== "INDEXED" || !shouldShowOverlayComparisons;
+}
+
+export function getBenchmarkDisplayState({
+  copy,
+  mode,
+  returnBasis,
+  shouldShowOverlayComparisons,
+}: {
+  copy: ReturnType<typeof getUiCopy>["charts"]["benchmark"];
+  mode: PerformanceMode;
+  returnBasis: ReturnBasis;
+  shouldShowOverlayComparisons: boolean;
+}) {
+  return {
+    modeCopy: getBenchmarkModeCopy({ copy, mode, returnBasis }),
+    shouldShowPrimaryBenchmarkLine: getShouldShowPrimaryBenchmarkLine({
+      mode,
+      shouldShowOverlayComparisons,
+    }),
+  };
+}
+
 export function getUnavailableMessage({
   benchmarkSymbol,
   copy,

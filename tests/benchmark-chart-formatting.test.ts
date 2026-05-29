@@ -6,9 +6,13 @@ import {
   formatModeValue,
   formatPerformanceMoney,
   formatSeriesPointValue,
+  getBenchmarkDisplayState,
+  getBenchmarkModeCopy,
   getSeriesChangeValue,
+  getShouldShowPrimaryBenchmarkLine,
   getValueClassName,
 } from "../src/components/benchmark-chart/formatting";
+import { getUiCopy } from "../src/lib/ui/copy";
 import type { ChartPoint } from "../src/components/benchmark-chart/types";
 
 function createChartPoint(overrides: Partial<ChartPoint> = {}): ChartPoint {
@@ -66,4 +70,49 @@ test("value tone class only marks non-zero values", () => {
   assert.equal(getValueClassName(0), "");
   assert.equal(getValueClassName(1), "value-positive");
   assert.equal(getValueClassName(-1), "value-negative");
+});
+
+test("benchmark display helpers preserve mode copy and primary benchmark visibility", () => {
+  const copy = getUiCopy("EN").charts.benchmark;
+
+  assert.deepEqual(getBenchmarkModeCopy({ copy, mode: "INDEXED", returnBasis: "TWR" }), {
+    portfolioName: "Portfolio TWR",
+    benchmarkName: "Benchmark return",
+    yAxisLabel: "TWR",
+  });
+  assert.deepEqual(getBenchmarkModeCopy({ copy, mode: "GAP", returnBasis: "ABSOLUTE" }), {
+    portfolioName: "Portfolio gap",
+    benchmarkName: "Benchmark baseline",
+    yAxisLabel: "Gap",
+  });
+  assert.equal(
+    getShouldShowPrimaryBenchmarkLine({
+      mode: "INDEXED",
+      shouldShowOverlayComparisons: true,
+    }),
+    false,
+  );
+  assert.equal(
+    getShouldShowPrimaryBenchmarkLine({
+      mode: "GAP",
+      shouldShowOverlayComparisons: true,
+    }),
+    true,
+  );
+  assert.deepEqual(
+    getBenchmarkDisplayState({
+      copy,
+      mode: "INDEXED",
+      returnBasis: "TWR",
+      shouldShowOverlayComparisons: true,
+    }),
+    {
+      modeCopy: {
+        portfolioName: "Portfolio TWR",
+        benchmarkName: "Benchmark return",
+        yAxisLabel: "TWR",
+      },
+      shouldShowPrimaryBenchmarkLine: false,
+    },
+  );
 });

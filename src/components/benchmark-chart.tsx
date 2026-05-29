@@ -50,6 +50,8 @@ import {
   formatModeValue,
   getAbsoluteSummaryMessage,
   getBasisLabel,
+  getBenchmarkModeCopy,
+  getShouldShowPrimaryBenchmarkLine,
   getUnavailableMessage,
 } from "@/components/benchmark-chart/formatting";
 import { BenchmarkRangeSummaryStrip } from "@/components/benchmark-chart/range-summary-strip";
@@ -124,12 +126,10 @@ export function BenchmarkChart({
     performanceSeries.twr.length > 0 ||
     performanceSeries.absolute.length > 0 ||
     performanceSeries.mwr.length > 0;
-  const returnBasisCopy = copy.charts.benchmark.returnBasis[returnBasis];
   const absoluteSummaryMessage = getAbsoluteSummaryMessage({
     copy: copy.charts.benchmark,
     status: performanceSummary.status,
   });
-  const shouldShowAbsoluteSummary = performanceSummary.status !== "no-transactions";
   useEffect(() => {
     if (returnBasis !== "TWR" && mode === "DRAWDOWN") {
       setMode("INDEXED");
@@ -219,15 +219,15 @@ export function BenchmarkChart({
     benchmarkChange: selectedBenchmarkChange,
     gap: selectedGap,
   } = getSelectionChangeSummary({ points: selectionPoints, returnBasis });
-  const modeCopy =
-    mode === "INDEXED"
-      ? {
-          portfolioName: returnBasisCopy.portfolioName,
-          benchmarkName: copy.charts.benchmark.modeCopy.INDEXED.benchmarkName,
-          yAxisLabel: returnBasisCopy.yAxisLabel,
-        }
-      : copy.charts.benchmark.modeCopy[mode];
-  const shouldShowPrimaryBenchmarkLine = mode !== "INDEXED" || !shouldShowOverlayComparisons;
+  const modeCopy = getBenchmarkModeCopy({
+    copy: copy.charts.benchmark,
+    mode,
+    returnBasis,
+  });
+  const shouldShowPrimaryBenchmarkLine = getShouldShowPrimaryBenchmarkLine({
+    mode,
+    shouldShowOverlayComparisons,
+  });
   const yAxis = useMemo(
     () =>
       getRoundedPercentAxis(
@@ -426,7 +426,7 @@ export function BenchmarkChart({
 
       {renderChartControls("chart-control-stack chart-control-stack-mobile")}
 
-      {shouldShowAbsoluteSummary ? (
+      {performanceSummary.status !== "no-transactions" ? (
         <BenchmarkAbsoluteSummaryStrip
           basisReturn={basisReturn}
           copy={copy.charts.benchmark}
@@ -434,7 +434,7 @@ export function BenchmarkChart({
           message={absoluteSummaryMessage}
           performanceSummary={performanceSummary}
           returnBasis={returnBasis}
-          returnBasisCopy={returnBasisCopy}
+          returnBasisCopy={copy.charts.benchmark.returnBasis[returnBasis]}
         />
       ) : null}
 
