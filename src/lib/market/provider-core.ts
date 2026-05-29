@@ -18,6 +18,7 @@ import {
   type RefreshContext,
   type RefreshTarget,
 } from "@/lib/market/refresh-context";
+import { fetchMarketDataProviderPayloads } from "@/lib/market/provider-fetch";
 import { classifyRefreshPayloads } from "@/lib/market/refresh-classification";
 import {
   buildEmptyMarketDataRefreshBatchResult,
@@ -31,13 +32,7 @@ import {
   INTRADAY_REFRESH_WINDOWS,
   withIncrementalHistoryStartDates,
 } from "@/lib/market/refresh-coverage";
-import type {
-  MarketDataProvider,
-  MarketHistoricalSeries,
-  MarketIntradayInterval,
-  MarketIntradaySeries,
-  MarketQuoteSnapshot,
-} from "@/lib/market/types";
+import type { MarketDataProvider } from "@/lib/market/types";
 import { yahooProvider } from "@/lib/market/yahoo-provider-core";
 import { parsePortfolioId } from "@/lib/portfolio/portfolio-id";
 
@@ -94,12 +89,6 @@ export function getMarketDataProvider(): MarketDataProvider {
 
 function compareIsoTimestampsDescending(left: string, right: string) {
   return right.localeCompare(left);
-}
-
-function addDays(date: Date, days: number) {
-  const nextDate = new Date(date);
-  nextDate.setUTCDate(nextDate.getUTCDate() + days);
-  return nextDate;
 }
 
 async function runRefreshWithDedup(context: RefreshContext) {
@@ -332,54 +321,12 @@ async function performRefreshMarketDataCache(
   }
 
   const provider = getMarketDataProvider();
-  const quoteRows = await provider.getLatestQuotes(providerSymbols);
-  const quoteByProviderSymbol = new Map(
-    quoteRows.map((quote) => [quote.providerSymbol, quote] satisfies [string, MarketQuoteSnapshot]),
-  );
-  const historyTargets = refreshTargets.filter((target) => target.historyStartDate != null);
-  const historicalResults = await Promise.all(
-    historyTargets.map(
-      async (target) =>
-        [
-          target.instrument.id,
-          await provider.getHistoricalPrices(target.instrument.providerSymbol, {
-            startDate: target.historyStartDate ?? new Date().toISOString().slice(0, 10),
-          }),
-        ] as const,
-    ),
-  );
-  const historyByInstrumentId = new Map(
-    historicalResults.filter(([, result]) => result != null) as Array<
-      [number, MarketHistoricalSeries]
-    >,
-  );
-  const now = new Date();
-  const intradayResults = await Promise.all(
-    refreshTargets.flatMap((target) =>
-      INTRADAY_REFRESH_WINDOWS.map(
-        async (window) =>
-          [
-            target.instrument.id,
-            window.interval,
-            await provider.getIntradayPrices(target.instrument.providerSymbol, {
-              interval: window.interval,
-              startAt: addDays(now, -window.lookbackDays).toISOString(),
-            }),
-          ] as const,
-      ),
-    ),
-  );
-  const intradayByInstrumentIdAndInterval = new Map(
-    intradayResults
-      .filter(
-        (row): row is readonly [number, MarketIntradayInterval, MarketIntradaySeries] =>
-          row[2] != null,
-      )
-      .map(
-        ([instrumentId, interval, result]) =>
-          [`${instrumentId}:${interval}`, result] satisfies [string, MarketIntradaySeries],
-      ),
-  );
+  const { historyByInstrumentId, intradayByInstrumentIdAndInterval, quoteByProviderSymbol } =
+    await fetchMarketDataProviderPayloads({
+      intradayWindows: INTRADAY_REFRESH_WINDOWS,
+      provider,
+      targets: refreshTargets,
+    });
   const { issues, validHistories, validIntradaySeries, validQuotes } = classifyRefreshPayloads({
     historyByInstrumentId,
     intradayByInstrumentIdAndInterval,
