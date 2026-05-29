@@ -1,13 +1,7 @@
 import { asc, eq, inArray } from "drizzle-orm";
 import { OperationTimeoutError, withOperationTimeout } from "@/lib/async/timeout";
 import { db } from "@/lib/db/runtime-core";
-import {
-  historicalPrices,
-  instruments,
-  intradayPrices,
-  priceSnapshots,
-  transactions,
-} from "@/lib/db/schema";
+import { instruments, priceSnapshots, transactions } from "@/lib/db/schema";
 import {
   DEFAULT_AUTO_REFRESH_TIMEOUT_MS,
   ensureBenchmarkWatchlistInstruments,
@@ -19,6 +13,7 @@ import {
   type RefreshTarget,
 } from "@/lib/market/refresh-context";
 import { fetchMarketDataProviderPayloads } from "@/lib/market/provider-fetch";
+import { persistRefreshPayloads } from "@/lib/market/refresh-persist";
 import { classifyRefreshPayloads } from "@/lib/market/refresh-classification";
 import {
   buildEmptyMarketDataRefreshBatchResult,
@@ -335,83 +330,10 @@ async function performRefreshMarketDataCache(
     targets: refreshTargets,
   });
 
-  let historicalBarCount = 0;
-  let intradayBarCount = 0;
-
-  await db.transaction(async (tx) => {
-    for (const [instrumentId, quote] of validQuotes) {
-      await tx
-        .insert(priceSnapshots)
-        .values({
-          instrumentId,
-          price: quote.price,
-          currency: quote.currency,
-          asOf: quote.asOf,
-          source: quote.source,
-        })
-        .onConflictDoUpdate({
-          target: priceSnapshots.instrumentId,
-          set: {
-            price: quote.price,
-            currency: quote.currency,
-            asOf: quote.asOf,
-            source: quote.source,
-          },
-        });
-    }
-
-    for (const [instrumentId, series] of validHistories) {
-      for (const bar of series.bars) {
-        await tx
-          .insert(historicalPrices)
-          .values({
-            instrumentId,
-            priceDate: bar.date,
-            close: bar.close,
-            currency: series.currency,
-            source: series.source,
-          })
-          .onConflictDoUpdate({
-            target: [historicalPrices.instrumentId, historicalPrices.priceDate],
-            set: {
-              close: bar.close,
-              currency: series.currency,
-              source: series.source,
-            },
-          });
-
-        historicalBarCount += 1;
-      }
-    }
-
-    for (const { instrumentId, series } of validIntradaySeries.values()) {
-      for (const bar of series.bars) {
-        await tx
-          .insert(intradayPrices)
-          .values({
-            instrumentId,
-            interval: series.interval,
-            observedAt: bar.observedAt,
-            close: bar.close,
-            currency: series.currency,
-            source: series.source,
-          })
-          .onConflictDoUpdate({
-            target: [
-              intradayPrices.instrumentId,
-              intradayPrices.interval,
-              intradayPrices.observedAt,
-            ],
-            set: {
-              close: bar.close,
-              currency: series.currency,
-              source: series.source,
-            },
-          });
-
-        intradayBarCount += 1;
-      }
-    }
+  const { historicalBarCount, intradayBarCount } = await persistRefreshPayloads({
+    validHistories,
+    validIntradaySeries,
+    validQuotes,
   });
 
   const latestSuccessfulAsOf =
