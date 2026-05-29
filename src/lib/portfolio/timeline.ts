@@ -1,114 +1,34 @@
-import { normalizeMoney } from "@/lib/db/precision";
 import {
   createEmptyPerformanceSeries,
   toIndexedPerformancePoint,
-  type PerformancePointInterval,
   type PortfolioPerformanceSeries,
-  type ReturnPerformancePoint,
 } from "@/lib/portfolio/performance-series";
-import {
-  applyTransaction,
-  sortTransactionsChronologically,
-  type InstrumentPosition,
-} from "@/lib/portfolio/positions";
 import {
   buildAbsoluteComparisonSeries,
   buildCashFlowAdjustedComparisonSeries,
   buildMoneyWeightedComparisonSeries,
-  type PortfolioValuationPoint,
 } from "@/lib/portfolio/timeline-comparison";
-import {
-  advancePriceState,
-  buildPriceStates,
-  getTimelineAnchors,
-  toDailyPricePoints,
-  toDayStartTimestamp,
-  toIntradayPricePoints,
-  toTradeDay,
-} from "@/lib/portfolio/timeline-price-points";
-import type { TransactionSide } from "@/lib/validation/transaction";
+import { buildPortfolioValueSeries } from "@/lib/portfolio/timeline-value-series";
+import type {
+  PortfolioBenchmarkTimeline,
+  TimelineHistoricalPrice,
+  TimelineInstrument,
+  TimelineIntradayPrice,
+  TimelineTransaction,
+} from "@/lib/portfolio/timeline-types";
 
-export type TimelineInstrument = {
-  instrumentId: number;
-  symbol: string;
-  currency: string;
-};
-
-export type TimelineTransaction = {
-  instrumentId: number;
-  tradeDate: string;
-  side: TransactionSide;
-  quantity: number;
-  price: number;
-  fee: number;
-  createdAt?: string | null;
-  id?: number;
-};
-
-export type TimelineHistoricalPrice = {
-  instrumentId: number;
-  priceDate: string;
-  close: number;
-  currency: string;
-};
-
-export type TimelineIntradayPrice = {
-  instrumentId: number;
-  observedAt: string;
-  close: number;
-  currency: string;
-  interval: "5m" | "15m" | "1h";
-};
-
-export type TimelinePointInterval = PerformancePointInterval;
-
-export type PortfolioTimelinePoint = {
-  date: string;
-  value: number;
-  interval?: TimelinePointInterval;
-};
-
-export type BenchmarkTimelinePoint = {
-  date: string;
-  portfolio: number;
-  benchmark: number;
-  interval?: TimelinePointInterval;
-};
-
-export type PortfolioBenchmarkTimelineStatus =
-  | "ready"
-  | "no-transactions"
-  | "mixed-currency"
-  | "benchmark-currency-mismatch"
-  | "missing-portfolio-history"
-  | "missing-benchmark-history";
-
-export type BenchmarkComparisonBasis = "same-currency" | "native-currency-return";
-
-export type PortfolioBenchmarkTimeline = {
-  status: PortfolioBenchmarkTimelineStatus;
-  baselineDate: string | null;
-  portfolioCurrency: string | null;
-  benchmarkSymbol: string | null;
-  benchmarkCurrency: string | null;
-  comparisonBasis: BenchmarkComparisonBasis | null;
-  portfolio: PortfolioTimelinePoint[];
-  comparison: BenchmarkTimelinePoint[];
-  moneyWeightedComparison: ReturnPerformancePoint[];
-  absoluteComparison: ReturnPerformancePoint[];
-  performanceSeries: PortfolioPerformanceSeries;
-};
-
-function createEmptyPosition(instrumentId: number): InstrumentPosition {
-  return {
-    instrumentId,
-    quantity: 0,
-    averageCost: 0,
-    totalCost: 0,
-    realizedPnl: 0,
-    totalFees: 0,
-  };
-}
+export type {
+  BenchmarkComparisonBasis,
+  BenchmarkTimelinePoint,
+  PortfolioBenchmarkTimeline,
+  PortfolioBenchmarkTimelineStatus,
+  PortfolioTimelinePoint,
+  TimelineHistoricalPrice,
+  TimelineInstrument,
+  TimelineIntradayPrice,
+  TimelinePointInterval,
+  TimelineTransaction,
+} from "@/lib/portfolio/timeline-types";
 
 function getCurrentLocalIsoDate(now = new Date()) {
   const year = now.getFullYear();
@@ -116,93 +36,6 @@ function getCurrentLocalIsoDate(now = new Date()) {
   const day = String(now.getDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
-}
-
-function getExternalCashFlow(transaction: TimelineTransaction) {
-  const grossAmount = normalizeMoney(transaction.quantity * transaction.price);
-
-  return transaction.side === "BUY"
-    ? normalizeMoney(grossAmount + transaction.fee)
-    : normalizeMoney(-(grossAmount - transaction.fee));
-}
-
-function buildPortfolioValueSeries({
-  baselineDate,
-  transactions,
-  historicalPrices,
-  intradayPrices = [],
-}: {
-  baselineDate: string;
-  transactions: TimelineTransaction[];
-  historicalPrices: TimelineHistoricalPrice[];
-  intradayPrices?: TimelineIntradayPrice[];
-}) {
-  const orderedTransactions = sortTransactionsChronologically(transactions);
-  const baselineAt = toDayStartTimestamp(baselineDate);
-  const pricePoints = [
-    ...toDailyPricePoints(historicalPrices),
-    ...toIntradayPricePoints(intradayPrices),
-  ];
-  const priceAnchors = getTimelineAnchors(pricePoints.filter((row) => row.priceAt >= baselineAt));
-  const priceStates = buildPriceStates(pricePoints);
-  const positions = new Map<number, InstrumentPosition>();
-  const series: PortfolioValuationPoint[] = [];
-  let transactionIndex = 0;
-  let pendingCashFlow = 0;
-
-  for (const anchor of priceAnchors) {
-    const date = anchor.priceAt;
-
-    while (
-      transactionIndex < orderedTransactions.length &&
-      orderedTransactions[transactionIndex].tradeDate <= toTradeDay(date)
-    ) {
-      const transaction = orderedTransactions[transactionIndex];
-      const position =
-        positions.get(transaction.instrumentId) ?? createEmptyPosition(transaction.instrumentId);
-
-      applyTransaction(position, transaction);
-      positions.set(transaction.instrumentId, position);
-      pendingCashFlow = normalizeMoney(pendingCashFlow + getExternalCashFlow(transaction));
-      transactionIndex += 1;
-    }
-
-    let totalValue = 0;
-    let canValuePortfolio = true;
-    let hasOpenPosition = false;
-
-    for (const position of positions.values()) {
-      if (position.quantity <= 0) {
-        continue;
-      }
-
-      hasOpenPosition = true;
-      const close = advancePriceState(priceStates.get(position.instrumentId), date);
-
-      if (close == null) {
-        canValuePortfolio = false;
-        break;
-      }
-
-      totalValue = normalizeMoney(totalValue + position.quantity * close);
-    }
-
-    if (canValuePortfolio && (hasOpenPosition || pendingCashFlow !== 0)) {
-      series.push({
-        date,
-        interval: anchor.interval,
-        value: totalValue,
-        netCashFlow: pendingCashFlow,
-      });
-      pendingCashFlow = 0;
-    }
-  }
-
-  if (series.length === 0) {
-    return [];
-  }
-
-  return series;
 }
 
 export function buildPortfolioBenchmarkTimeline({
