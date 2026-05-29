@@ -46,7 +46,7 @@
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "recharts": "^3.8.1",
-    "yahoo-finance2": "^3.14.0",
+    "yahoo-finance2": "^3.14.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {
