@@ -8,6 +8,14 @@ import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
 import type { TransactionListItem } from "@/server/transactions";
 import { InstrumentLogo } from "@/components/instrument-logo";
+import {
+  getDeleteErrorMessage,
+  getNextTransactionSort,
+  getVisibleTransactions,
+  type ApiErrorResponse,
+  type SortState,
+  type TransactionSortKey,
+} from "@/components/transaction-table/table-helpers";
 
 type TransactionTableProps = {
   transactions: TransactionListItem[];
@@ -19,86 +27,11 @@ type TransactionTableProps = {
   onWorkspaceRefresh?: () => Promise<void> | void;
 };
 
-type ApiErrorResponse = {
-  error?: {
-    message?: string;
-  };
-};
-
 const TransactionDeleteDialog = lazy(() =>
   import("@/components/transaction-delete-dialog").then((module) => ({
     default: module.TransactionDeleteDialog,
   })),
 );
-
-type TransactionSortKey =
-  | "tradeDate"
-  | "instrument"
-  | "portfolio"
-  | "side"
-  | "broker"
-  | "quantity"
-  | "price"
-  | "fee"
-  | "netAmount";
-
-type SortDirection = "asc" | "desc";
-
-type SortState = {
-  key: TransactionSortKey;
-  direction: SortDirection;
-};
-
-function getDeleteErrorMessage(error: ApiErrorResponse["error"], fallback: string) {
-  return error?.message ?? fallback;
-}
-
-function getTransactionSortValue(transaction: TransactionListItem, key: TransactionSortKey) {
-  if (key === "instrument") {
-    return `${transaction.instrument.symbol} ${transaction.instrument.displayName} ${transaction.instrument.market}`;
-  }
-
-  if (key === "portfolio") {
-    return transaction.portfolioName ?? "";
-  }
-
-  return transaction[key];
-}
-
-function compareTransactions(
-  left: TransactionListItem,
-  right: TransactionListItem,
-  sort: SortState,
-) {
-  const leftValue = getTransactionSortValue(left, sort.key);
-  const rightValue = getTransactionSortValue(right, sort.key);
-  const comparison =
-    typeof leftValue === "string" && typeof rightValue === "string"
-      ? leftValue.localeCompare(rightValue)
-      : Number(leftValue) - Number(rightValue);
-
-  if (comparison !== 0) {
-    return sort.direction === "asc" ? comparison : -comparison;
-  }
-
-  return right.id - left.id;
-}
-
-function getTransactionSearchText(transaction: TransactionListItem) {
-  return [
-    transaction.tradeDate,
-    transaction.side,
-    transaction.broker,
-    transaction.notes ?? "",
-    transaction.portfolioName ?? "",
-    transaction.instrument.symbol,
-    transaction.instrument.displayName,
-    transaction.instrument.market,
-    transaction.instrument.currency,
-  ]
-    .join(" ")
-    .toLowerCase();
-}
 
 function SortableHeader({
   align = "left",
@@ -160,44 +93,13 @@ export function TransactionTable({
   const [searchQuery, setSearchQuery] = useState("");
   const showPortfolioColumn = transactions.some((transaction) => transaction.portfolioName != null);
   const columnCount = (canEdit ? 10 : 9) + (showPortfolioColumn ? 1 : 0);
-  const searchableTransactions = useMemo(
-    () =>
-      transactions.map((transaction) => ({
-        searchText: getTransactionSearchText(transaction),
-        transaction,
-      })),
-    [transactions],
+  const visibleTransactions = useMemo(
+    () => getVisibleTransactions({ searchQuery, sort, transactions }),
+    [searchQuery, sort, transactions],
   );
 
-  const visibleTransactions = useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLowerCase();
-
-    return searchableTransactions
-      .filter(({ searchText }) =>
-        normalizedQuery.length === 0 ? true : searchText.includes(normalizedQuery),
-      )
-      .map(({ transaction }) => transaction)
-      .sort((left, right) => compareTransactions(left, right, sort));
-  }, [searchQuery, searchableTransactions, sort]);
-
   function handleSort(sortKey: TransactionSortKey) {
-    setSort((currentSort) =>
-      currentSort.key === sortKey
-        ? {
-            key: sortKey,
-            direction: currentSort.direction === "asc" ? "desc" : "asc",
-          }
-        : {
-            key: sortKey,
-            direction:
-              sortKey === "instrument" ||
-              sortKey === "portfolio" ||
-              sortKey === "side" ||
-              sortKey === "broker"
-                ? "asc"
-                : "desc",
-          },
-    );
+    setSort((currentSort) => getNextTransactionSort(currentSort, sortKey));
   }
 
   async function handleDelete() {
