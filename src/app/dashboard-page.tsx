@@ -1,15 +1,10 @@
-import Link from "next/link";
-import { redirect } from "next/navigation";
 import {
   DeferredBenchmarkChart,
-  DeferredHoldingsAllocationChart,
-  DeferredHoldingsTable,
   DeferredMarketBenchmarks,
   DeferredPortfolioChart,
 } from "@/components/dashboard-deferred-widgets";
 import {
   formatAgeLabel,
-  formatCacheDateLabel,
   formatCacheDateParts,
   formatDashboardMoney,
   formatNetInvestedDetail,
@@ -18,11 +13,13 @@ import {
   formatUnrealizedPnlDetail,
   getValueTone,
 } from "@/components/dashboard-page/formatting";
+import { DashboardHoldingsPreviewCard } from "@/components/dashboard-page/holdings-preview-card";
+import { DashboardHoldingsSection } from "@/components/dashboard-page/holdings-section";
+import { DashboardPriceHealthCard } from "@/components/dashboard-page/price-health-card";
+import { redirect } from "next/navigation";
 import { appendSearchParams, buildRefreshMessage } from "@/components/dashboard-page/refresh";
 import { MarketRefreshStatus } from "@/components/market-refresh-status";
 import { PendingSubmitButton } from "@/components/pending-submit-button";
-import { SummaryCards } from "@/components/summary-cards";
-import { formatPercentRatio, formatQuantity } from "@/lib/format";
 import { isAdminAuthenticated } from "@/lib/auth/admin";
 import {
   getPortfolioDashboardPath,
@@ -259,119 +256,26 @@ export default async function DashboardPage({ portfolioKey, searchParams }: Dash
         </div>
 
         <aside className="workstation-side-stack">
-          <article className="surface-card price-health-card">
-            <div className="side-card-header">
-              <div>
-                <p className="eyebrow">{copy.dashboard.prices}</p>
-                <h2 className="side-card-title">{copy.dashboard.coverage}</h2>
-              </div>
-              <span className="state-pill state-pill-muted">{priceFreshnessLabel}</span>
-            </div>
+          <DashboardPriceHealthCard
+            closedPositionCount={holdingsSnapshot.closedPositionCount}
+            copy={copy}
+            latestMarketDataAsOf={marketData.latestMarketDataAsOf}
+            latestPriceLabel={latestPriceLabel}
+            missingPricePositionCount={summary.missingPricePositionCount}
+            pricedPositionCount={summary.pricedPositionCount}
+            priceFreshnessLabel={priceFreshnessLabel}
+            refreshRedirectPath={getPortfolioDashboardPath(selectedPortfolio.key)}
+            showRefresh={isAdmin && !isAggregatePortfolio}
+          />
 
-            <div className="compact-stat-grid">
-              <div>
-                <span>{copy.dashboard.priced}</span>
-                <strong>{summary.pricedPositionCount}</strong>
-              </div>
-              <div>
-                <span>{copy.dashboard.missing}</span>
-                <strong>{summary.missingPricePositionCount}</strong>
-              </div>
-              <div>
-                <span>{copy.dashboard.closed}</span>
-                <strong>{holdingsSnapshot.closedPositionCount}</strong>
-              </div>
-              <div>
-                <span>{copy.dashboard.latestCache}</span>
-                <strong className="cache-date-stack">
-                  <span>{latestPriceLabel.date}</span>
-                  {latestPriceLabel.time == null ? null : (
-                    <time dateTime={marketData.latestMarketDataAsOf ?? undefined}>
-                      {latestPriceLabel.time}
-                    </time>
-                  )}
-                </strong>
-              </div>
-            </div>
-
-            {isAdmin && !isAggregatePortfolio ? (
-              <form action="/api/market-data/refresh" method="post" className="refresh-form">
-                <input
-                  type="hidden"
-                  name="redirectTo"
-                  value={getPortfolioDashboardPath(selectedPortfolio.key)}
-                />
-                <PendingSubmitButton
-                  className="secondary-button"
-                  pendingLabel={copy.dashboard.refreshing}
-                >
-                  {copy.dashboard.updateMarketData}
-                </PendingSubmitButton>
-              </form>
-            ) : null}
-          </article>
-
-          <article className="surface-card holdings-preview-card">
-            <div className="side-card-header">
-              <div>
-                <p className="eyebrow">{copy.dashboard.holdings}</p>
-                <h2 className="side-card-title">{copy.dashboard.openPositions}</h2>
-              </div>
-              <span className="state-pill state-pill-muted">
-                {copy.shared.positionCount(holdingsSnapshot.openPositionCount)}
-              </span>
-            </div>
-
-            {leadingHoldings.length === 0 ? (
-              <div className="empty-panel">
-                <strong>{copy.shared.noOpenPositions}</strong>
-              </div>
-            ) : (
-              <>
-                <DeferredHoldingsAllocationChart
-                  holdings={holdingsSnapshot.holdings}
-                  language={language}
-                />
-
-                <ul className="holding-bars">
-                  {leadingHoldings.map((holding) => (
-                    <li key={holding.instrumentId}>
-                      <div className="holding-bar-row">
-                        <div>
-                          <Link
-                            href={`/assets/${encodeURIComponent(holding.symbol)}`}
-                            className="holding-symbol"
-                          >
-                            {holding.symbol}
-                          </Link>
-                          <span>{holding.displayName}</span>
-                        </div>
-                        <strong>
-                          {holding.portfolioWeight == null
-                            ? formatQuantity(holding.quantity, { locale })
-                            : formatPercentRatio(holding.portfolioWeight, {
-                                locale,
-                                maximumFractionDigits: 0,
-                                minimumFractionDigits: 0,
-                              })}
-                        </strong>
-                      </div>
-                      <div className="holding-bar-track">
-                        <span
-                          style={{
-                            width:
-                              holding.portfolioWeight == null
-                                ? "18%"
-                                : `${Math.min(100, Math.max(3, holding.portfolioWeight * 100))}%`,
-                          }}
-                        />
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </article>
+          <DashboardHoldingsPreviewCard
+            copy={copy}
+            holdings={holdingsSnapshot.holdings}
+            language={language}
+            leadingHoldings={leadingHoldings}
+            locale={locale}
+            openPositionCount={holdingsSnapshot.openPositionCount}
+          />
         </aside>
       </section>
 
@@ -381,50 +285,16 @@ export default async function DashboardPage({ portfolioKey, searchParams }: Dash
         quotes={benchmarkWatchlist.quotes}
       />
 
-      <section className="dashboard-holdings-section" aria-labelledby="dashboard-holdings-title">
-        <div className="dashboard-holdings-header">
-          <div>
-            <p className="eyebrow">{copy.holdings.pageEyebrow}</p>
-            <h2 id="dashboard-holdings-title" className="section-title">
-              {copy.holdings.pageTitle}
-            </h2>
-          </div>
-          <span className="state-pill state-pill-muted">{selectedPortfolioName}</span>
-        </div>
-
-        <section
-          className="asset-performance-grid dashboard-holdings-status"
-          aria-label={copy.holdings.statusLabel}
-        >
-          <article className="metric-card dashboard-status-card">
-            <p className="metric-value">{holdingsSnapshot.openPositionCount}</p>
-            <p className="metric-label">{copy.holdings.open}</p>
-          </article>
-          <article className="metric-card dashboard-status-card">
-            <p className="metric-value">{holdingsSnapshot.pricedPositionCount}</p>
-            <p className="metric-label">{copy.holdings.priced}</p>
-          </article>
-          <article className="metric-card dashboard-status-card">
-            <p className="metric-value">{holdingsSnapshot.missingPricePositionCount}</p>
-            <p className="metric-label">{copy.holdings.missing}</p>
-          </article>
-          <article className="metric-card dashboard-status-card">
-            <p className="metric-value metric-value-compact">
-              {formatCacheDateLabel(holdingsSnapshot.latestPriceAsOf, locale, copy.shared.noCache)}
-            </p>
-            <p className="metric-label">{copy.holdings.latestCache}</p>
-          </article>
-        </section>
-
-        <DeferredHoldingsTable
-          holdings={holdingsSnapshot.holdings}
-          language={language}
-          canEdit={isAdmin}
-          canRefresh={isAdmin && !isAggregatePortfolio}
-        />
-
-        <SummaryCards language={language} summary={summary} />
-      </section>
+      <DashboardHoldingsSection
+        canEdit={isAdmin}
+        canRefresh={isAdmin && !isAggregatePortfolio}
+        copy={copy}
+        holdingsSnapshot={holdingsSnapshot}
+        language={language}
+        locale={locale}
+        selectedPortfolioName={selectedPortfolioName}
+        summary={summary}
+      />
     </section>
   );
 }
