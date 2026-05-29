@@ -5,76 +5,30 @@ import {
 } from "@/lib/transactions/instrument-selection";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
-import type { TransactionBroker } from "@/lib/validation/transaction";
 import type { TransactionInstrumentOption, TransactionListItem } from "@/server/transactions";
+import type {
+  ApiErrorResponse,
+  InstrumentSearchResult,
+  NewInstrumentFormValues,
+  TransactionFormSyncState,
+  TransactionFormValues,
+  TransactionRequestBody,
+} from "@/components/transaction-form/form-types";
 
-export type TransactionFormValues = {
-  instrumentId: string;
-  tradeDate: string;
-  side: "BUY" | "SELL";
-  broker: TransactionBroker;
-  quantity: string;
-  price: string;
-  fee: string;
-  notes: string;
-};
-
-export type NewInstrumentFormValues = {
-  symbol: string;
-  displayName: string;
-  market: string;
-  instrumentType: string;
-  currency: string;
-  providerSymbol: string;
-};
-
-export type ApiErrorResponse = {
-  error?: {
-    code?: string;
-    message?: string;
-    details?: {
-      availableQuantity?: number;
-      issues?: {
-        fieldErrors?: Record<string, string[] | undefined>;
-        formErrors?: string[];
-      };
-    } | null;
-  };
-};
-
-export type InstrumentApiResponse = ApiErrorResponse & {
-  instrument?: TransactionInstrumentOption;
-};
-
-export type InstrumentSearchResult = NewInstrumentFormValues & {
-  exchangeName: string | null;
-};
-
-export type InstrumentSearchApiResponse = ApiErrorResponse & {
-  results?: InstrumentSearchResult[];
-};
-
-export type TransactionRequestBody = {
-  id?: number;
-  portfolioId?: number;
-  instrumentId: number;
-  tradeDate: string;
-  side: TransactionFormValues["side"];
-  broker: TransactionBroker;
-  quantity: number;
-  price: number;
-  fee: number;
-  notes: string;
-};
-
-export type TransactionFormSyncState = {
-  values: TransactionFormValues;
-  instrumentSearch?: string;
-  highlightedInstrumentId?: string | null;
-  isInstrumentComboboxOpen?: boolean;
-  errorMessage?: string | null;
-  successMessage?: string | null;
-};
+export type {
+  ApiErrorResponse,
+  InstrumentApiResponse,
+  InstrumentSearchApiResponse,
+  InstrumentSearchResult,
+  NewInstrumentFormValues,
+  TransactionFormSyncState,
+  TransactionFormValues,
+  TransactionRequestBody,
+} from "@/components/transaction-form/form-types";
+export {
+  getInstrumentSearchKeyAction,
+  getNextHighlightedInstrumentId,
+} from "@/components/transaction-form/instrument-combobox-helpers";
 
 export function getTransactionSubmitButtonLabel({
   copy,
@@ -131,99 +85,6 @@ export function getNextTransactionFormSyncState({
             instrumentId,
           },
   };
-}
-
-export function getNextHighlightedInstrumentId({
-  currentHighlightedInstrumentId,
-  direction,
-  visibleInstrumentOptions,
-}: {
-  currentHighlightedInstrumentId: string | null;
-  direction: "down" | "up";
-  visibleInstrumentOptions: TransactionInstrumentOption[];
-}) {
-  if (visibleInstrumentOptions.length === 0) {
-    return null;
-  }
-
-  const currentIndex = visibleInstrumentOptions.findIndex(
-    (instrument) => String(instrument.id) === currentHighlightedInstrumentId,
-  );
-  const fallbackIndex = direction === "down" ? -1 : 0;
-  const nextIndex =
-    direction === "down"
-      ? (currentIndex + 1) % visibleInstrumentOptions.length
-      : (currentIndex === -1 ? fallbackIndex : currentIndex - 1 + visibleInstrumentOptions.length) %
-        visibleInstrumentOptions.length;
-
-  return String(visibleInstrumentOptions[nextIndex].id);
-}
-
-export function getInstrumentSearchKeyAction({
-  currentHighlightedInstrumentId,
-  isInstrumentComboboxOpen,
-  key,
-  selectedInstrumentLabel,
-  visibleInstrumentOptions,
-}: {
-  currentHighlightedInstrumentId: string | null;
-  isInstrumentComboboxOpen: boolean;
-  key: string;
-  selectedInstrumentLabel: string;
-  visibleInstrumentOptions: TransactionInstrumentOption[];
-}) {
-  const opensCombobox = ["ArrowDown", "ArrowUp", "Enter"].includes(key);
-  const nextIsInstrumentComboboxOpen = opensCombobox ? true : isInstrumentComboboxOpen;
-
-  if (key === "ArrowDown" || key === "ArrowUp") {
-    return {
-      highlightedInstrumentId: getNextHighlightedInstrumentId({
-        currentHighlightedInstrumentId,
-        direction: key === "ArrowDown" ? "down" : "up",
-        visibleInstrumentOptions,
-      }),
-      isInstrumentComboboxOpen: nextIsInstrumentComboboxOpen,
-      preventDefault: true,
-      selectedInstrument: null,
-    };
-  }
-
-  if (key === "Enter" && isInstrumentComboboxOpen) {
-    const selectedInstrument =
-      visibleInstrumentOptions.find(
-        (instrument) => String(instrument.id) === currentHighlightedInstrumentId,
-      ) ?? visibleInstrumentOptions[0];
-
-    if (selectedInstrument) {
-      return {
-        highlightedInstrumentId: String(selectedInstrument.id),
-        isInstrumentComboboxOpen: false,
-        preventDefault: true,
-        selectedInstrument,
-      };
-    }
-  }
-
-  if (key === "Escape") {
-    return {
-      highlightedInstrumentId: currentHighlightedInstrumentId,
-      instrumentSearch: selectedInstrumentLabel,
-      isInstrumentComboboxOpen: false,
-      preventDefault: false,
-      selectedInstrument: null,
-    };
-  }
-
-  if (opensCombobox) {
-    return {
-      highlightedInstrumentId: currentHighlightedInstrumentId,
-      isInstrumentComboboxOpen: nextIsInstrumentComboboxOpen,
-      preventDefault: false,
-      selectedInstrument: null,
-    };
-  }
-
-  return null;
 }
 
 export function getTodayDate() {
