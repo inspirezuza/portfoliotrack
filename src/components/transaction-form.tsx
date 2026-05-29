@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { PendingBanner } from "@/components/loading-indicator";
 import {
   findExactInstrumentSearchMatch,
   sortInstrumentOptions,
@@ -29,14 +28,7 @@ import {
   type NewInstrumentFormValues,
   type TransactionFormValues,
 } from "@/components/transaction-form/form-helpers";
-import { TransactionFormFields } from "@/components/transaction-form/form-fields";
-import { TransactionInstrumentCombobox } from "@/components/transaction-form/instrument-combobox";
-import { InstrumentLookupPanel } from "@/components/transaction-form/instrument-lookup";
-import {
-  TransactionFormEmptyState,
-  TransactionFormFooter,
-  TransactionFormHeader,
-} from "@/components/transaction-form/panel-sections";
+import { TransactionFormPanel } from "@/components/transaction-form/form-panel";
 
 type TransactionFormProps = {
   instruments: TransactionInstrumentOption[];
@@ -468,106 +460,90 @@ export function TransactionForm({
   }
 
   return (
-    <article
-      className="surface-card transaction-panel"
-      aria-busy={isFormBusy || isCreatingInstrument}
-    >
-      <TransactionFormHeader copy={copy} isEditing={isEditing} />
+    <TransactionFormPanel
+      bodyProps={
+        instrumentOptions.length === 0
+          ? null
+          : {
+              copy,
+              errorMessage,
+              highlightedInstrumentId,
+              idleLabel: submitIdleButtonLabel,
+              instrumentSearch,
+              isCancelDisabled: isSubmitting || isRefreshing,
+              isDisabled,
+              isEditing,
+              isFormBusy,
+              isInstrumentComboboxOpen,
+              isSubmitDisabled,
+              locale,
+              onCancelEdit: handleCancelEdit,
+              onInstrumentBlur: (event) => {
+                if (event.currentTarget.contains(event.relatedTarget)) {
+                  return;
+                }
 
-      <InstrumentLookupPanel
-        copy={copy}
-        instrumentErrorMessage={instrumentErrorMessage}
-        instrumentLookupQuery={instrumentLookupQuery}
-        instrumentLookupResults={instrumentLookupResults}
-        instrumentOptions={instrumentOptions}
-        instrumentSuccessMessage={instrumentSuccessMessage}
-        isCreatingInstrument={isCreatingInstrument}
-        isInstrumentLookupMenuOpen={isInstrumentLookupMenuOpen}
-        isSearchingInstruments={isSearchingInstruments}
-        onClear={clearInstrumentLookup}
-        onFocus={() => {
-          if (!selectedInstrumentLookupResult && instrumentLookupQuery.trim().length >= 2) {
-            setIsInstrumentLookupMenuOpen(true);
-          }
-        }}
-        onQueryChange={(nextQuery) => {
-          setInstrumentLookupQuery(nextQuery);
-          setIsInstrumentLookupMenuOpen(nextQuery.trim().length >= 2);
-          setSelectedInstrumentLookupResult(null);
-          setInstrumentErrorMessage(null);
-          setInstrumentSuccessMessage(null);
-        }}
-        onSelect={handleInstrumentLookupSelect}
-        onSubmit={handleInstrumentLookupSubmit}
-        selectedInstrumentLookupResult={selectedInstrumentLookupResult}
-      />
+                setIsInstrumentComboboxOpen(false);
+                if (selectedInstrument) {
+                  setInstrumentSearch(selectedInstrument.label);
+                }
+              },
+              onInstrumentFocus: () => {
+                setIsInstrumentComboboxOpen(true);
+                setHighlightedInstrumentId(values.instrumentId);
+              },
+              onInstrumentSearchChange: (nextSearch) => {
+                const exactInstrument = findExactInstrumentSearchMatch(
+                  instrumentOptions,
+                  nextSearch,
+                );
 
-      {instrumentOptions.length === 0 ? (
-        <TransactionFormEmptyState copy={copy} />
-      ) : (
-        <form className="transaction-form" onSubmit={handleSubmit} aria-busy={isFormBusy}>
-          {isFormBusy ? <PendingBanner label={submitButtonLabel} /> : null}
-
-          <TransactionInstrumentCombobox
-            copy={copy}
-            highlightedInstrumentId={highlightedInstrumentId}
-            instrumentSearch={instrumentSearch}
-            isDisabled={isDisabled}
-            isInstrumentComboboxOpen={isInstrumentComboboxOpen}
-            locale={locale}
-            onBlur={(event) => {
-              if (event.currentTarget.contains(event.relatedTarget)) {
-                return;
-              }
-
-              setIsInstrumentComboboxOpen(false);
-              if (selectedInstrument) {
-                setInstrumentSearch(selectedInstrument.label);
-              }
-            }}
-            onFocus={() => {
-              setIsInstrumentComboboxOpen(true);
-              setHighlightedInstrumentId(values.instrumentId);
-            }}
-            onInstrumentSearchChange={(nextSearch) => {
-              const exactInstrument = findExactInstrumentSearchMatch(instrumentOptions, nextSearch);
-
-              setInstrumentSearch(nextSearch);
-              setIsInstrumentComboboxOpen(true);
-              setValues((currentValues) => ({
-                ...currentValues,
-                instrumentId: exactInstrument ? String(exactInstrument.id) : "",
-              }));
-            }}
-            onKeyDown={handleInstrumentSearchKeyDown}
-            onMouseEnterOption={setHighlightedInstrumentId}
-            onSelectInstrument={selectInstrument}
-            selectedInstrument={selectedInstrument}
-            selectedInstrumentId={values.instrumentId}
-            visibleInstrumentOptions={visibleInstrumentOptions}
-          />
-
-          <TransactionFormFields
-            copy={copy}
-            disabled={isDisabled}
-            errorMessage={errorMessage}
-            onValueChange={updateValue}
-            successMessage={successMessage}
-            values={values}
-          />
-
-          <TransactionFormFooter
-            buttonLabel={submitButtonLabel}
-            copy={copy}
-            idleLabel={submitIdleButtonLabel}
-            isCancelDisabled={isSubmitting || isRefreshing}
-            isEditing={isEditing}
-            isFormBusy={isFormBusy}
-            isSubmitDisabled={isSubmitDisabled}
-            onCancelEdit={handleCancelEdit}
-          />
-        </form>
-      )}
-    </article>
+                setInstrumentSearch(nextSearch);
+                setIsInstrumentComboboxOpen(true);
+                setValues((currentValues) => ({
+                  ...currentValues,
+                  instrumentId: exactInstrument ? String(exactInstrument.id) : "",
+                }));
+              },
+              onInstrumentSearchKeyDown: handleInstrumentSearchKeyDown,
+              onMouseEnterOption: setHighlightedInstrumentId,
+              onSelectInstrument: selectInstrument,
+              onSubmit: handleSubmit,
+              onValueChange: updateValue,
+              selectedInstrument,
+              submitButtonLabel,
+              successMessage,
+              values,
+              visibleInstrumentOptions,
+            }
+      }
+      copy={copy}
+      instrumentErrorMessage={instrumentErrorMessage}
+      instrumentLookupQuery={instrumentLookupQuery}
+      instrumentLookupResults={instrumentLookupResults}
+      instrumentOptions={instrumentOptions}
+      instrumentSuccessMessage={instrumentSuccessMessage}
+      isCreatingInstrument={isCreatingInstrument}
+      isEditing={isEditing}
+      isFormBusy={isFormBusy}
+      isInstrumentLookupMenuOpen={isInstrumentLookupMenuOpen}
+      isSearchingInstruments={isSearchingInstruments}
+      onClearLookup={clearInstrumentLookup}
+      onLookupFocus={() => {
+        if (!selectedInstrumentLookupResult && instrumentLookupQuery.trim().length >= 2) {
+          setIsInstrumentLookupMenuOpen(true);
+        }
+      }}
+      onLookupQueryChange={(nextQuery) => {
+        setInstrumentLookupQuery(nextQuery);
+        setIsInstrumentLookupMenuOpen(nextQuery.trim().length >= 2);
+        setSelectedInstrumentLookupResult(null);
+        setInstrumentErrorMessage(null);
+        setInstrumentSuccessMessage(null);
+      }}
+      onLookupSelect={handleInstrumentLookupSelect}
+      onLookupSubmit={handleInstrumentLookupSubmit}
+      selectedInstrumentLookupResult={selectedInstrumentLookupResult}
+    />
   );
 }
