@@ -10,18 +10,24 @@ import {
   type ParsedTransactionExcelRow,
 } from "@/lib/transactions/excel";
 import type { InstrumentInput } from "@/lib/validation/instrument";
-import { transactionInputSchema, type TransactionBroker } from "@/lib/validation/transaction";
+import { transactionInputSchema } from "@/lib/validation/transaction";
 import { listTransactions, toChronologicalPositionTransaction } from "@/server/transactions";
 import { parsePortfolioId } from "@/server/portfolios";
 import { getImportPositionValidationErrors } from "@/server/transaction-import-export/position-validation";
 import { resolveImportInstrument } from "@/server/transaction-import-export/instrument-resolution";
 import {
+  buildBaseImportPreviewRow,
+  buildDuplicateImportKeys,
+  buildDuplicateImportPreviewRow,
+  buildImportEvaluationPreview,
+  buildImportInstrumentLookupMaps,
+  buildReadyImportPreviewRow,
+} from "@/server/transaction-import-export/evaluation-helpers";
+import {
   getErrorMessage,
   getImportTransactionKey,
   getOptionalCellString,
-  getOptionalNumber,
   getValidationMessage,
-  normalizeLookupValue,
   parseInstrumentAction,
 } from "@/server/transaction-import-export/import-helpers";
 import {
@@ -96,30 +102,9 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
   }
 
   const context = await getImportContext(portfolioId);
-  const instrumentById = new Map(
-    context.instruments.map((instrument) => [instrument.id, instrument]),
-  );
-  const instrumentByProviderSymbol = new Map(
-    context.instruments.map((instrument) => [
-      normalizeLookupValue(instrument.providerSymbol),
-      instrument,
-    ]),
-  );
-  const instrumentBySymbol = new Map(
-    context.instruments.map((instrument) => [normalizeLookupValue(instrument.symbol), instrument]),
-  );
-  const duplicateKeys = new Set(
-    context.transactions.map((transaction) =>
-      getImportTransactionKey(
-        {
-          ...transaction,
-          side: transaction.side as "BUY" | "SELL",
-          broker: transaction.broker as TransactionBroker,
-        },
-        transaction.instrumentId,
-      ),
-    ),
-  );
+  const { instrumentById, instrumentByProviderSymbol, instrumentBySymbol } =
+    buildImportInstrumentLookupMaps(context.instruments);
+  const duplicateKeys = buildDuplicateImportKeys(context.transactions);
   const rows: TransactionImportPreviewRow[] = [];
   const readyRows: ReadyImportRow[] = [];
   const pendingInstrumentsByKey = new Map<string, PreparedPendingImportInstrument>();
@@ -157,25 +142,7 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
       }
     }
 
-    const basePreview = {
-      rowNumber: row.rowNumber,
-      symbol: (resolvedInstrument?.symbol ?? getOptionalCellString(row.values.symbol)) || null,
-      tradeDate: getOptionalCellString(row.values.tradeDate) || null,
-      side:
-        normalizeLookupValue(row.values.side) === "BUY" ||
-        normalizeLookupValue(row.values.side) === "SELL"
-          ? (normalizeLookupValue(row.values.side) as "BUY" | "SELL")
-          : null,
-      broker:
-        normalizeLookupValue(row.values.broker) === "DIME" ||
-        normalizeLookupValue(row.values.broker) === "WEBULL"
-          ? (normalizeLookupValue(row.values.broker) as TransactionBroker)
-          : null,
-      quantity: getOptionalNumber(row.values.quantity),
-      price: getOptionalNumber(row.values.price),
-      fee: getOptionalNumber(row.values.fee),
-      notes: getOptionalCellString(row.values.notes) || null,
-    };
+    const basePreview = buildBaseImportPreviewRow(row, resolvedInstrument);
 
     if (actionError) {
       rows.push({
@@ -231,47 +198,28 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
     const duplicateKey = getImportTransactionKey(importInput, instrumentKey);
 
     if (duplicateKeys.has(duplicateKey)) {
-      rows.push({
-        rowNumber: row.rowNumber,
-        status: "skipped_duplicate",
-        message: "Duplicate transaction was skipped.",
-        symbol: resolvedInstrument.symbol,
-        tradeDate: parsedInput.data.tradeDate,
-        side: parsedInput.data.side,
-        broker: parsedInput.data.broker ?? "DIME",
-        quantity: parsedInput.data.quantity,
-        price: parsedInput.data.price,
-        fee: parsedInput.data.fee,
-        notes: parsedInput.data.notes,
-      });
+      rows.push(
+        buildDuplicateImportPreviewRow({
+          input: importInput,
+          resolvedInstrument,
+          rowNumber: row.rowNumber,
+        }),
+      );
       continue;
     }
 
     duplicateKeys.add(duplicateKey);
-    readyRows.push({
-      rowNumber: row.rowNumber,
-      status: "ready",
-      message:
-        resolvedInstrument.id == null
-          ? `Ready to import. ${resolvedInstrument.symbol} will be created.`
-          : "Ready to import.",
-      symbol: resolvedInstrument.symbol,
-      tradeDate: parsedInput.data.tradeDate,
-      side: parsedInput.data.side,
-      broker: parsedInput.data.broker ?? "DIME",
-      quantity: parsedInput.data.quantity,
-      price: parsedInput.data.price,
-      fee: parsedInput.data.fee,
-      notes: parsedInput.data.notes,
-      input: importInput,
-      duplicateKey,
-      instrumentKey,
-      positionInstrumentId: resolvedInstrument.id ?? resolvedInstrument.positionInstrumentId,
-      createInstrumentInput:
-        resolvedInstrument.id == null ? resolvedInstrument.createInstrumentInput : undefined,
-      createInstrumentKey:
-        resolvedInstrument.id == null ? resolvedInstrument.createInstrumentKey : undefined,
-    });
+    readyRows.push(
+      buildReadyImportPreviewRow({
+        createInstrumentInput:
+          resolvedInstrument.id == null ? resolvedInstrument.createInstrumentInput : undefined,
+        duplicateKey,
+        input: importInput,
+        instrumentKey,
+        resolvedInstrument,
+        rowNumber: row.rowNumber,
+      }),
+    );
   }
 
   const positionErrors = getImportPositionValidationErrors(
@@ -313,18 +261,11 @@ async function buildEvaluation(parsedRows: ParsedTransactionExcelRow[], portfoli
     return false;
   });
 
-  rows.push(...validatedReadyRows);
-  rows.sort((left, right) => left.rowNumber - right.rowNumber);
-
-  const preview = {
-    counts: {
-      totalRows: parsedRows.length,
-      readyRows: validatedReadyRows.length,
-      skippedRows: rows.filter((row) => row.status === "skipped_duplicate").length,
-      errorRows: rows.filter((row) => row.status === "error").length,
-    },
+  const preview = buildImportEvaluationPreview({
+    parsedRowsCount: parsedRows.length,
+    readyRows: validatedReadyRows,
     rows,
-  };
+  });
 
   return {
     ...preview,
