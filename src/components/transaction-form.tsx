@@ -10,10 +10,8 @@ import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
 import type { TransactionInstrumentOption, TransactionListItem } from "@/server/transactions";
 import {
   createInitialValues,
-  createTransactionRequestBody,
   createValuesFromTransaction,
   findExistingInstrumentForLookup,
-  getErrorMessage,
   getInitialInstrumentSearch,
   getInstrumentSearchKeyAction,
   getInstrumentLookupLabel,
@@ -21,13 +19,15 @@ import {
   getTransactionSubmitButtonLabel,
   getTransactionInstrumentLabel,
   getVisibleInstrumentOptions,
-  type ApiErrorResponse,
-  type InstrumentApiResponse,
-  type InstrumentSearchApiResponse,
   type InstrumentSearchResult,
   type NewInstrumentFormValues,
   type TransactionFormValues,
 } from "@/components/transaction-form/form-helpers";
+import {
+  createInstrumentFromForm,
+  saveTransactionFromForm,
+  searchInstrumentsForForm,
+} from "@/components/transaction-form/api";
 import { TransactionFormPanel } from "@/components/transaction-form/form-panel";
 
 type TransactionFormProps = {
@@ -192,18 +192,14 @@ export function TransactionForm({
       setInstrumentErrorMessage(null);
 
       try {
-        const response = await fetch(`/api/instruments/search?query=${encodeURIComponent(query)}`, {
+        const results = await searchInstrumentsForForm({
+          fallbackMessage: copy.transactions.form.couldNotSave,
+          language,
+          query,
           signal: abortController.signal,
         });
-        const payload = (await response.json()) as InstrumentSearchApiResponse;
 
-        if (!response.ok) {
-          throw new Error(
-            getErrorMessage(payload.error, copy.transactions.form.couldNotSave, language),
-          );
-        }
-
-        setInstrumentLookupResults(payload.results ?? []);
+        setInstrumentLookupResults(results);
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
           return;
@@ -259,25 +255,14 @@ export function TransactionForm({
     setSuccessMessage(null);
 
     try {
-      const response = await fetch("/api/transactions", {
-        method: editingTransaction ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(createTransactionRequestBody(values, editingTransaction)),
+      await saveTransactionFromForm({
+        editingTransaction,
+        fallbackMessage: isEditing
+          ? copy.transactions.form.couldNotUpdate
+          : copy.transactions.form.couldNotSave,
+        language,
+        values,
       });
-
-      const payload = (await response.json()) as ApiErrorResponse;
-
-      if (!response.ok) {
-        throw new Error(
-          getErrorMessage(
-            payload.error,
-            isEditing ? copy.transactions.form.couldNotUpdate : copy.transactions.form.couldNotSave,
-            language,
-          ),
-        );
-      }
 
       setValues(createInitialValues(instrumentOptions));
       setInstrumentSearch(getInitialInstrumentSearch(instrumentOptions));
@@ -332,23 +317,11 @@ export function TransactionForm({
     setErrorMessage(null);
 
     try {
-      const response = await fetch("/api/instruments", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(instrumentValues),
+      const createdInstrument = await createInstrumentFromForm({
+        fallbackMessage: copy.transactions.form.instrumentCouldNotSave,
+        language,
+        values: instrumentValues,
       });
-
-      const payload = (await response.json()) as InstrumentApiResponse;
-
-      if (!response.ok || !payload.instrument) {
-        throw new Error(
-          getErrorMessage(payload.error, copy.transactions.form.instrumentCouldNotSave, language),
-        );
-      }
-
-      const createdInstrument = payload.instrument;
 
       setInstrumentOptions((currentOptions) => {
         const withoutDuplicate = currentOptions.filter(
