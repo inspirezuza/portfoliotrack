@@ -18,6 +18,7 @@ import {
   formatUnrealizedPnlDetail,
   getValueTone,
 } from "@/components/dashboard-page/formatting";
+import { appendSearchParams, buildRefreshMessage } from "@/components/dashboard-page/refresh";
 import { MarketRefreshStatus } from "@/components/market-refresh-status";
 import { PendingSubmitButton } from "@/components/pending-submit-button";
 import { SummaryCards } from "@/components/summary-cards";
@@ -53,87 +54,7 @@ type DashboardPageProps = {
   }>;
 };
 
-type RefreshParams =
-  NonNullable<DashboardPageProps["searchParams"]> extends Promise<infer T> ? T : never;
-
-type DashboardCopy = ReturnType<typeof getUiCopy>["dashboard"];
-const REFRESH_BANNER_MAX_AGE_MINUTES = 5;
 const DEFAULT_DISPLAY_CURRENCY = "THB";
-
-function buildRefreshMessage(
-  { refresh, eventAt, refreshedAt, quoteCount, issueCount, message }: RefreshParams,
-  copy: DashboardCopy,
-) {
-  const eventAgeMinutes = (() => {
-    if (eventAt == null) {
-      return null;
-    }
-
-    const timestamp = Date.parse(eventAt);
-
-    if (Number.isNaN(timestamp)) {
-      return null;
-    }
-
-    return Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
-  })();
-
-  if (
-    refresh == null ||
-    eventAgeMinutes == null ||
-    eventAgeMinutes > REFRESH_BANNER_MAX_AGE_MINUTES
-  ) {
-    return null;
-  }
-
-  if (refresh === "success") {
-    const quotesLabel = quoteCount == null ? "" : copy.refresh.quotesUpdated(quoteCount);
-    const providerLabel = refreshedAt ? copy.refresh.providerTimestamp(refreshedAt) : "";
-    const issuesLabel =
-      issueCount == null || issueCount === "0" ? "" : copy.refresh.symbolsNeedReview(issueCount);
-
-    return {
-      tone: issueCount != null && issueCount !== "0" ? "warning" : "success",
-      title:
-        issueCount != null && issueCount !== "0"
-          ? copy.refresh.warningTitle
-          : copy.refresh.successTitle,
-      body: [quotesLabel, providerLabel, issuesLabel].filter(Boolean).join(" | "),
-    } as const;
-  }
-
-  if (refresh === "started" || refresh === "already-running") {
-    return {
-      tone: "success",
-      title: copy.refresh.startedTitle,
-      body: copy.refresh.statusLoading,
-    } as const;
-  }
-
-  if (refresh === "error") {
-    return {
-      tone: "warning",
-      title: copy.refresh.errorTitle,
-      body: message ?? copy.refresh.fallbackErrorBody,
-    } as const;
-  }
-
-  return null;
-}
-
-function appendSearchParams(path: string, searchParams: Record<string, string | undefined>) {
-  const params = new URLSearchParams();
-
-  for (const [key, value] of Object.entries(searchParams)) {
-    if (value != null) {
-      params.set(key, value);
-    }
-  }
-
-  const queryString = params.toString();
-
-  return queryString ? `${path}?${queryString}` : path;
-}
 
 export default async function DashboardPage({ portfolioKey, searchParams }: DashboardPageProps) {
   const language = await getServerUiLanguage();
