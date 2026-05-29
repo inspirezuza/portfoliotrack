@@ -1,13 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { PendingBanner } from "@/components/loading-indicator";
-import { formatCurrency, formatQuantity } from "@/lib/format";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
 import type { TransactionListItem } from "@/server/transactions";
-import { InstrumentLogo } from "@/components/instrument-logo";
+import { TransactionLedgerHead } from "@/components/transaction-table/table-head";
+import { TransactionRow } from "@/components/transaction-table/transaction-row";
 import {
   getDeleteErrorMessage,
   getNextTransactionSort,
@@ -32,46 +31,6 @@ const TransactionDeleteDialog = lazy(() =>
     default: module.TransactionDeleteDialog,
   })),
 );
-
-function SortableHeader({
-  align = "left",
-  language,
-  label,
-  sortKey,
-  sort,
-  onSort,
-}: {
-  align?: "left" | "right";
-  language: UiLanguage;
-  label: string;
-  sortKey: TransactionSortKey;
-  sort: SortState;
-  onSort: (key: TransactionSortKey) => void;
-}) {
-  const isActive = sort.key === sortKey;
-  const copy = getUiCopy(language).shared;
-  const nextDirection =
-    isActive && sort.direction === "asc" ? copy.sortDescending : copy.sortAscending;
-
-  return (
-    <th
-      scope="col"
-      className={align === "right" ? "table-heading-number" : undefined}
-      aria-sort={isActive ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}
-    >
-      <button
-        type="button"
-        className="table-sort-button"
-        data-sort-state={isActive ? sort.direction : "none"}
-        onClick={() => onSort(sortKey)}
-        aria-label={copy.sortLabel(label, nextDirection)}
-      >
-        <span className="table-sort-label">{label}</span>
-        <span className="table-sort-icon" aria-hidden="true" />
-      </button>
-    </th>
-  );
-}
 
 export function TransactionTable({
   transactions,
@@ -226,81 +185,14 @@ export function TransactionTable({
                 <col className="transaction-col-notes" />
                 {canEdit ? <col className="transaction-col-actions" /> : null}
               </colgroup>
-              <thead>
-                <tr>
-                  <SortableHeader
-                    label={copy.transactions.table.columns.date}
-                    language={language}
-                    sortKey="tradeDate"
-                    sort={sort}
-                    onSort={handleSort}
-                  />
-                  <SortableHeader
-                    label={copy.transactions.table.columns.instrument}
-                    language={language}
-                    sortKey="instrument"
-                    sort={sort}
-                    onSort={handleSort}
-                  />
-                  {showPortfolioColumn ? (
-                    <SortableHeader
-                      label={copy.transactions.table.columns.portfolio}
-                      language={language}
-                      sortKey="portfolio"
-                      sort={sort}
-                      onSort={handleSort}
-                    />
-                  ) : null}
-                  <SortableHeader
-                    label={copy.transactions.table.columns.side}
-                    language={language}
-                    sortKey="side"
-                    sort={sort}
-                    onSort={handleSort}
-                  />
-                  <SortableHeader
-                    label={copy.transactions.table.columns.broker}
-                    language={language}
-                    sortKey="broker"
-                    sort={sort}
-                    onSort={handleSort}
-                  />
-                  <SortableHeader
-                    label={copy.transactions.table.columns.quantity}
-                    language={language}
-                    sortKey="quantity"
-                    sort={sort}
-                    onSort={handleSort}
-                    align="right"
-                  />
-                  <SortableHeader
-                    label={copy.transactions.table.columns.price}
-                    language={language}
-                    sortKey="price"
-                    sort={sort}
-                    onSort={handleSort}
-                    align="right"
-                  />
-                  <SortableHeader
-                    label={copy.transactions.table.columns.fee}
-                    language={language}
-                    sortKey="fee"
-                    sort={sort}
-                    onSort={handleSort}
-                    align="right"
-                  />
-                  <SortableHeader
-                    label={copy.transactions.table.columns.net}
-                    language={language}
-                    sortKey="netAmount"
-                    sort={sort}
-                    onSort={handleSort}
-                    align="right"
-                  />
-                  <th scope="col">{copy.transactions.table.columns.notes}</th>
-                  {canEdit ? <th scope="col">{copy.transactions.table.columns.actions}</th> : null}
-                </tr>
-              </thead>
+              <TransactionLedgerHead
+                canEdit={canEdit}
+                copy={copy}
+                language={language}
+                onSort={handleSort}
+                showPortfolioColumn={showPortfolioColumn}
+                sort={sort}
+              />
               <tbody>
                 {visibleTransactions.length === 0 ? (
                   <tr>
@@ -310,100 +202,19 @@ export function TransactionTable({
                   </tr>
                 ) : (
                   visibleTransactions.map((transaction) => (
-                    <tr key={transaction.id} data-editing={transaction.id === editingTransactionId}>
-                      <td>{transaction.tradeDate}</td>
-                      <td>
-                        <Link
-                          href={`/assets/${encodeURIComponent(transaction.instrument.symbol)}`}
-                          className="instrument-cell instrument-cell-with-logo instrument-cell-link"
-                        >
-                          <InstrumentLogo
-                            symbol={transaction.instrument.symbol}
-                            displayName={transaction.instrument.displayName}
-                            instrumentType={transaction.instrument.instrumentType}
-                            providerSymbol={transaction.instrument.providerSymbol}
-                            underlyingProviderSymbol={
-                              transaction.instrument.underlyingProviderSymbol
-                            }
-                            size="sm"
-                          />
-                          <div className="instrument-cell-copy">
-                            <strong>{transaction.instrument.symbol}</strong>
-                            <span>
-                              {transaction.instrument.displayName} - {transaction.instrument.market}
-                            </span>
-                          </div>
-                        </Link>
-                      </td>
-                      {showPortfolioColumn ? <td>{transaction.portfolioName ?? "-"}</td> : null}
-                      <td>
-                        <span
-                          className={`side-pill ${
-                            transaction.side === "BUY" ? "side-pill-buy" : "side-pill-sell"
-                          }`}
-                        >
-                          {transaction.side}
-                        </span>
-                      </td>
-                      <td>{transaction.broker === "WEBULL" ? "Webull" : "Dime"}</td>
-                      <td className="table-number">
-                        {formatQuantity(transaction.quantity, { locale })}
-                      </td>
-                      <td className="table-number">
-                        {formatCurrency(transaction.price, {
-                          currency: transaction.instrument.currency,
-                          locale,
-                          maximumFractionDigits: 4,
-                        })}
-                      </td>
-                      <td className="table-number">
-                        {formatCurrency(transaction.fee, {
-                          currency: transaction.instrument.currency,
-                          locale,
-                        })}
-                      </td>
-                      <td className="table-number">
-                        {formatCurrency(transaction.netAmount, {
-                          currency: transaction.instrument.currency,
-                          locale,
-                        })}
-                      </td>
-                      <td className="table-notes">{transaction.notes ?? "-"}</td>
-                      {canEdit ? (
-                        <td>
-                          <div className="table-actions table-actions-icon">
-                            <button
-                              type="button"
-                              className="table-icon-button"
-                              aria-label={`${copy.transactions.table.edit} ${transaction.instrument.symbol} ${transaction.tradeDate}`}
-                              title={copy.transactions.table.edit}
-                              onClick={() => onEdit?.(transaction)}
-                              disabled={isRefreshing || deletingTransactionId !== null}
-                            >
-                              <span className="table-icon table-icon-edit" aria-hidden="true" />
-                            </button>
-                            <button
-                              type="button"
-                              className="table-icon-button table-icon-button-danger"
-                              aria-label={`${copy.transactions.table.delete} ${transaction.instrument.symbol} ${transaction.tradeDate}`}
-                              title={copy.transactions.table.delete}
-                              onClick={() => setPendingDeleteTransaction(transaction)}
-                              disabled={
-                                deletingTransactionId === transaction.id ||
-                                isRefreshing ||
-                                deletingTransactionId !== null
-                              }
-                            >
-                              {deletingTransactionId === transaction.id ? (
-                                <span className="table-icon-spinner" aria-hidden="true" />
-                              ) : (
-                                <span className="table-icon table-icon-delete" aria-hidden="true" />
-                              )}
-                            </button>
-                          </div>
-                        </td>
-                      ) : null}
-                    </tr>
+                    <TransactionRow
+                      key={transaction.id}
+                      canEdit={canEdit}
+                      copy={copy}
+                      deletingTransactionId={deletingTransactionId}
+                      editingTransactionId={editingTransactionId}
+                      isRefreshing={isRefreshing}
+                      locale={locale}
+                      onEdit={onEdit}
+                      onRequestDelete={setPendingDeleteTransaction}
+                      showPortfolioColumn={showPortfolioColumn}
+                      transaction={transaction}
+                    />
                   ))
                 )}
               </tbody>
