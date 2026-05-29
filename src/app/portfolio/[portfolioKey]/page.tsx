@@ -1,5 +1,11 @@
 import DashboardPage from "@/app/dashboard-page";
 
+// Route-segment config only takes effect in the route module itself (not in the
+// imported DashboardPage). Forcing dynamic rendering disables the prerender pass
+// so the page's Suspense boundaries stream as normal pending boundaries instead
+// of being postponed.
+export const dynamic = "force-dynamic";
+
 type PortfolioDashboardRouteProps = {
   params: Promise<{
     portfolioKey: string;

@@ -1,15 +1,14 @@
 import "server-only";
 
 import { cookies } from "next/headers";
-import { ALL_PORTFOLIOS_SELECTION_KEY, parsePortfolioRouteKey } from "@/lib/portfolio/paths";
 import {
-  ensureDefaultPortfolio,
-  getPortfolioById,
-  listPortfolios,
-  type PortfolioListItem,
-} from "@/server/portfolios";
+  ALL_PORTFOLIOS_SELECTION_KEY,
+  PORTFOLIO_COOKIE_KEY,
+  parsePortfolioRouteKey,
+} from "@/lib/portfolio/paths";
+import { getPortfoliosEnsuringDefault, type PortfolioListItem } from "@/server/portfolios";
 
-export const PORTFOLIO_COOKIE_KEY = "portfoliotrack.portfolioId";
+export { PORTFOLIO_COOKIE_KEY };
 
 export type SinglePortfolioSelection = PortfolioListItem & {
   kind: "single";
@@ -88,12 +87,14 @@ export async function getPortfolioSelection({
 }: {
   portfolioKey?: string | null;
 } = {}): Promise<PortfolioSelection> {
-  await ensureDefaultPortfolio();
-
   const routePortfolioKey = parsePortfolioRouteKey(portfolioKey);
-  const selectedPortfolioKey =
-    portfolioKey == null ? await getRememberedPortfolioKey() : routePortfolioKey;
-  const portfolios = await listPortfolios();
+  // The remembered-key cookie read and the portfolios fetch are independent, so
+  // run them together instead of serialising the round-trips.
+  const [rememberedPortfolioKey, portfolios] = await Promise.all([
+    portfolioKey == null ? getRememberedPortfolioKey() : Promise.resolve(routePortfolioKey),
+    getPortfoliosEnsuringDefault(),
+  ]);
+  const selectedPortfolioKey = portfolioKey == null ? rememberedPortfolioKey : routePortfolioKey;
 
   if (selectedPortfolioKey === ALL_PORTFOLIOS_SELECTION_KEY || selectedPortfolioKey == null) {
     return {
@@ -102,7 +103,8 @@ export async function getPortfolioSelection({
     };
   }
 
-  const selectedByKey = await getPortfolioById(selectedPortfolioKey);
+  const selectedByKey =
+    portfolios.find((portfolio) => String(portfolio.id) === selectedPortfolioKey) ?? null;
 
   if (selectedByKey == null) {
     return {

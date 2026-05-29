@@ -3,6 +3,8 @@ import "server-only";
 export {
   BENCHMARK_WATCHLIST,
   ensureBenchmarkWatchlistInstruments,
+  getMissingBenchmarkWatchlistInstruments,
+  insertBenchmarkWatchlistInstruments,
   ensureFreshMarketDataCache,
   getMarketDataProvider,
   getMarketSettings,

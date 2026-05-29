@@ -1,13 +1,15 @@
 import "server-only";
 
+import { cache } from "react";
 import { and, gte, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/runtime";
-import { historicalPrices, intradayPrices } from "@/lib/db/schema";
+import { historicalPrices, instruments, intradayPrices } from "@/lib/db/schema";
 import {
-  ensureBenchmarkWatchlistInstruments,
   ensureFreshMarketDataCache,
   BENCHMARK_WATCHLIST,
+  getMissingBenchmarkWatchlistInstruments,
   getPriceAgeMinutes,
+  insertBenchmarkWatchlistInstruments,
   isMarketDataStale,
 } from "@/lib/market/provider";
 import {
@@ -107,6 +109,30 @@ export type DashboardSnapshot = {
   timeline: PortfolioBenchmarkTimeline;
 };
 
+export type DashboardMarketData = DashboardSnapshot["marketData"];
+
+/**
+ * The above-the-fold dashboard data: summary metrics, holdings, market-data
+ * freshness, and the performance summary. Cheap relative to the chart payload
+ * and rendered synchronously so the page paints without waiting on the timeline.
+ */
+export type DashboardOverview = {
+  summary: DashboardSummary;
+  holdingsSnapshot: HoldingsSnapshot;
+  marketData: DashboardMarketData;
+  performanceSummary: DashboardPerformanceSummary;
+};
+
+/**
+ * The chart-only payload: the portfolio/benchmark timeline and the benchmark
+ * watchlist. These are the CPU-heavy builds, streamed in behind a Suspense
+ * boundary after the overview has painted.
+ */
+export type DashboardCharts = {
+  benchmarkWatchlist: DashboardSnapshot["benchmarkWatchlist"];
+  timeline: PortfolioBenchmarkTimeline;
+};
+
 function isTimelineIntradayInterval(value: string): value is TimelineIntradayPrice["interval"] {
   return value === "5m" || value === "15m" || value === "1h";
 }
@@ -125,34 +151,45 @@ function parsePortfolioScope({
   return [parsePortfolioId(portfolioId)];
 }
 
-export async function getDashboardSnapshot({
-  portfolioId: portfolioIdInput,
-  portfolioIds: portfolioIdsInput,
-  ensureFresh = false,
-}: {
+type DashboardScope = {
   portfolioId?: number;
   portfolioIds?: number[];
-  ensureFresh?: boolean;
-}): Promise<DashboardSnapshot> {
-  const portfolioIds = parsePortfolioScope({
-    portfolioId: portfolioIdInput,
-    portfolioIds: portfolioIdsInput,
-  });
+};
 
-  await ensureBenchmarkWatchlistInstruments();
+function getPortfolioScopeKey(portfolioIds: number[]) {
+  return Array.from(new Set(portfolioIds))
+    .sort((left, right) => left - right)
+    .join(",");
+}
 
-  if (ensureFresh) {
-    await Promise.all(
-      portfolioIds.map((portfolioId) =>
-        ensureFreshMarketDataCache({ portfolioId, includeBenchmark: true }),
-      ),
-    );
-  }
+/**
+ * Loads and shapes every dashboard input that both the overview and the chart
+ * payload depend on (DB reads + FX conversion + holdings + performance
+ * summary). Wrapped in React cache() so a single request that renders the
+ * overview and then streams the charts pays for the load + conversion once.
+ */
+const loadDashboardBase = cache(async (portfolioScopeKey: string) => {
+  const portfolioIds = portfolioScopeKey
+    .split(",")
+    .filter((value) => value.length > 0)
+    .map(Number);
 
   const holdingsSource = await loadHoldingsSnapshotSource({ portfolioIds });
   const holdingsSnapshot = buildHoldingsSnapshotFromSource(holdingsSource);
   const marketSettings = holdingsSource.marketSettings;
-  const instrumentRows = holdingsSource.instrumentRows;
+  // loadHoldingsSnapshotSource already fetched every instrument, so derive the
+  // benchmark-watchlist seed need from that list instead of issuing a separate
+  // SELECT on every load. The INSERT + reload only runs on the rare first run
+  // where the watchlist instruments are not seeded yet.
+  let instrumentRows = holdingsSource.instrumentRows;
+  const missingBenchmarks = getMissingBenchmarkWatchlistInstruments(
+    instrumentRows.map((instrument) => instrument.symbol),
+  );
+
+  if (missingBenchmarks.length > 0) {
+    await insertBenchmarkWatchlistInstruments(missingBenchmarks);
+    instrumentRows = await db.select().from(instruments);
+  }
   const transactionRows = holdingsSource.rows.map(({ transaction }) => ({
     instrumentId: transaction.instrumentId,
     tradeDate: transaction.tradeDate,
@@ -267,67 +304,9 @@ export async function getDashboardSnapshot({
     instrumentRows: convertedInstrumentRows,
     transactionRows: convertedTransactionRows,
   });
-  const timeline = buildPortfolioBenchmarkTimeline({
-    instruments: convertedInstrumentRows.map((instrument) => ({
-      instrumentId: instrument.id,
-      symbol: instrument.symbol,
-      currency: instrument.currency,
-    })),
-    transactions: convertedTransactionRows.map((row) => ({
-      instrumentId: row.instrumentId,
-      tradeDate: row.tradeDate,
-      side: row.side as "BUY" | "SELL",
-      quantity: row.quantity,
-      price: row.price,
-      fee: row.fee,
-      createdAt: row.createdAt,
-      id: row.id,
-    })),
-    historicalPrices: timelineHistoricalPriceRows.map((row) => ({
-      instrumentId: row.instrumentId,
-      priceDate: row.priceDate,
-      close: row.close,
-      currency: row.currency,
-    })),
-    intradayPrices: timelineIntradayPriceRows
-      .filter((row): row is typeof row & { interval: TimelineIntradayPrice["interval"] } =>
-        isTimelineIntradayInterval(row.interval),
-      )
-      .map((row) => ({
-        instrumentId: row.instrumentId,
-        observedAt: row.observedAt,
-        close: row.close,
-        currency: row.currency,
-        interval: row.interval,
-      })),
-    benchmarkInstrumentId: benchmarkInstrument?.id ?? null,
-    benchmarkCurrency: benchmarkInstrument?.currency ?? null,
-    benchmarkSymbol: marketSettings.benchmarkSymbol,
-  });
-  const benchmarkWatchlist = buildBenchmarkWatchlist({
-    historicalPriceRows,
-    instrumentRows,
-    intradayPriceRows,
-    priceSnapshotRows,
-    timeline,
-  });
-
   return {
-    summary: {
-      openPositionCount: holdingsSnapshot.openPositionCount,
-      openPositionCurrency: holdingsSnapshot.openPositionCurrency,
-      totalCostBasis: holdingsSnapshot.totalCostBasis,
-      totalMarketValue: holdingsSnapshot.totalMarketValue,
-      totalUnrealizedPnl: holdingsSnapshot.totalUnrealizedPnl,
-      totalRealizedPnl: holdingsSnapshot.totalRealizedPnl,
-      pricedPositionCount: holdingsSnapshot.pricedPositionCount,
-      missingPricePositionCount: holdingsSnapshot.missingPricePositionCount,
-      latestPriceAsOf: holdingsSnapshot.latestPriceAsOf,
-      awaitingPriceSymbols: holdingsSnapshot.awaitingPriceSymbols,
-      currencyBreakdown: holdingsSnapshot.currencyBreakdown,
-      realizedBreakdown: holdingsSnapshot.realizedBreakdown,
-    },
     holdingsSnapshot,
+    performanceSummary,
     marketData: {
       benchmarkSymbol: marketSettings.benchmarkSymbol,
       marketRefreshMinutes: marketSettings.marketRefreshMinutes,
@@ -338,9 +317,135 @@ export async function getDashboardSnapshot({
         marketSettings.marketRefreshMinutes,
       ),
     },
-    benchmarkWatchlist,
-    performanceSummary,
+    // Chart inputs retained so getDashboardCharts can build the timeline and
+    // benchmark watchlist without reloading or re-converting anything.
+    benchmarkSymbol: marketSettings.benchmarkSymbol,
+    benchmarkInstrument,
+    convertedInstrumentRows,
+    convertedTransactionRows,
+    timelineHistoricalPriceRows,
+    timelineIntradayPriceRows,
+    historicalPriceRows,
+    instrumentRows,
+    intradayPriceRows,
+    priceSnapshotRows,
+  };
+});
+
+function buildDashboardSummary(holdingsSnapshot: HoldingsSnapshot): DashboardSummary {
+  return {
+    openPositionCount: holdingsSnapshot.openPositionCount,
+    openPositionCurrency: holdingsSnapshot.openPositionCurrency,
+    totalCostBasis: holdingsSnapshot.totalCostBasis,
+    totalMarketValue: holdingsSnapshot.totalMarketValue,
+    totalUnrealizedPnl: holdingsSnapshot.totalUnrealizedPnl,
+    totalRealizedPnl: holdingsSnapshot.totalRealizedPnl,
+    pricedPositionCount: holdingsSnapshot.pricedPositionCount,
+    missingPricePositionCount: holdingsSnapshot.missingPricePositionCount,
+    latestPriceAsOf: holdingsSnapshot.latestPriceAsOf,
+    awaitingPriceSymbols: holdingsSnapshot.awaitingPriceSymbols,
+    currencyBreakdown: holdingsSnapshot.currencyBreakdown,
+    realizedBreakdown: holdingsSnapshot.realizedBreakdown,
+  };
+}
+
+export async function getDashboardOverview(scope: DashboardScope): Promise<DashboardOverview> {
+  const portfolioIds = parsePortfolioScope(scope);
+  const base = await loadDashboardBase(getPortfolioScopeKey(portfolioIds));
+
+  return {
+    summary: buildDashboardSummary(base.holdingsSnapshot),
+    holdingsSnapshot: base.holdingsSnapshot,
+    marketData: base.marketData,
+    performanceSummary: base.performanceSummary,
+  };
+}
+
+// Cached by scope so the two streamed chart slots (main charts + market
+// benchmarks) share a single timeline/watchlist build per request.
+const loadDashboardCharts = cache(async (portfolioScopeKey: string): Promise<DashboardCharts> => {
+  const base = await loadDashboardBase(portfolioScopeKey);
+  const timeline = buildPortfolioBenchmarkTimeline({
+    instruments: base.convertedInstrumentRows.map((instrument) => ({
+      instrumentId: instrument.id,
+      symbol: instrument.symbol,
+      currency: instrument.currency,
+    })),
+    transactions: base.convertedTransactionRows.map((row) => ({
+      instrumentId: row.instrumentId,
+      tradeDate: row.tradeDate,
+      side: row.side as "BUY" | "SELL",
+      quantity: row.quantity,
+      price: row.price,
+      fee: row.fee,
+      createdAt: row.createdAt,
+      id: row.id,
+    })),
+    historicalPrices: base.timelineHistoricalPriceRows.map((row) => ({
+      instrumentId: row.instrumentId,
+      priceDate: row.priceDate,
+      close: row.close,
+      currency: row.currency,
+    })),
+    intradayPrices: base.timelineIntradayPriceRows
+      .filter((row): row is typeof row & { interval: TimelineIntradayPrice["interval"] } =>
+        isTimelineIntradayInterval(row.interval),
+      )
+      .map((row) => ({
+        instrumentId: row.instrumentId,
+        observedAt: row.observedAt,
+        close: row.close,
+        currency: row.currency,
+        interval: row.interval,
+      })),
+    benchmarkInstrumentId: base.benchmarkInstrument?.id ?? null,
+    benchmarkCurrency: base.benchmarkInstrument?.currency ?? null,
+    benchmarkSymbol: base.benchmarkSymbol,
+  });
+  const benchmarkWatchlist = buildBenchmarkWatchlist({
+    historicalPriceRows: base.historicalPriceRows,
+    instrumentRows: base.instrumentRows,
+    intradayPriceRows: base.intradayPriceRows,
+    priceSnapshotRows: base.priceSnapshotRows,
     timeline,
+  });
+
+  return { benchmarkWatchlist, timeline };
+});
+
+export async function getDashboardCharts(scope: DashboardScope): Promise<DashboardCharts> {
+  const portfolioIds = parsePortfolioScope(scope);
+  return loadDashboardCharts(getPortfolioScopeKey(portfolioIds));
+}
+
+export async function getDashboardSnapshot({
+  portfolioId,
+  portfolioIds,
+  ensureFresh = false,
+}: DashboardScope & { ensureFresh?: boolean }): Promise<DashboardSnapshot> {
+  const scopeIds = parsePortfolioScope({ portfolioId, portfolioIds });
+
+  if (ensureFresh) {
+    await Promise.all(
+      scopeIds.map((scopedPortfolioId) =>
+        ensureFreshMarketDataCache({ portfolioId: scopedPortfolioId, includeBenchmark: true }),
+      ),
+    );
+  }
+
+  const scope = { portfolioIds: scopeIds };
+  const [overview, charts] = await Promise.all([
+    getDashboardOverview(scope),
+    getDashboardCharts(scope),
+  ]);
+
+  return {
+    summary: overview.summary,
+    holdingsSnapshot: overview.holdingsSnapshot,
+    marketData: overview.marketData,
+    benchmarkWatchlist: charts.benchmarkWatchlist,
+    performanceSummary: overview.performanceSummary,
+    timeline: charts.timeline,
   };
 }
 

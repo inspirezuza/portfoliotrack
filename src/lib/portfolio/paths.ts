@@ -1,5 +1,7 @@
 export const ALL_PORTFOLIOS_SELECTION_KEY = "all";
 
+export const PORTFOLIO_COOKIE_KEY = "portfoliotrack.portfolioId";
+
 export function parsePortfolioRouteKey(value: string | null | undefined) {
   if (value === ALL_PORTFOLIOS_SELECTION_KEY) {
     return ALL_PORTFOLIOS_SELECTION_KEY;

@@ -1,0 +1,35 @@
+# Keeps the Neon (free-tier) compute warm during peak hours so the first real
+# visitor of the session avoids a cold start. Vercel Hobby cron only runs once
+# per day, so an external pinger is used instead.
+#
+# Setup (one time):
+#   - Repo secret  CRON_SECRET   — same value as the Vercel CRON_SECRET env var.
+#   - Repo variable APP_BASE_URL — production origin, e.g. https://your-app.vercel.app
+#
+# Neon free-tier budget: the compute-hour quota is ~191h/month, so keeping it
+# warm 24/7 would exhaust it. The schedule below only covers a ~3h evening window
+# (Asia/Bangkok). Widen the hour range if you need a longer warm window and have
+# quota headroom; ~6h/day is roughly the free-tier ceiling.
+#
+# GitHub-hosted cron can be delayed several minutes under load, so an occasional
+# cold start can still slip through. For tighter timing use a free uptime pinger
+# (e.g. UptimeRobot / cron-job.org) that calls /api/keep-warm with the same
+# Authorization: Bearer <CRON_SECRET> header.
+name: Keep Neon warm
+
+on:
+  schedule:
+    # Every 5 minutes, 12:00–14:55 UTC == 19:00–21:55 Asia/Bangkok (UTC+7).
+    - cron: "*/5 12-14 * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping keep-warm endpoint
+        run: |
+          curl -fsS -m 30 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ vars.APP_BASE_URL }}/api/keep-warm"

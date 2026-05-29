@@ -51,17 +51,25 @@ export const BENCHMARK_WATCHLIST = [
   },
 ] as const;
 
-export async function ensureBenchmarkWatchlistInstruments() {
-  const benchmarkSymbols = BENCHMARK_WATCHLIST.map((benchmark) => benchmark.symbol);
-  const existingRows = await db
-    .select({ symbol: instruments.symbol })
-    .from(instruments)
-    .where(inArray(instruments.symbol, benchmarkSymbols));
-  const existingSymbols = new Set(existingRows.map((instrument) => instrument.symbol));
-  const missingBenchmarks = BENCHMARK_WATCHLIST.filter(
-    (benchmark) => !existingSymbols.has(benchmark.symbol),
-  );
+type BenchmarkWatchlistEntry = (typeof BENCHMARK_WATCHLIST)[number];
 
+/**
+ * Returns the watchlist benchmarks whose symbols are not already present in the
+ * supplied instrument symbols. Lets callers that have already loaded the
+ * instrument list decide whether a seed INSERT is needed without issuing an
+ * extra SELECT.
+ */
+export function getMissingBenchmarkWatchlistInstruments(
+  existingSymbols: Iterable<string>,
+): BenchmarkWatchlistEntry[] {
+  const present = existingSymbols instanceof Set ? existingSymbols : new Set(existingSymbols);
+
+  return BENCHMARK_WATCHLIST.filter((benchmark) => !present.has(benchmark.symbol));
+}
+
+export async function insertBenchmarkWatchlistInstruments(
+  missingBenchmarks: readonly BenchmarkWatchlistEntry[],
+) {
   if (missingBenchmarks.length === 0) {
     return;
   }
@@ -75,4 +83,16 @@ export async function ensureBenchmarkWatchlistInstruments() {
       })),
     )
     .onConflictDoNothing();
+}
+
+export async function ensureBenchmarkWatchlistInstruments() {
+  const benchmarkSymbols = BENCHMARK_WATCHLIST.map((benchmark) => benchmark.symbol);
+  const existingRows = await db
+    .select({ symbol: instruments.symbol })
+    .from(instruments)
+    .where(inArray(instruments.symbol, benchmarkSymbols));
+
+  await insertBenchmarkWatchlistInstruments(
+    getMissingBenchmarkWatchlistInstruments(existingRows.map((instrument) => instrument.symbol)),
+  );
 }

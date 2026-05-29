@@ -34,6 +34,8 @@ import { parsePortfolioId } from "@/lib/portfolio/portfolio-id";
 export {
   BENCHMARK_WATCHLIST,
   ensureBenchmarkWatchlistInstruments,
+  getMissingBenchmarkWatchlistInstruments,
+  insertBenchmarkWatchlistInstruments,
 } from "@/lib/market/benchmark-watchlist";
 export { getPriceAgeMinutes, isMarketDataStale } from "@/lib/market/freshness";
 export type { RefreshContext, RefreshTarget } from "@/lib/market/refresh-context";

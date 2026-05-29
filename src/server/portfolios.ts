@@ -140,6 +140,42 @@ export async function ensureDefaultPortfolio(): Promise<PortfolioListItem> {
   return mapPortfolio({ ...fallbackPortfolio, isDefault: true });
 }
 
+/**
+ * Returns every portfolio (ordered by name) while guaranteeing a default exists,
+ * using a single SELECT for the common path. Callers that need both the full list
+ * and a default should prefer this over chaining ensureDefaultPortfolio +
+ * listPortfolios + getPortfolioById, which issues three sequential round-trips
+ * against the same table.
+ */
+export async function getPortfoliosEnsuringDefault(): Promise<PortfolioListItem[]> {
+  const rows = await db.select().from(portfolios).orderBy(asc(portfolios.name), asc(portfolios.id));
+
+  if (rows.length === 0) {
+    await ensureDefaultPortfolio();
+    const seeded = await db
+      .select()
+      .from(portfolios)
+      .orderBy(asc(portfolios.name), asc(portfolios.id));
+
+    return seeded.map(mapPortfolio);
+  }
+
+  if (!rows.some((portfolio) => portfolio.isDefault)) {
+    // Match ensureDefaultPortfolio's behaviour: promote the lowest-id portfolio.
+    const target = rows.reduce((lowest, portfolio) =>
+      portfolio.id < lowest.id ? portfolio : lowest,
+    );
+
+    await db
+      .update(portfolios)
+      .set({ isDefault: true, updatedAt: sql`CURRENT_TIMESTAMP` })
+      .where(eq(portfolios.id, target.id));
+    target.isDefault = true;
+  }
+
+  return rows.map(mapPortfolio);
+}
+
 export async function getPortfolioById(idInput: unknown) {
   const id = parsePortfolioId(idInput);
   const [portfolio] = await db.select().from(portfolios).where(eq(portfolios.id, id));

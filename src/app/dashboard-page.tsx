@@ -1,8 +1,7 @@
 import {
-  DeferredBenchmarkChart,
-  DeferredMarketBenchmarks,
-  DeferredPortfolioChart,
-} from "@/components/dashboard-deferred-widgets";
+  DashboardMainCharts,
+  DashboardMarketBenchmarksSection,
+} from "@/components/dashboard-page/charts-sections";
 import {
   formatAgeLabel,
   formatCacheDateParts,
@@ -21,22 +20,12 @@ import { appendSearchParams, buildRefreshMessage } from "@/components/dashboard-
 import { MarketRefreshStatus } from "@/components/market-refresh-status";
 import { PendingSubmitButton } from "@/components/pending-submit-button";
 import { isAdminAuthenticated } from "@/lib/auth/admin";
-import {
-  getPortfolioDashboardPath,
-  getPortfolioSelectionMemoryPath,
-  parsePortfolioRouteKey,
-} from "@/lib/portfolio/paths";
-import {
-  getPortfolioSelection,
-  getRememberedPortfolioKey,
-  isAllPortfoliosSelection,
-} from "@/lib/portfolio/selection";
+import { getPortfolioDashboardPath, parsePortfolioRouteKey } from "@/lib/portfolio/paths";
+import { getPortfolioSelection, isAllPortfoliosSelection } from "@/lib/portfolio/selection";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getServerUiLanguage } from "@/lib/ui/server";
 import { getUiLocale } from "@/lib/ui/translations";
-import { getDashboardSnapshot } from "@/server/dashboard";
-
-export const dynamic = "force-dynamic";
+import { getDashboardOverview } from "@/server/dashboard";
 
 type DashboardPageProps = {
   portfolioKey?: string | null;
@@ -54,12 +43,16 @@ type DashboardPageProps = {
 const DEFAULT_DISPLAY_CURRENCY = "THB";
 
 export default async function DashboardPage({ portfolioKey, searchParams }: DashboardPageProps) {
-  const language = await getServerUiLanguage();
+  // These reads are independent; collapse their latency instead of awaiting in series.
+  const [language, isAdmin, resolvedSearchParams, { portfolios, selectedPortfolio }] =
+    await Promise.all([
+      getServerUiLanguage(),
+      isAdminAuthenticated(),
+      Promise.resolve(searchParams).then((value) => value ?? {}),
+      getPortfolioSelection({ portfolioKey }),
+    ]);
   const copy = getUiCopy(language);
   const locale = getUiLocale(language);
-  const isAdmin = await isAdminAuthenticated();
-  const resolvedSearchParams = (await searchParams) ?? {};
-  const { portfolios, selectedPortfolio } = await getPortfolioSelection({ portfolioKey });
   const selectedPortfolioDashboardPath = appendSearchParams(
     getPortfolioDashboardPath(selectedPortfolio.key),
     resolvedSearchParams,
@@ -72,32 +65,22 @@ export default async function DashboardPage({ portfolioKey, searchParams }: Dash
       redirect(selectedPortfolioDashboardPath);
     }
 
-    const rememberedPortfolioKey = await getRememberedPortfolioKey();
-
-    if (rememberedPortfolioKey !== selectedPortfolio.key) {
-      redirect(
-        getPortfolioSelectionMemoryPath(selectedPortfolio.key, selectedPortfolioDashboardPath),
-      );
-    }
+    // The remembered-selection cookie is persisted by the proxy (src/proxy.ts)
+    // on this same response, so no extra redirect through
+    // /api/portfolio-selection is needed.
   }
 
   const isAggregatePortfolio = isAllPortfoliosSelection(selectedPortfolio);
   const selectedPortfolioName = isAggregatePortfolio
     ? copy.shell.allPortfolios
     : selectedPortfolio.name;
-  const {
-    summary,
-    benchmarkWatchlist,
-    holdingsSnapshot,
-    marketData,
-    performanceSummary,
-    timeline,
-  } = await getDashboardSnapshot({
-    ...(isAggregatePortfolio
-      ? { portfolioIds: portfolios.map((portfolio) => portfolio.id) }
-      : { portfolioId: selectedPortfolio.id }),
-    ensureFresh: false,
-  });
+  const dashboardScope = isAggregatePortfolio
+    ? { portfolioIds: portfolios.map((portfolio) => portfolio.id) }
+    : { portfolioId: selectedPortfolio.id };
+  // Only the above-the-fold overview is awaited here; the heavy chart payload
+  // streams in via <DashboardMainCharts> / <DashboardMarketBenchmarksSection>.
+  const { summary, holdingsSnapshot, marketData, performanceSummary } =
+    await getDashboardOverview(dashboardScope);
   const refreshMessage = buildRefreshMessage(resolvedSearchParams, copy.dashboard);
   const refreshRunId = (() => {
     const runId = Number(resolvedSearchParams.runId);
@@ -233,27 +216,11 @@ export default async function DashboardPage({ portfolioKey, searchParams }: Dash
       </section>
 
       <section className="workstation-grid">
-        <div className="workstation-main-stack">
-          <DeferredBenchmarkChart
-            benchmarkOverlays={benchmarkWatchlist.overlays}
-            benchmarkQuotes={benchmarkWatchlist.quotes}
-            benchmarkSymbol={timeline.benchmarkSymbol}
-            benchmarkCurrency={timeline.benchmarkCurrency}
-            comparisonBasis={timeline.comparisonBasis}
-            language={language}
-            performanceSeries={timeline.performanceSeries}
-            performanceSummary={performanceSummary}
-            portfolioCurrency={timeline.portfolioCurrency}
-            status={timeline.status}
-          />
-
-          <DeferredPortfolioChart
-            currency={timeline.portfolioCurrency}
-            language={language}
-            series={timeline.portfolio}
-            status={timeline.status}
-          />
-        </div>
+        <DashboardMainCharts
+          scope={dashboardScope}
+          language={language}
+          performanceSummary={performanceSummary}
+        />
 
         <aside className="workstation-side-stack">
           <DashboardPriceHealthCard
@@ -279,11 +246,7 @@ export default async function DashboardPage({ portfolioKey, searchParams }: Dash
         </aside>
       </section>
 
-      <DeferredMarketBenchmarks
-        language={language}
-        monthlyReturns={benchmarkWatchlist.monthlyReturns}
-        quotes={benchmarkWatchlist.quotes}
-      />
+      <DashboardMarketBenchmarksSection scope={dashboardScope} language={language} />
 
       <DashboardHoldingsSection
         canEdit={isAdmin}
