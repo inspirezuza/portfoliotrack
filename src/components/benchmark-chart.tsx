@@ -1,25 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ReferenceArea,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
-  buildTimeAxisTicks,
-  formatTimeAxisTick,
-  getTimeAxisDomain,
-  getUtcDateTime,
-} from "@/lib/charts/time-axis";
+import { buildTimeAxisTicks, getTimeAxisDomain } from "@/lib/charts/time-axis";
 import { getRechartsPayloadPoint, type RechartsMouseState } from "@/lib/charts/recharts-state";
-import { useChartVisibilityKey } from "@/hooks/use-chart-visibility-key";
-import { BenchmarkComparisonPicker } from "@/components/benchmark-comparison-picker";
 import {
   BenchmarkAbsoluteSummaryStrip,
   type BenchmarkPerformanceSummary,
@@ -29,7 +12,6 @@ import {
   buildBenchmarkComparisonItems,
   getBenchmarkYAxisValues,
   getInitialSelectedComparisonSymbols,
-  getOverlayDataKey,
   getRoundedPercentAxis,
   getVisibleOverlayPoints,
   mergeOverlays,
@@ -44,10 +26,8 @@ import {
   hasSelectionSpan,
   type SelectionRange,
 } from "@/components/benchmark-chart/chart-selection";
-import { BenchmarkChartTooltip } from "@/components/benchmark-chart/chart-tooltip";
-import { BenchmarkSeriesReadout } from "@/components/benchmark-chart/series-readout";
+import { BenchmarkChartPlot } from "@/components/benchmark-chart/chart-plot";
 import {
-  formatModeValue,
   getAbsoluteSummaryMessage,
   getBasisLabel,
   getBenchmarkModeCopy,
@@ -55,7 +35,6 @@ import {
   getUnavailableMessage,
 } from "@/components/benchmark-chart/formatting";
 import { BenchmarkRangeSummaryStrip } from "@/components/benchmark-chart/range-summary-strip";
-import { BenchmarkSelectionReadout } from "@/components/benchmark-chart/selection-readout";
 import type {
   ChartPoint,
   PerformanceMode,
@@ -114,7 +93,6 @@ export function BenchmarkChart({
     getInitialSelectedComparisonSymbols(benchmarkOverlays, benchmarkSymbol),
   );
   const isDraggingRef = useRef(false);
-  const { chartContainerRef, chartRenderKey } = useChartVisibilityKey();
   const activeSeries =
     returnBasis === "ABSOLUTE"
       ? performanceSeries.absolute
@@ -451,158 +429,39 @@ export function BenchmarkChart({
             />
           )}
 
-          <div className="chart-shell" ref={chartContainerRef}>
-            <ResponsiveContainer height={380} key={chartRenderKey} width="100%">
-              <LineChart
-                data={chartData}
-                margin={{ top: 16, right: 14, left: 8, bottom: 8 }}
-                onMouseDown={handleChartMouseDown}
-                onMouseLeave={handleChartMouseLeave}
-                onMouseMove={handleChartMouseMove}
-                onMouseUp={handleChartMouseUp}
-              >
-                <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="4 5" vertical={false} />
-                <XAxis
-                  dataKey="timestamp"
-                  type="number"
-                  scale="time"
-                  domain={xDomain}
-                  ticks={xAxisTicks}
-                  tickFormatter={(value: number | string) =>
-                    formatTimeAxisTick(value, locale, xAxisSpan)
-                  }
-                  tickLine={false}
-                  axisLine={false}
-                  minTickGap={28}
-                  height={36}
-                  tickMargin={8}
-                  stroke="var(--chart-axis)"
-                />
-                <YAxis
-                  tickFormatter={(value: number) => formatModeValue(value, mode, locale)}
-                  tickLine={false}
-                  axisLine={false}
-                  width={64}
-                  domain={yAxis?.domain}
-                  ticks={yAxis?.ticks}
-                  tickMargin={8}
-                  stroke="var(--chart-axis)"
-                />
-                <Tooltip
-                  cursor={{
-                    stroke: "var(--chart-hover)",
-                    strokeDasharray: "2 1",
-                    strokeWidth: 1.25,
-                  }}
-                  content={
-                    <BenchmarkChartTooltip
-                      language={language}
-                      mode={mode}
-                      returnBasis={returnBasis}
-                    />
-                  }
-                />
-                {!hasActiveSelection || selection == null ? null : (
-                  <ReferenceArea
-                    x1={getUtcDateTime(selection.startDate)}
-                    x2={getUtcDateTime(selection.endDate)}
-                    stroke="rgba(23, 107, 85, 0.18)"
-                    fill="rgba(23, 107, 85, 0.10)"
-                    ifOverflow="hidden"
-                  />
-                )}
-                <Line
-                  isAnimationActive={false}
-                  type="linear"
-                  dataKey="portfolioDisplay"
-                  name={modeCopy.portfolioName}
-                  stroke="var(--accent)"
-                  strokeWidth={2.5}
-                  dot={false}
-                  activeDot={{ r: 4, fill: "var(--accent-strong)" }}
-                />
-                {!shouldShowPrimaryBenchmarkLine ? null : (
-                  <Line
-                    isAnimationActive={false}
-                    type="linear"
-                    dataKey="benchmarkDisplay"
-                    name={
-                      mode === "GAP"
-                        ? modeCopy.benchmarkName
-                        : (benchmarkSymbol ?? modeCopy.benchmarkName)
-                    }
-                    stroke="var(--warm)"
-                    strokeWidth={1.6}
-                    strokeOpacity={0.72}
-                    dot={false}
-                    activeDot={{ r: 3.5, fill: "var(--warm)" }}
-                  />
-                )}
-                {!shouldShowOverlayComparisons
-                  ? null
-                  : selectedOverlays.map((overlay) => {
-                      const comparisonItem = comparisonItems.find(
-                        (item) => item.symbol === overlay.symbol,
-                      );
-
-                      return (
-                        <Line
-                          activeDot={{
-                            fill: comparisonItem?.color ?? "var(--ink)",
-                            r: 3.5,
-                          }}
-                          dataKey={getOverlayDataKey(overlay.symbol)}
-                          dot={false}
-                          isAnimationActive={false}
-                          key={overlay.symbol}
-                          name={overlay.symbol}
-                          stroke={comparisonItem?.color ?? "var(--ink)"}
-                          strokeOpacity={0.86}
-                          strokeWidth={1.9}
-                          type="linear"
-                        />
-                      );
-                    })}
-              </LineChart>
-            </ResponsiveContainer>
-            {readoutPoint == null ? null : (
-              <BenchmarkSeriesReadout
-                benchmarkSymbol={benchmarkSymbol}
-                comparisonItems={comparisonItems}
-                locale={locale}
-                mode={mode}
-                modeCopy={modeCopy}
-                onComparisonToggle={handleComparisonToggle}
-                rangeSummaryLabel={copy.charts.benchmark.rangeSummary}
-                readoutPoint={readoutPoint}
-                removeComparisonLabel={copy.charts.benchmark.comparisonPicker.remove}
-                selectedOverlays={selectedOverlays}
-                shouldShowOverlayComparisons={shouldShowOverlayComparisons}
-              />
-            )}
-            <BenchmarkSelectionReadout
-              benchmarkSymbol={benchmarkSymbol}
-              copy={copy.charts}
-              hasActiveSelection={hasActiveSelection}
-              locale={locale}
-              returnBasis={returnBasis}
-              selectedBenchmarkChange={selectedBenchmarkChange}
-              selectedGap={selectedGap}
-              selectedPortfolioChange={selectedPortfolioChange}
-              selectionPoints={selectionPoints}
-            />
-            {shouldShowOverlayComparisons ? (
-              <BenchmarkComparisonPicker
-                items={comparisonItems}
-                labels={copy.charts.benchmark.comparisonPicker}
-                language={language}
-                onAddComparison={handleComparisonAdd}
-                onClear={handleComparisonClear}
-                onToggle={handleComparisonToggle}
-                selectedSymbols={selectedComparisonSymbols}
-              />
-            ) : null}
-          </div>
+          <BenchmarkChartPlot
+            benchmarkSymbol={benchmarkSymbol}
+            chartData={chartData}
+            comparisonItems={comparisonItems}
+            copy={copy.charts}
+            hasActiveSelection={hasActiveSelection}
+            language={language}
+            locale={locale}
+            mode={mode}
+            modeCopy={modeCopy}
+            onChartMouseDown={handleChartMouseDown}
+            onChartMouseLeave={handleChartMouseLeave}
+            onChartMouseMove={handleChartMouseMove}
+            onChartMouseUp={handleChartMouseUp}
+            onComparisonAdd={handleComparisonAdd}
+            onComparisonClear={handleComparisonClear}
+            onComparisonToggle={handleComparisonToggle}
+            readoutPoint={readoutPoint}
+            returnBasis={returnBasis}
+            selectedBenchmarkChange={selectedBenchmarkChange}
+            selectedGap={selectedGap}
+            selectedOverlays={selectedOverlays}
+            selectedPortfolioChange={selectedPortfolioChange}
+            selectedSymbols={selectedComparisonSymbols}
+            selection={selection}
+            selectionPoints={selectionPoints}
+            shouldShowOverlayComparisons={shouldShowOverlayComparisons}
+            shouldShowPrimaryBenchmarkLine={shouldShowPrimaryBenchmarkLine}
+            xAxisSpan={xAxisSpan}
+            xAxisTicks={xAxisTicks}
+            xDomain={xDomain}
+            yAxis={yAxis}
+          />
         </div>
       ) : (
         <div className="chart-empty-state">
