@@ -1,21 +1,8 @@
 import "server-only";
 
-import { and, asc, eq, inArray } from "drizzle-orm";
 import { normalizeMoney } from "@/lib/db/precision";
-import { db } from "@/lib/db/runtime";
 import { applyKnownDrMetadata } from "@/lib/instruments/dr-metadata";
-import {
-  historicalPrices,
-  instruments,
-  intradayPrices,
-  priceSnapshots,
-  transactions,
-  type HistoricalPrice,
-  type Instrument,
-  type IntradayPrice,
-  type PriceSnapshot,
-  type Transaction,
-} from "@/lib/db/schema";
+import { type Transaction } from "@/lib/db/schema";
 import { getMarketSettings, getPriceAgeMinutes, isMarketDataStale } from "@/lib/market/provider";
 import { calculatePositionForInstrument } from "@/lib/portfolio/positions";
 import { buildDrAnalytics } from "@/server/assets/dr-analytics";
@@ -25,7 +12,6 @@ import {
   getAssetHistoryStatus,
   getCurrentLocalIsoDate,
   getProviderHistoryUrl,
-  type AssetPricePoint,
 } from "@/server/assets/history";
 import {
   getHistoryCooldownState,
@@ -37,102 +23,18 @@ import {
   type AssetIntradayRefreshResult,
   type AssetQuoteRefreshResult,
 } from "@/server/assets/refresh";
+import {
+  filterMatchingHistoryRows,
+  filterMatchingIntradayRows,
+  getAssetMarketRows,
+  getAssetRows,
+  quoteMatchesInstrumentCurrency,
+} from "@/server/assets/rows";
 import { toChronologicalPositionTransaction } from "@/server/transactions";
 import { parsePortfolioId } from "@/server/portfolios";
+import type { AssetDetail } from "@/server/assets/types";
 
-export type AssetDetail = {
-  instrument: {
-    id: number;
-    symbol: string;
-    displayName: string;
-    market: string;
-    instrumentType: string;
-    currency: string;
-    providerSymbol: string;
-    providerHistoryUrl: string;
-    underlyingSymbol: string | null;
-    underlyingDisplayName: string | null;
-    underlyingCurrency: string | null;
-    underlyingProviderSymbol: string | null;
-    drRatio: number | null;
-    fxProviderSymbol: string | null;
-    isActive: boolean;
-  };
-  position: {
-    quantity: number;
-    averageCost: number | null;
-    totalCost: number | null;
-    realizedPnl: number;
-    totalFees: number;
-    marketValue: number | null;
-    unrealizedPnl: number | null;
-    hasOpenPosition: boolean;
-    tradeCount: number;
-    firstTradeDate: string | null;
-    lastTradeDate: string | null;
-  };
-  transactions: Array<{
-    id: number;
-    tradeDate: string;
-    side: "BUY" | "SELL";
-    quantity: number;
-    price: number;
-    fee: number;
-    notes: string | null;
-  }>;
-  marketData: {
-    lastPrice: number | null;
-    lastPriceAsOf: string | null;
-    lastPriceSource: string | null;
-    priceAgeMinutes: number | null;
-    isPriceDataStale: boolean;
-    marketRefreshMinutes: number;
-    latestHistoryDate: string | null;
-    firstHistoryDate: string | null;
-    historySource: string | null;
-    historyStatus: "full" | "partial" | "unavailable";
-    historyUnavailableReason: string | null;
-    requestedHistoryStartDate: string | null;
-    priceHistory: AssetPricePoint[];
-  };
-  dr: {
-    underlyingSymbol: string | null;
-    underlyingDisplayName: string | null;
-    underlyingCurrency: string | null;
-    underlyingProviderSymbol: string | null;
-    drRatio: number | null;
-    fxProviderSymbol: string | null;
-    parentMarketPrice: number | null;
-    parentMarketPriceAsOf: string | null;
-    parentMarketPriceSource: string | null;
-    fxRate: number | null;
-    fxRateAsOf: string | null;
-    fxRateSource: string | null;
-    impliedParentPrice: number | null;
-    averageImpliedParentCost: number | null;
-    premiumDiscount: number | null;
-    analyticsIssue: string | null;
-  } | null;
-};
-
-function quoteMatchesInstrumentCurrency(
-  snapshot: PriceSnapshot | null,
-  instrument: Instrument,
-): snapshot is PriceSnapshot {
-  return snapshot != null && snapshot.currency === instrument.currency;
-}
-
-function filterMatchingHistoryRows(rows: HistoricalPrice[], instrument: Instrument) {
-  return rows
-    .filter((row) => row.currency === instrument.currency)
-    .sort((left, right) => left.priceDate.localeCompare(right.priceDate));
-}
-
-function filterMatchingIntradayRows(rows: IntradayPrice[], instrument: Instrument) {
-  return rows
-    .filter((row) => row.currency === instrument.currency)
-    .sort((left, right) => left.observedAt.localeCompare(right.observedAt));
-}
+export type { AssetDetail } from "@/server/assets/types";
 
 function parsePortfolioScope({
   portfolioId,
@@ -146,62 +48,6 @@ function parsePortfolioScope({
   }
 
   return [parsePortfolioId(portfolioId)];
-}
-
-async function getAssetRows(symbol: string, portfolioIds: number[]) {
-  const [instrument] = await db.select().from(instruments).where(eq(instruments.symbol, symbol));
-
-  if (instrument == null) {
-    return null;
-  }
-
-  const [transactionRows, snapshot, historyRows, intradayRows] = await Promise.all([
-    db
-      .select()
-      .from(transactions)
-      .where(
-        and(
-          portfolioIds.length === 1
-            ? eq(transactions.portfolioId, portfolioIds[0])
-            : inArray(transactions.portfolioId, portfolioIds),
-          eq(transactions.instrumentId, instrument.id),
-        ),
-      )
-      .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id)),
-    db
-      .select()
-      .from(priceSnapshots)
-      .where(eq(priceSnapshots.instrumentId, instrument.id))
-      .then((rows) => rows[0] ?? null),
-    db.select().from(historicalPrices).where(eq(historicalPrices.instrumentId, instrument.id)),
-    db.select().from(intradayPrices).where(eq(intradayPrices.instrumentId, instrument.id)),
-  ]);
-
-  return {
-    instrument,
-    transactionRows,
-    snapshot,
-    historyRows,
-    intradayRows,
-  };
-}
-
-async function getAssetMarketRows(instrumentId: number) {
-  const [snapshot, historyRows, intradayRows] = await Promise.all([
-    db
-      .select()
-      .from(priceSnapshots)
-      .where(eq(priceSnapshots.instrumentId, instrumentId))
-      .then((rows) => rows[0] ?? null),
-    db.select().from(historicalPrices).where(eq(historicalPrices.instrumentId, instrumentId)),
-    db.select().from(intradayPrices).where(eq(intradayPrices.instrumentId, instrumentId)),
-  ]);
-
-  return {
-    historyRows,
-    intradayRows,
-    snapshot,
-  };
 }
 
 export async function getAssetDetail(
