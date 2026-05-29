@@ -1,29 +1,25 @@
 import "server-only";
 
-import { and, desc, eq, gt, lt, or, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/runtime";
-import { marketRefreshRuns, type MarketRefreshRun } from "@/lib/db/schema";
+import { marketRefreshRuns } from "@/lib/db/schema";
 import { logServerError } from "@/lib/observability/server-log";
+import { refreshMarketDataCache, refreshMarketDataCacheBatch } from "@/lib/market/provider";
 import {
-  refreshMarketDataCache,
-  refreshMarketDataCacheBatch,
-  type MarketDataRefreshResult,
-} from "@/lib/market/provider";
-import {
-  getBangkokDate,
-  getBangkokRefreshDateKey,
   getDbTimestamp,
-  getErrorMessage,
   getLatestSuccessfulAsOf,
   mapRunStatus,
   parseRunId,
 } from "@/server/market-refresh/status";
+import {
+  claimDailyAutoRun,
+  createManualRun,
+  getActiveManualRun,
+  markRunFailed,
+  markRunSuccess,
+} from "@/server/market-refresh/runs";
 import { parsePortfolioId } from "@/server/portfolios";
 
-const DAILY_AUTO_MODE = "daily-auto";
-const MANUAL_MODE = "manual";
-const MAX_DAILY_AUTO_ATTEMPTS = 2;
-const STALE_RUNNING_MINUTES = 15;
 const DEFAULT_REFRESH_BATCH_SIZE = 3;
 
 export type DailyAutoRefreshResponse = {
@@ -32,18 +28,6 @@ export type DailyAutoRefreshResponse = {
   refreshSlot?: string;
   reason?: string;
 };
-
-type DailyAutoClaim =
-  | {
-      claimed: true;
-      run: MarketRefreshRun;
-      refreshDate: string;
-    }
-  | {
-      claimed: false;
-      refreshDate: string;
-      reason: string;
-    };
 
 export type MarketRefreshRunStatus = {
   id: number;
@@ -73,183 +57,6 @@ export type MarketRefreshBatchResponse = {
   hasMore: boolean;
   run: MarketRefreshRunStatus;
 };
-
-function getStaleRunningCutoff() {
-  return getDbTimestamp(new Date(Date.now() - STALE_RUNNING_MINUTES * 60_000));
-}
-
-async function markRunSuccess(runId: number, result: MarketDataRefreshResult) {
-  const now = getDbTimestamp();
-
-  await db
-    .update(marketRefreshRuns)
-    .set({
-      status: "success",
-      quoteRefreshCount: result.quoteRefreshCount,
-      historicalBarCount: result.historicalBarCount,
-      intradayBarCount: result.intradayBarCount,
-      issueCount: result.issues.length,
-      latestSuccessfulAsOf: result.latestSuccessfulAsOf,
-      errorMessage: null,
-      completedAt: now,
-      updatedAt: now,
-    })
-    .where(eq(marketRefreshRuns.id, runId));
-}
-
-async function markRunFailed(runId: number, error: unknown) {
-  const now = getDbTimestamp();
-
-  await db
-    .update(marketRefreshRuns)
-    .set({
-      status: "failed",
-      errorMessage: getErrorMessage(error),
-      completedAt: now,
-      updatedAt: now,
-    })
-    .where(eq(marketRefreshRuns.id, runId));
-}
-
-async function createManualRun(portfolioId: number) {
-  const now = getDbTimestamp();
-  const [run] = await db
-    .insert(marketRefreshRuns)
-    .values({
-      portfolioId,
-      refreshDate: getBangkokDate(),
-      mode: MANUAL_MODE,
-      status: "running",
-      attemptCount: 1,
-      startedAt: now,
-      updatedAt: now,
-    })
-    .returning();
-
-  return run;
-}
-
-async function getActiveManualRun(portfolioId: number) {
-  const [run] = await db
-    .select()
-    .from(marketRefreshRuns)
-    .where(
-      and(
-        eq(marketRefreshRuns.portfolioId, portfolioId),
-        eq(marketRefreshRuns.mode, MANUAL_MODE),
-        eq(marketRefreshRuns.status, "running"),
-        gt(marketRefreshRuns.updatedAt, getStaleRunningCutoff()),
-      ),
-    )
-    .orderBy(desc(marketRefreshRuns.updatedAt), desc(marketRefreshRuns.id))
-    .limit(1);
-
-  return run ?? null;
-}
-
-async function claimDailyAutoRun(
-  portfolioId: number,
-  refreshSlot?: string,
-): Promise<DailyAutoClaim> {
-  const refreshDate = getBangkokRefreshDateKey(refreshSlot);
-  const now = getDbTimestamp();
-  const [insertedRun] = await db
-    .insert(marketRefreshRuns)
-    .values({
-      portfolioId,
-      refreshDate,
-      mode: DAILY_AUTO_MODE,
-      status: "running",
-      attemptCount: 1,
-      startedAt: now,
-      updatedAt: now,
-    })
-    .onConflictDoNothing()
-    .returning();
-
-  if (insertedRun) {
-    return {
-      claimed: true,
-      run: insertedRun,
-      refreshDate,
-    };
-  }
-
-  const [existingRun] = await db
-    .select()
-    .from(marketRefreshRuns)
-    .where(
-      and(
-        eq(marketRefreshRuns.portfolioId, portfolioId),
-        eq(marketRefreshRuns.refreshDate, refreshDate),
-        eq(marketRefreshRuns.mode, DAILY_AUTO_MODE),
-      ),
-    );
-
-  if (!existingRun) {
-    return {
-      claimed: false,
-      refreshDate,
-      reason: "claim-not-found",
-    };
-  }
-
-  if (existingRun.status === "success") {
-    return {
-      claimed: false,
-      refreshDate,
-      reason: "already-refreshed",
-    };
-  }
-
-  if (existingRun.attemptCount >= MAX_DAILY_AUTO_ATTEMPTS) {
-    return {
-      claimed: false,
-      refreshDate,
-      reason: "daily-attempt-limit",
-    };
-  }
-
-  const staleBefore = getStaleRunningCutoff();
-  const [claimedRetry] = await db
-    .update(marketRefreshRuns)
-    .set({
-      status: "running",
-      attemptCount: sql`${marketRefreshRuns.attemptCount} + 1`,
-      errorMessage: null,
-      startedAt: now,
-      completedAt: null,
-      updatedAt: now,
-    })
-    .where(
-      and(
-        eq(marketRefreshRuns.id, existingRun.id),
-        lt(marketRefreshRuns.attemptCount, MAX_DAILY_AUTO_ATTEMPTS),
-        or(
-          eq(marketRefreshRuns.status, "failed"),
-          and(
-            eq(marketRefreshRuns.status, "running"),
-            lt(marketRefreshRuns.updatedAt, staleBefore),
-          ),
-        ),
-      ),
-    )
-    .returning();
-
-  if (!claimedRetry) {
-    return {
-      claimed: false,
-      refreshDate,
-      reason: "already-running",
-    };
-  }
-
-  return {
-    claimed: true,
-    run: claimedRetry,
-    refreshDate,
-  };
-}
 
 export async function runManualMarketRefresh({
   portfolioId: portfolioIdInput,
