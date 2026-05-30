@@ -19,6 +19,7 @@ import {
   type TimelinePointInterval,
   type PortfolioBenchmarkTimeline,
 } from "@/lib/portfolio/timeline";
+import { reduceTimelineResolution, type ResolutionReduceOptions } from "@/lib/charts/downsample";
 import {
   buildHoldingsSnapshotFromSource,
   loadHoldingsSnapshotSource,
@@ -91,6 +92,19 @@ export type DashboardBenchmarkOverlay = {
   points: DashboardBenchmarkOverlayPoint[];
 };
 
+/**
+ * The timeline as it is cached and streamed to the client. The raw
+ * `comparison` / `moneyWeightedComparison` / `absoluteComparison` series are
+ * intentionally omitted: nothing downstream reads them (the chart consumes the
+ * equivalent `performanceSeries` instead), and they are the largest redundant
+ * contributor to the payload. Dropping them, alongside `reduceChartsPayload`'s
+ * resolution reduction, is what keeps the entry under the 2MB Data Cache limit.
+ */
+export type DashboardChartsTimeline = Omit<
+  PortfolioBenchmarkTimeline,
+  "comparison" | "moneyWeightedComparison" | "absoluteComparison"
+>;
+
 export type DashboardSnapshot = {
   summary: DashboardSummary;
   holdingsSnapshot: HoldingsSnapshot;
@@ -107,7 +121,7 @@ export type DashboardSnapshot = {
     overlays: DashboardBenchmarkOverlay[];
   };
   performanceSummary: DashboardPerformanceSummary;
-  timeline: PortfolioBenchmarkTimeline;
+  timeline: DashboardChartsTimeline;
 };
 
 export type DashboardMarketData = DashboardSnapshot["marketData"];
@@ -131,7 +145,7 @@ export type DashboardOverview = {
  */
 export type DashboardCharts = {
   benchmarkWatchlist: DashboardSnapshot["benchmarkWatchlist"];
-  timeline: PortfolioBenchmarkTimeline;
+  timeline: DashboardChartsTimeline;
 };
 
 function isTimelineIntradayInterval(value: string): value is TimelineIntradayPrice["interval"] {
@@ -172,6 +186,90 @@ const DASHBOARD_CACHE_REVALIDATE_SECONDS = 120;
 // bars older than this are never plotted. Bounding the load avoids pulling years
 // of 5m/1h bars for portfolios whose earliest trade is far in the past.
 const INTRADAY_LOOKBACK_DAYS = 40;
+
+// Display-resolution budget for the cached/streamed chart payload. The full
+// timeline (all daily + intraday bars across every series and benchmark
+// overlay) routinely exceeds Vercel's 2MB Data Cache limit, which silently
+// disables `unstable_cache` for the charts and forces a full rebuild on every
+// request. Reducing each series to what a chart can actually render keeps the
+// payload O(budget) — bounded regardless of portfolio age — so the cache works
+// and the client hydrates less. Short timeframes keep intraday bars at full
+// resolution (only the recent window each one reads); long timeframes get the
+// daily band LTTB-reduced. See `reduceTimelineResolution`.
+const CHART_RESOLUTION_OPTIONS: ResolutionReduceOptions = {
+  dailyBudget: 1000,
+  intradayMaxAgeDays: {
+    // 1D reads 5m bars (≈1 trading day); a few days covers weekends/holidays.
+    "5m": 3,
+    // 5D/1W/1M read 1h bars; 35 days covers the 1M window with headroom.
+    "15m": 35,
+    "1h": 35,
+    default: 35,
+  },
+};
+
+/**
+ * Reduces the chart payload to display resolution and strips the redundant raw
+ * comparison series before it is cached and streamed to the client. The
+ * remaining series keep their shapes/types — only the number of interior points
+ * drops — so the chart components are unaffected. Together with the
+ * `DashboardChartsTimeline` omission, this is what keeps the cached entry under
+ * the 2MB Data Cache limit; without it the charts are never cached and rebuild
+ * on every request.
+ */
+function reduceChartsPayload(charts: {
+  benchmarkWatchlist: DashboardCharts["benchmarkWatchlist"];
+  timeline: PortfolioBenchmarkTimeline;
+}): DashboardCharts {
+  const { timeline } = charts;
+
+  return {
+    benchmarkWatchlist: {
+      ...charts.benchmarkWatchlist,
+      overlays: charts.benchmarkWatchlist.overlays.map((overlay) => ({
+        ...overlay,
+        points: reduceTimelineResolution(
+          overlay.points,
+          (point) => point.value,
+          CHART_RESOLUTION_OPTIONS,
+        ),
+      })),
+    },
+    // Explicitly listing the kept fields (rather than spreading) means a new
+    // timeline field added upstream surfaces here as a type error, forcing a
+    // conscious decision about whether the client/cache needs it.
+    timeline: {
+      status: timeline.status,
+      baselineDate: timeline.baselineDate,
+      portfolioCurrency: timeline.portfolioCurrency,
+      benchmarkSymbol: timeline.benchmarkSymbol,
+      benchmarkCurrency: timeline.benchmarkCurrency,
+      comparisonBasis: timeline.comparisonBasis,
+      portfolio: reduceTimelineResolution(
+        timeline.portfolio,
+        (point) => point.value,
+        CHART_RESOLUTION_OPTIONS,
+      ),
+      performanceSeries: {
+        twr: reduceTimelineResolution(
+          timeline.performanceSeries.twr,
+          (point) => point.portfolioIndex,
+          CHART_RESOLUTION_OPTIONS,
+        ),
+        mwr: reduceTimelineResolution(
+          timeline.performanceSeries.mwr,
+          (point) => point.portfolioReturnPercent,
+          CHART_RESOLUTION_OPTIONS,
+        ),
+        absolute: reduceTimelineResolution(
+          timeline.performanceSeries.absolute,
+          (point) => point.portfolioReturnPercent,
+          CHART_RESOLUTION_OPTIONS,
+        ),
+      },
+    },
+  };
+}
 
 function getIntradayLowerBound(earliestTradeDate: string | null): string {
   const floor = new Date();
@@ -219,9 +317,7 @@ const getDashboardDataVersion = cache(async (): Promise<string> => {
   `);
   // drizzle's neon-serverless driver resolves to a rows array, node-postgres to
   // a QueryResult with a `rows` field. Normalise both.
-  const rows = Array.isArray(result)
-    ? result
-    : ((result as { rows?: unknown[] }).rows ?? []);
+  const rows = Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? []);
   const row = (rows[0] ?? {}) as Record<string, unknown>;
 
   return [
@@ -540,7 +636,10 @@ async function buildDashboardCharts(portfolioScopeKey: string): Promise<Dashboar
     timeline,
   });
 
-  return { benchmarkWatchlist, timeline };
+  // Reduce to display resolution before caching/streaming. The watchlist build
+  // above still consumes the full-resolution timeline; only the returned (and
+  // cached) payload is downsampled.
+  return reduceChartsPayload({ benchmarkWatchlist, timeline });
 }
 
 // Cross-request cache of the CPU-heavy timeline + watchlist build, keyed by
