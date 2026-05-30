@@ -81,6 +81,11 @@ async function listHoldingRows(
       ? eq(transactions.portfolioId, portfolioIds[0])
       : inArray(transactions.portfolioId, portfolioIds);
 
+  // priceSnapshots is deliberately NOT joined here: it has one row per
+  // instrument, so a join would duplicate the same snapshot across every
+  // transaction row of a holding. The full snapshot set is loaded once in
+  // loadHoldingsSnapshotSource (it's also needed there for FX lookups) and the
+  // per-instrument snapshot is resolved from that map instead.
   return db
     .select({
       instrument: instruments,
@@ -88,12 +93,10 @@ async function listHoldingRows(
         name: portfolios.name,
       },
       transaction: transactions,
-      priceSnapshot: priceSnapshots,
     })
     .from(transactions)
     .innerJoin(instruments, eq(transactions.instrumentId, instruments.id))
     .innerJoin(portfolios, eq(transactions.portfolioId, portfolios.id))
-    .leftJoin(priceSnapshots, eq(priceSnapshots.instrumentId, instruments.id))
     .where(and(portfolioFilter, lte(transactions.tradeDate, asOfDate)))
     .orderBy(asc(transactions.tradeDate), asc(transactions.createdAt), asc(transactions.id));
 }
@@ -167,8 +170,10 @@ export function buildHoldingsSnapshotFromSource({
   const valuationCurrency = marketSettings.baseCurrency;
   const instrumentById = new Map(instrumentRows.map((instrument) => [instrument.id, instrument]));
   const fxSnapshotsByProviderSymbol = new Map<string, PriceSnapshot>();
+  const snapshotByInstrumentId = new Map<number, PriceSnapshot>();
 
   for (const snapshot of snapshotRows) {
+    snapshotByInstrumentId.set(snapshot.instrumentId, snapshot);
     const instrument = instrumentById.get(snapshot.instrumentId);
 
     if (instrument != null) {
@@ -209,7 +214,7 @@ export function buildHoldingsSnapshotFromSource({
     if (!groupedInstruments.has(row.instrument.id)) {
       groupedInstruments.set(row.instrument.id, {
         instrument: applyKnownDrMetadata(row.instrument),
-        priceSnapshot: row.priceSnapshot,
+        priceSnapshot: snapshotByInstrumentId.get(row.instrument.id) ?? null,
       });
     }
   }

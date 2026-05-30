@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import Link from "next/link";
 import { InstrumentLogo } from "@/components/instrument-logo";
 import { formatCurrency, formatQuantity } from "@/lib/format";
@@ -19,7 +20,7 @@ type TransactionRowProps = {
   transaction: TransactionListItem;
 };
 
-export function TransactionRow({
+function TransactionRowComponent({
   canEdit,
   copy,
   deletingTransactionId,
@@ -122,3 +123,7 @@ export function TransactionRow({
     </tr>
   );
 }
+
+// Memoized so a parent re-render (e.g. typing in the table search box) only
+// re-renders rows whose own props actually changed.
+export const TransactionRow = memo(TransactionRowComponent);

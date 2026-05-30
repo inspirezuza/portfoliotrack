@@ -18,10 +18,13 @@ type AssetDetailPageProps = {
 };
 
 export default async function AssetDetailPage({ params }: AssetDetailPageProps) {
-  const isAdmin = await isAdminAuthenticated();
-  const { portfolios, selectedPortfolio } = await getPortfolioSelection();
+  // Independent reads — run concurrently before the asset detail load.
+  const [isAdmin, { portfolios, selectedPortfolio }, { symbol }] = await Promise.all([
+    isAdminAuthenticated(),
+    getPortfolioSelection(),
+    params,
+  ]);
   const isAggregatePortfolio = isAllPortfoliosSelection(selectedPortfolio);
-  const { symbol } = await params;
   const asset = await getAssetDetail(symbol, {
     ...(isAggregatePortfolio
       ? { portfolioIds: portfolios.map((portfolio) => portfolio.id) }

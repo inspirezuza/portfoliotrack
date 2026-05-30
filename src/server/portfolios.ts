@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { asc, eq, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db/runtime";
 import { portfolios, type Portfolio } from "@/lib/db/schema";
@@ -146,8 +147,12 @@ export async function ensureDefaultPortfolio(): Promise<PortfolioListItem> {
  * and a default should prefer this over chaining ensureDefaultPortfolio +
  * listPortfolios + getPortfolioById, which issues three sequential round-trips
  * against the same table.
+ *
+ * Wrapped in React cache() so the layout and page (which both resolve the
+ * portfolio selection) share a single SELECT per request instead of each
+ * issuing its own round-trip.
  */
-export async function getPortfoliosEnsuringDefault(): Promise<PortfolioListItem[]> {
+export const getPortfoliosEnsuringDefault = cache(async (): Promise<PortfolioListItem[]> => {
   const rows = await db.select().from(portfolios).orderBy(asc(portfolios.name), asc(portfolios.id));
 
   if (rows.length === 0) {
@@ -174,7 +179,7 @@ export async function getPortfoliosEnsuringDefault(): Promise<PortfolioListItem[
   }
 
   return rows.map(mapPortfolio);
-}
+});
 
 export async function getPortfolioById(idInput: unknown) {
   const id = parsePortfolioId(idInput);

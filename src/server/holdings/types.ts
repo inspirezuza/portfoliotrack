@@ -11,7 +11,6 @@ export type HoldingJoinedRow = {
   instrument: Instrument;
   portfolio: Pick<typeof portfolios.$inferSelect, "name">;
   transaction: typeof transactions.$inferSelect;
-  priceSnapshot: PriceSnapshot | null;
 };
 
 export type HoldingsSnapshotSource = {

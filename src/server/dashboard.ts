@@ -1,7 +1,8 @@
 import "server-only";
 
 import { cache } from "react";
-import { and, gte, inArray } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
+import { and, gte, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db/runtime";
 import { historicalPrices, instruments, intradayPrices } from "@/lib/db/schema";
 import {
@@ -162,6 +163,117 @@ function getPortfolioScopeKey(portfolioIds: number[]) {
     .join(",");
 }
 
+// Cross-request cache backstop. The version key (below) already busts the cache
+// the moment any underlying row changes, so this is only a ceiling that lets
+// abandoned entries (e.g. a portfolio nobody visits anymore) expire.
+const DASHBOARD_CACHE_REVALIDATE_SECONDS = 120;
+
+// The longest intraday window the refresh maintains is 1h @ 35 days, so intraday
+// bars older than this are never plotted. Bounding the load avoids pulling years
+// of 5m/1h bars for portfolios whose earliest trade is far in the past.
+const INTRADAY_LOOKBACK_DAYS = 40;
+
+function getIntradayLowerBound(earliestTradeDate: string | null): string {
+  const floor = new Date();
+  floor.setUTCDate(floor.getUTCDate() - INTRADAY_LOOKBACK_DAYS);
+  const floorIso = floor.toISOString();
+
+  if (earliestTradeDate == null) {
+    return floorIso;
+  }
+
+  // Load from whichever is more recent: the position's first trade or the
+  // retention floor — both bound the data, the later one bounds it more.
+  const tradeStartIso = `${earliestTradeDate}T00:00:00.000Z`;
+
+  return tradeStartIso > floorIso ? tradeStartIso : floorIso;
+}
+
+function getCurrentLocalIsoDate(now = new Date()) {
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * A cheap fingerprint of every input the dashboard build depends on. Counts
+ * catch inserts/deletes, max(updatedAt)/max(asOf) catch in-place updates and
+ * fresh price writes, and the local date catches the day rollover (which shifts
+ * the holdings as-of cutoff). Any mutation — from any write path, with no
+ * revalidate plumbing required — changes this string, which changes the cache
+ * key, which forces a rebuild. Wrapped in React cache() so the overview and the
+ * streamed charts share a single probe per request.
+ */
+const getDashboardDataVersion = cache(async (): Promise<string> => {
+  const result = await db.execute(sql`
+    SELECT
+      (SELECT count(*) FROM transactions) AS tx_count,
+      (SELECT max(updated_at) FROM transactions) AS tx_updated,
+      (SELECT count(*) FROM price_snapshots) AS px_count,
+      (SELECT max(as_of) FROM price_snapshots) AS px_as_of,
+      (SELECT max(price_date) FROM historical_prices) AS hist_date,
+      (SELECT max(observed_at) FROM intraday_prices) AS intra_at,
+      (SELECT max(updated_at) FROM app_settings) AS settings_updated
+  `);
+  // drizzle's neon-serverless driver resolves to a rows array, node-postgres to
+  // a QueryResult with a `rows` field. Normalise both.
+  const rows = Array.isArray(result)
+    ? result
+    : ((result as { rows?: unknown[] }).rows ?? []);
+  const row = (rows[0] ?? {}) as Record<string, unknown>;
+
+  return [
+    getCurrentLocalIsoDate(),
+    row.tx_count,
+    row.tx_updated,
+    row.px_count,
+    row.px_as_of,
+    row.hist_date,
+    row.intra_at,
+    row.settings_updated,
+  ]
+    .map((value) => String(value ?? ""))
+    .join("|");
+});
+
+function buildDashboardCacheTags(portfolioScopeKey: string): string[] {
+  const portfolioTags = portfolioScopeKey
+    .split(",")
+    .filter((value) => value.length > 0)
+    .map((id) => `dashboard:portfolio:${id}`);
+
+  return ["dashboard", ...portfolioTags];
+}
+
+/**
+ * The freshness fields are relative to "now" (minutes since the last price),
+ * so they must never be served from cache — recompute them from the cached
+ * (absolute) as-of timestamps on every read.
+ */
+function withFreshMarketFreshness(overview: DashboardOverview): DashboardOverview {
+  return {
+    ...overview,
+    marketData: {
+      ...overview.marketData,
+      priceAgeMinutes: getPriceAgeMinutes(overview.marketData.latestMarketDataAsOf),
+      isPriceDataStale: isMarketDataStale(
+        overview.marketData.latestMarketDataAsOf,
+        overview.marketData.marketRefreshMinutes,
+      ),
+    },
+    holdingsSnapshot: {
+      ...overview.holdingsSnapshot,
+      priceAgeMinutes: getPriceAgeMinutes(overview.holdingsSnapshot.latestPriceAsOf),
+      isPriceDataStale: isMarketDataStale(
+        overview.holdingsSnapshot.latestPriceAsOf,
+        overview.holdingsSnapshot.marketRefreshMinutes,
+      ),
+    },
+  };
+}
+
 /**
  * Loads and shapes every dashboard input that both the overview and the chart
  * payload depend on (DB reads + FX conversion + holdings + performance
@@ -262,12 +374,10 @@ const loadDashboardBase = cache(async (portfolioScopeKey: string) => {
           .select()
           .from(intradayPrices)
           .where(
-            earliestTradeDate == null
-              ? inArray(intradayPrices.instrumentId, relevantInstrumentIds)
-              : and(
-                  inArray(intradayPrices.instrumentId, relevantInstrumentIds),
-                  gte(intradayPrices.observedAt, `${earliestTradeDate}T00:00:00.000Z`),
-                ),
+            and(
+              inArray(intradayPrices.instrumentId, relevantInstrumentIds),
+              gte(intradayPrices.observedAt, getIntradayLowerBound(earliestTradeDate)),
+            ),
           ),
   ]);
   const historicalPriceRows = [
@@ -349,9 +459,8 @@ function buildDashboardSummary(holdingsSnapshot: HoldingsSnapshot): DashboardSum
   };
 }
 
-export async function getDashboardOverview(scope: DashboardScope): Promise<DashboardOverview> {
-  const portfolioIds = parsePortfolioScope(scope);
-  const base = await loadDashboardBase(getPortfolioScopeKey(portfolioIds));
+async function buildDashboardOverview(portfolioScopeKey: string): Promise<DashboardOverview> {
+  const base = await loadDashboardBase(portfolioScopeKey);
 
   return {
     summary: buildDashboardSummary(base.holdingsSnapshot),
@@ -361,9 +470,30 @@ export async function getDashboardOverview(scope: DashboardScope): Promise<Dashb
   };
 }
 
-// Cached by scope so the two streamed chart slots (main charts + market
-// benchmarks) share a single timeline/watchlist build per request.
-const loadDashboardCharts = cache(async (portfolioScopeKey: string): Promise<DashboardCharts> => {
+// Cross-request cache of the above-the-fold payload, keyed by scope + data
+// version. React cache() dedupes the (scopeKey, version) pair within a request
+// so the unstable_cache wrapper is created and awaited once per render.
+const loadCachedOverview = cache(
+  (portfolioScopeKey: string, version: string): Promise<DashboardOverview> =>
+    unstable_cache(
+      () => buildDashboardOverview(portfolioScopeKey),
+      ["dashboard-overview", portfolioScopeKey, version],
+      {
+        tags: buildDashboardCacheTags(portfolioScopeKey),
+        revalidate: DASHBOARD_CACHE_REVALIDATE_SECONDS,
+      },
+    )(),
+);
+
+export async function getDashboardOverview(scope: DashboardScope): Promise<DashboardOverview> {
+  const portfolioIds = parsePortfolioScope(scope);
+  const version = await getDashboardDataVersion();
+  const overview = await loadCachedOverview(getPortfolioScopeKey(portfolioIds), version);
+
+  return withFreshMarketFreshness(overview);
+}
+
+async function buildDashboardCharts(portfolioScopeKey: string): Promise<DashboardCharts> {
   const base = await loadDashboardBase(portfolioScopeKey);
   const timeline = buildPortfolioBenchmarkTimeline({
     instruments: base.convertedInstrumentRows.map((instrument) => ({
@@ -411,11 +541,28 @@ const loadDashboardCharts = cache(async (portfolioScopeKey: string): Promise<Das
   });
 
   return { benchmarkWatchlist, timeline };
-});
+}
+
+// Cross-request cache of the CPU-heavy timeline + watchlist build, keyed by
+// scope + data version. React cache() keeps the two streamed chart slots (main
+// charts + market benchmarks) sharing a single build per request.
+const loadCachedCharts = cache(
+  (portfolioScopeKey: string, version: string): Promise<DashboardCharts> =>
+    unstable_cache(
+      () => buildDashboardCharts(portfolioScopeKey),
+      ["dashboard-charts", portfolioScopeKey, version],
+      {
+        tags: buildDashboardCacheTags(portfolioScopeKey),
+        revalidate: DASHBOARD_CACHE_REVALIDATE_SECONDS,
+      },
+    )(),
+);
 
 export async function getDashboardCharts(scope: DashboardScope): Promise<DashboardCharts> {
   const portfolioIds = parsePortfolioScope(scope);
-  return loadDashboardCharts(getPortfolioScopeKey(portfolioIds));
+  const version = await getDashboardDataVersion();
+
+  return loadCachedCharts(getPortfolioScopeKey(portfolioIds), version);
 }
 
 export async function getDashboardSnapshot({

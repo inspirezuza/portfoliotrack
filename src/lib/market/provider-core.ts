@@ -217,11 +217,10 @@ export async function ensureFreshMarketDataCache({
       marketRefreshMinutes,
     ),
   );
-  const missingHistoricalData = await hasIncompleteHistoricalData({
-    targets,
-    snapshotByInstrumentId,
-  });
-  const missingIntradayData = await hasMissingIntradayData(targets);
+  const [missingHistoricalData, missingIntradayData] = await Promise.all([
+    hasIncompleteHistoricalData({ targets, snapshotByInstrumentId }),
+    hasMissingIntradayData(targets),
+  ]);
 
   if (!hasMissingSnapshot && !hasStaleSnapshot && !missingHistoricalData && !missingIntradayData) {
     return null;

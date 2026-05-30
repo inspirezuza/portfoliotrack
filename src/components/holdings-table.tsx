@@ -108,9 +108,9 @@ export function HoldingsTable({
     setSort((currentSort) => getNextHoldingSortState(currentSort, sortKey));
   }
 
-  function toggleHoldingLots(instrumentId: number) {
+  const toggleHoldingLots = useCallback((instrumentId: number) => {
     setExpandedHoldingIds((currentIds) => getToggledExpandedHoldingIds(currentIds, instrumentId));
-  }
+  }, []);
 
   function refreshHoldings() {
     startRefreshTransition(() => {
@@ -118,16 +118,16 @@ export function HoldingsTable({
     });
   }
 
-  function handleEditHoldingLot(holding: HoldingRow, lot: HoldingLot) {
+  const handleEditHoldingLot = useCallback((holding: HoldingRow, lot: HoldingLot) => {
     setDeleteErrorMessage(null);
     setEditInstruments([getHoldingLotInstrumentOption(holding)]);
     setEditingTransaction(getHoldingLotTransaction(holding, lot));
-  }
+  }, []);
 
-  function handleDeleteHoldingLot(holding: HoldingRow, lot: HoldingLot) {
+  const handleDeleteHoldingLot = useCallback((holding: HoldingRow, lot: HoldingLot) => {
     setDeleteErrorMessage(null);
     setPendingDeleteTransaction(getHoldingLotTransaction(holding, lot));
-  }
+  }, []);
 
   async function confirmDeleteHoldingLot() {
     if (!pendingDeleteTransaction) {

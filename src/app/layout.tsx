@@ -22,10 +22,13 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const language = await getServerUiLanguage();
+  // Independent reads (two cookie reads + one cached DB read) — run concurrently.
+  const [language, session, portfolioSelection] = await Promise.all([
+    getServerUiLanguage(),
+    getAdminSession(),
+    getPortfolioSelection(),
+  ]);
   const htmlLanguage = getHtmlLanguage(language);
-  const session = await getAdminSession();
-  const portfolioSelection = await getPortfolioSelection();
 
   return (
     <html

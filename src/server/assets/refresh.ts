@@ -1,5 +1,6 @@
 import "server-only";
 
+import { sql } from "drizzle-orm";
 import { OperationTimeoutError, withOperationTimeout } from "@/lib/async/timeout";
 import { db } from "@/lib/db/runtime";
 import { historicalPrices, intradayPrices, priceSnapshots, type Instrument } from "@/lib/db/schema";
@@ -163,27 +164,25 @@ export async function refreshAssetHistory({
 
   const validHistory = history!;
 
-  await db.transaction(async (tx) => {
-    for (const bar of validHistory.bars) {
-      await tx
-        .insert(historicalPrices)
-        .values({
-          instrumentId: instrument.id,
-          priceDate: bar.date,
-          close: bar.close,
-          currency: validHistory.currency,
-          source: validHistory.source,
-        })
-        .onConflictDoUpdate({
-          target: [historicalPrices.instrumentId, historicalPrices.priceDate],
-          set: {
-            close: bar.close,
-            currency: validHistory.currency,
-            source: validHistory.source,
-          },
-        });
-    }
-  });
+  await db
+    .insert(historicalPrices)
+    .values(
+      validHistory.bars.map((bar) => ({
+        instrumentId: instrument.id,
+        priceDate: bar.date,
+        close: bar.close,
+        currency: validHistory.currency,
+        source: validHistory.source,
+      })),
+    )
+    .onConflictDoUpdate({
+      target: [historicalPrices.instrumentId, historicalPrices.priceDate],
+      set: {
+        close: sql`excluded.close`,
+        currency: sql`excluded.currency`,
+        source: sql`excluded.source`,
+      },
+    });
 
   clearHistoryRefreshCooldown(instrument.id);
 
@@ -230,35 +229,29 @@ export async function refreshAssetIntraday({
     validSeries.push(result.series);
   }
 
-  if (validSeries.length > 0) {
-    await db.transaction(async (tx) => {
-      for (const series of validSeries) {
-        for (const bar of series.bars) {
-          await tx
-            .insert(intradayPrices)
-            .values({
-              instrumentId: instrument.id,
-              interval: series.interval,
-              observedAt: bar.observedAt,
-              close: bar.close,
-              currency: series.currency,
-              source: series.source,
-            })
-            .onConflictDoUpdate({
-              target: [
-                intradayPrices.instrumentId,
-                intradayPrices.interval,
-                intradayPrices.observedAt,
-              ],
-              set: {
-                close: bar.close,
-                currency: series.currency,
-                source: series.source,
-              },
-            });
-        }
-      }
-    });
+  const intradayValues = validSeries.flatMap((series) =>
+    series.bars.map((bar) => ({
+      instrumentId: instrument.id,
+      interval: series.interval,
+      observedAt: bar.observedAt,
+      close: bar.close,
+      currency: series.currency,
+      source: series.source,
+    })),
+  );
+
+  if (intradayValues.length > 0) {
+    await db
+      .insert(intradayPrices)
+      .values(intradayValues)
+      .onConflictDoUpdate({
+        target: [intradayPrices.instrumentId, intradayPrices.interval, intradayPrices.observedAt],
+        set: {
+          close: sql`excluded.close`,
+          currency: sql`excluded.currency`,
+          source: sql`excluded.source`,
+        },
+      });
   }
 
   return {

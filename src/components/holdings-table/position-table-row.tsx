@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type CSSProperties, type MouseEvent } from "react";
+import { memo, type CSSProperties, type MouseEvent } from "react";
 import { InstrumentLogo } from "@/components/instrument-logo";
 import {
   formatHoldingDateTime,
@@ -47,7 +47,7 @@ function shouldIgnoreHoldingRowToggle(event: MouseEvent<HTMLTableRowElement>) {
     : false;
 }
 
-export function HoldingsPositionRow({
+function HoldingsPositionRowComponent({
   canEdit,
   copy,
   deletingTransactionId,
@@ -276,3 +276,7 @@ export function HoldingsPositionRow({
     </>
   );
 }
+
+// Memoized so re-sorting / searching the holdings table only re-renders rows
+// whose own props changed rather than every row.
+export const HoldingsPositionRow = memo(HoldingsPositionRowComponent);

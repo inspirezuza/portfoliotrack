@@ -153,21 +153,29 @@ export async function GET(request: Request) {
   try {
     const quotesBySymbol = new Map<string, SearchQuote>();
 
-    for (const searchQuery of getSearchQueries(query)) {
-      const results = await withOperationTimeout(
-        yahooFinance.search(searchQuery, {
-          enableFuzzyQuery: true,
-          enableCb: false,
-          enableNavLinks: false,
-          newsCount: 0,
-          quotesCount: 8,
-        }),
-        {
-          label: `Yahoo instrument search ${searchQuery}`,
-          timeoutMs: INSTRUMENT_SEARCH_TIMEOUT_MS,
-        },
-      );
+    // The query variants (e.g. "foo" and "foo.BK") are independent Yahoo calls —
+    // run them concurrently. Results are merged in query order so same-symbol
+    // overwrite precedence is unchanged from the previous serial loop.
+    const searchQueries = getSearchQueries(query);
+    const searchResults = await Promise.all(
+      searchQueries.map((searchQuery) =>
+        withOperationTimeout(
+          yahooFinance.search(searchQuery, {
+            enableFuzzyQuery: true,
+            enableCb: false,
+            enableNavLinks: false,
+            newsCount: 0,
+            quotesCount: 8,
+          }),
+          {
+            label: `Yahoo instrument search ${searchQuery}`,
+            timeoutMs: INSTRUMENT_SEARCH_TIMEOUT_MS,
+          },
+        ),
+      ),
+    );
 
+    for (const results of searchResults) {
       for (const quote of results.quotes) {
         if (!quote.isYahooFinance || typeof quote.symbol !== "string") {
           continue;

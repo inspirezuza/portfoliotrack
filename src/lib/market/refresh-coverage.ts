@@ -75,7 +75,11 @@ export async function getHistoryCoverageByInstrument(targets: RefreshTarget[]) {
   }
 
   const historicalRows = await db
-    .select()
+    .select({
+      instrumentId: historicalPrices.instrumentId,
+      currency: historicalPrices.currency,
+      priceDate: historicalPrices.priceDate,
+    })
     .from(historicalPrices)
     .where(
       inArray(
@@ -99,7 +103,10 @@ export async function hasMissingIntradayData(targets: RefreshTarget[]) {
   }
 
   const rows = await db
-    .select()
+    .selectDistinct({
+      instrumentId: intradayPrices.instrumentId,
+      interval: intradayPrices.interval,
+    })
     .from(intradayPrices)
     .where(
       inArray(

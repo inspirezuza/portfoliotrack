@@ -56,11 +56,14 @@ export default async function TransactionsPage({
   portfolioKey,
   searchParams,
 }: TransactionsPageProps) {
-  const language = await getServerUiLanguage();
+  // These reads are independent; collapse their latency instead of awaiting in series.
+  const [language, isAdmin, resolvedSearchParams, { selectedPortfolio }] = await Promise.all([
+    getServerUiLanguage(),
+    isAdminAuthenticated(),
+    Promise.resolve(searchParams).then((value) => value ?? {}),
+    getPortfolioSelection({ portfolioKey }),
+  ]);
   const copy = getUiCopy(language);
-  const isAdmin = await isAdminAuthenticated();
-  const resolvedSearchParams = (await searchParams) ?? {};
-  const { selectedPortfolio } = await getPortfolioSelection({ portfolioKey });
   const selectedPortfolioTransactionsPath = appendSearchParams(
     getPortfolioTransactionsPath(selectedPortfolio.key),
     resolvedSearchParams,

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { formatCurrency, formatPercentRatio } from "@/lib/format";
 import { getUiCopy } from "@/lib/ui/copy";
@@ -140,7 +141,7 @@ function AllocationTooltip({ active, language, payload }: AllocationTooltipProps
 export function HoldingsAllocationChart({ holdings, language }: HoldingsAllocationChartProps) {
   const copy = getUiCopy(language).holdings.allocation;
   const locale = getUiLocale(language);
-  const slices = buildAllocationSlices(holdings, language);
+  const slices = useMemo(() => buildAllocationSlices(holdings, language), [holdings, language]);
 
   if (slices.length === 0) {
     return null;
