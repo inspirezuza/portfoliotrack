@@ -64,6 +64,7 @@ test("benchmark chart plot preserves shell, readout, selection readout, and pick
       onChartMouseLeave: () => undefined,
       onChartMouseMove: () => undefined,
       onChartMouseUp: () => undefined,
+      onChartTouchEnd: () => undefined,
       onComparisonAdd: () => undefined,
       onComparisonClear: () => undefined,
       onComparisonToggle: () => undefined,

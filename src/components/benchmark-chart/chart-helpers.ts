@@ -11,9 +11,53 @@ import type {
   TimeframeKey,
 } from "@/components/benchmark-chart/types";
 import type { BenchmarkComparisonPickerItem } from "@/components/benchmark-comparison-picker";
+import { calculateAnnualizedReturnPercent, daysBetween } from "@/lib/portfolio/money-weighted";
+import type { IndexedPerformancePoint } from "@/lib/portfolio/performance-series";
 import type { DashboardBenchmarkOverlay, DashboardBenchmarkQuote } from "@/server/dashboard";
 
 const OVERLAY_COLORS = ["#3f82ff", "#8f5cf7", "#009b8e", "#d66b24", "#5965d8", "#c14f8b"];
+
+// Annualizing a sub-month window inflates the rate so heavily it stops being a
+// meaningful "per year" figure, so we suppress it (matches the money-weighted
+// minimum window used elsewhere in the chart).
+const MIN_ANNUALIZATION_DAYS = 30;
+
+export type AnnualizedReturns = {
+  benchmark: number | null;
+  portfolio: number | null;
+};
+
+// Average annual (time-weighted) return since inception for the portfolio and
+// its benchmark, derived from the cash-flow-adjusted TWR index. TWR strips out
+// the timing of deposits/withdrawals on both sides, so the two figures answer
+// the same question and can be compared fairly.
+export function getAnnualizedReturns(twrSeries: IndexedPerformancePoint[]): AnnualizedReturns {
+  if (twrSeries.length < 2) {
+    return { benchmark: null, portfolio: null };
+  }
+
+  const firstPoint = twrSeries[0];
+  const lastPoint = twrSeries[twrSeries.length - 1];
+
+  if (daysBetween(firstPoint.date, lastPoint.date) < MIN_ANNUALIZATION_DAYS) {
+    return { benchmark: null, portfolio: null };
+  }
+
+  return {
+    benchmark: calculateAnnualizedReturnPercent({
+      startDate: firstPoint.date,
+      startValue: firstPoint.benchmarkIndex,
+      endDate: lastPoint.date,
+      endValue: lastPoint.benchmarkIndex,
+    }),
+    portfolio: calculateAnnualizedReturnPercent({
+      startDate: firstPoint.date,
+      startValue: firstPoint.portfolioIndex,
+      endDate: lastPoint.date,
+      endValue: lastPoint.portfolioIndex,
+    }),
+  };
+}
 
 export function getRoundedPercentAxis(values: number[]) {
   const finiteValues = values.filter((value) => Number.isFinite(value));

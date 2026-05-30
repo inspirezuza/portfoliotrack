@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { formatTimeAxisTick, getUtcDateTime } from "@/lib/charts/time-axis";
 import type { RechartsMouseState } from "@/lib/charts/recharts-state";
+import { useChartTouchScrub } from "@/lib/charts/use-chart-touch-scrub";
 import { useChartVisibilityKey } from "@/hooks/use-chart-visibility-key";
 import {
   BenchmarkComparisonPicker,
@@ -63,6 +64,7 @@ type BenchmarkChartPlotProps = {
   onChartMouseLeave: () => void;
   onChartMouseMove: (state: RechartsMouseState | undefined) => void;
   onChartMouseUp: () => void;
+  onChartTouchEnd: () => void;
   onComparisonAdd: (comparison: BenchmarkComparisonPayload) => void;
   onComparisonClear: () => void;
   onComparisonToggle: (symbol: string) => void;
@@ -98,6 +100,7 @@ export function BenchmarkChartPlot({
   onChartMouseLeave,
   onChartMouseMove,
   onChartMouseUp,
+  onChartTouchEnd,
   onComparisonAdd,
   onComparisonClear,
   onComparisonToggle,
@@ -118,9 +121,27 @@ export function BenchmarkChartPlot({
   yAxis,
 }: BenchmarkChartPlotProps) {
   const { chartContainerRef, chartRenderKey: visibilityChartRenderKey } = useChartVisibilityKey();
+  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useChartTouchScrub({
+    chartData,
+    xDomain,
+    containerRef: chartContainerRef,
+    onStart: (state) => {
+      onChartMouseDown(state);
+      onChartMouseMove(state);
+    },
+    onMove: onChartMouseMove,
+    onEnd: onChartTouchEnd,
+  });
 
   return (
-    <div className="chart-shell" ref={chartContainerRef}>
+    <div
+      className="chart-shell"
+      ref={chartContainerRef}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
+    >
       <ResponsiveContainer
         height={380}
         key={chartRenderKey ?? visibilityChartRenderKey}

@@ -22,6 +22,7 @@ import {
   getUtcDateTime,
 } from "@/lib/charts/time-axis";
 import { getRechartsPayloadPoint, type RechartsMouseState } from "@/lib/charts/recharts-state";
+import { useChartTouchScrub } from "@/lib/charts/use-chart-touch-scrub";
 import { useChartVisibilityKey } from "@/hooks/use-chart-visibility-key";
 import { getUiCopy } from "@/lib/ui/copy";
 import { getUiLocale, type UiLanguage } from "@/lib/ui/translations";
@@ -152,6 +153,21 @@ export function PortfolioChart({ currency, language, series, status }: Portfolio
     isDraggingRef.current = false;
   }
 
+  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useChartTouchScrub({
+    chartData,
+    xDomain,
+    containerRef: chartContainerRef,
+    onStart: (state) => {
+      handleChartMouseDown(state);
+      handleChartMouseMove(state);
+    },
+    onMove: handleChartMouseMove,
+    onEnd: () => {
+      isDraggingRef.current = false;
+      setSelection(null);
+    },
+  });
+
   return (
     <article className="surface-card chart-card portfolio-chart-card">
       <div className="chart-card-header">
@@ -212,7 +228,14 @@ export function PortfolioChart({ currency, language, series, status }: Portfolio
             </div>
           )}
 
-          <div className="chart-shell" ref={chartContainerRef}>
+          <div
+            className="chart-shell"
+            ref={chartContainerRef}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd}
+          >
             <ResponsiveContainer height={300} key={chartRenderKey} width="100%">
               <AreaChart
                 data={chartData}

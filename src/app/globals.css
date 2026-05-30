@@ -724,6 +724,9 @@ html[data-theme="dark"] .route-card {
   background: linear-gradient(180deg, rgba(8, 116, 93, 0.052), rgba(184, 120, 36, 0.025));
   cursor: crosshair;
   user-select: none;
+  /* Let a horizontal drag scrub the chart (drag-to-compare) while a vertical
+     drag still scrolls the page on touch devices. */
+  touch-action: pan-y;
 }
 
 .benchmark-chart-card .chart-shell {

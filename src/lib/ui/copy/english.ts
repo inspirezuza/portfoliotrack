@@ -87,6 +87,15 @@ export const englishUiCopy = {
       benchmark: "Benchmark",
       latestGap: "Latest gap",
       gap: "Gap",
+      annualized: {
+        label: "Average annual return (TWR)",
+        portfolio: "Avg. annual return",
+        perYear: (value: string) => `${value}/yr`,
+        hint: "Annualized time-weighted return (TWR) since inception — strips out the timing of deposits and withdrawals on both sides for a fair benchmark comparison.",
+        vs: (symbol: string) => `vs ${symbol}`,
+        gapHint:
+          "Portfolio average annual return minus the benchmark (positive means beating the index).",
+      },
       comparisonPicker: {
         add: "+ Add comparison",
         adding: "Adding...",

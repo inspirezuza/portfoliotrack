@@ -4,6 +4,7 @@ import {
   BenchmarkAbsoluteSummaryStrip,
   type BenchmarkPerformanceSummary,
 } from "@/components/benchmark-chart/absolute-summary-strip";
+import { BenchmarkAnnualizedReturnStrip } from "@/components/benchmark-chart/annualized-return-strip";
 import { BenchmarkChartControls } from "@/components/benchmark-chart/chart-controls";
 import { BenchmarkChartHeader } from "@/components/benchmark-chart/chart-header";
 import { BenchmarkChartPlot } from "@/components/benchmark-chart/chart-plot";
@@ -45,6 +46,7 @@ export function BenchmarkChart({
 }: BenchmarkChartProps) {
   const {
     absoluteSummaryMessage,
+    annualizedReturns,
     basisReturn,
     chartData,
     comparisonItems,
@@ -53,6 +55,7 @@ export function BenchmarkChart({
     handleChartMouseLeave,
     handleChartMouseMove,
     handleChartMouseUp,
+    handleChartTouchEnd,
     handleComparisonAdd,
     handleComparisonClear,
     handleComparisonToggle,
@@ -136,6 +139,14 @@ export function BenchmarkChart({
         />
       ) : null}
 
+      {annualizedReturns.portfolio != null || annualizedReturns.benchmark != null ? (
+        <BenchmarkAnnualizedReturnStrip
+          annualizedReturns={annualizedReturns}
+          benchmarkSymbol={benchmarkSymbol}
+          copy={copy.charts.benchmark}
+        />
+      ) : null}
+
       {hasSeries ? (
         <div className="chart-workspace">
           {rangeStats == null ? null : (
@@ -163,6 +174,7 @@ export function BenchmarkChart({
             onChartMouseLeave={handleChartMouseLeave}
             onChartMouseMove={handleChartMouseMove}
             onChartMouseUp={handleChartMouseUp}
+            onChartTouchEnd={handleChartTouchEnd}
             onComparisonAdd={handleComparisonAdd}
             onComparisonClear={handleComparisonClear}
             onComparisonToggle={handleComparisonToggle}

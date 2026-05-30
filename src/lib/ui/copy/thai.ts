@@ -87,6 +87,14 @@ export const thaiUiCopy = {
       benchmark: "Benchmark",
       latestGap: "Gap ล่าสุด",
       gap: "Gap",
+      annualized: {
+        label: "ผลตอบแทนเฉลี่ยต่อปี (TWR)",
+        portfolio: "ผลตอบแทนเฉลี่ยต่อปี",
+        perYear: (value: string) => `${value}/ปี`,
+        hint: "ผลตอบแทนเฉลี่ยต่อปีแบบ time-weighted (TWR) ตั้งแต่เริ่มลงทุน — ตัดผลของจังหวะเติม/ถอนเงินทั้งสองฝั่ง จึงเทียบกับ benchmark ได้อย่างเป็นธรรม",
+        vs: (symbol: string) => `เทียบ ${symbol}`,
+        gapHint: "ส่วนต่างผลตอบแทนเฉลี่ยต่อปีของพอร์ตหักด้วย benchmark (บวก = ชนะดัชนี)",
+      },
       comparisonPicker: {
         add: "+ Add comparison",
         adding: "กำลังเพิ่ม...",

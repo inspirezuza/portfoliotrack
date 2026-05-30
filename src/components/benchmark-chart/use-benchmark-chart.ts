@@ -7,6 +7,7 @@ import type { BenchmarkPerformanceSummary } from "@/components/benchmark-chart/a
 import {
   buildBenchmarkChartDataWithOverlays,
   buildBenchmarkComparisonItems,
+  getAnnualizedReturns,
   getBenchmarkYAxisValues,
   getInitialSelectedComparisonSymbols,
   getRoundedPercentAxis,
@@ -87,6 +88,10 @@ export function useBenchmarkChart({
     copy: copy.charts.benchmark,
     status: performanceSummary.status,
   });
+  const annualizedReturns = useMemo(
+    () => getAnnualizedReturns(performanceSeries.twr),
+    [performanceSeries.twr],
+  );
   useEffect(() => {
     if (returnBasis !== "TWR" && mode === "DRAWDOWN") {
       setMode("INDEXED");
@@ -350,8 +355,17 @@ export function useBenchmarkChart({
     setHoverPoint(null);
   }
 
+  // On mobile we clear both the scrubbed point and the drag selection when the
+  // finger lifts, returning the chart to its idle (latest-value) readout.
+  function handleChartTouchEnd() {
+    isDraggingRef.current = false;
+    setHoverPoint(null);
+    setSelection(null);
+  }
+
   return {
     absoluteSummaryMessage,
+    annualizedReturns,
     basisReturn,
     chartData,
     comparisonItems,
@@ -360,6 +374,7 @@ export function useBenchmarkChart({
     handleChartMouseLeave,
     handleChartMouseMove,
     handleChartMouseUp,
+    handleChartTouchEnd,
     handleComparisonAdd,
     handleComparisonClear,
     handleComparisonToggle,
