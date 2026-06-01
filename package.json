@@ -63,7 +63,7 @@
     "playwright": "^1.60.0",
     "postcss": "^8.4.49",
     "prettier": "^3.8.3",
-    "tsx": "^4.19.0",
+    "tsx": "^4.22.4",
     "typescript": "^6.0.3"
   }
 }
