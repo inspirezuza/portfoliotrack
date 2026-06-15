@@ -166,6 +166,19 @@ export function getVisibleSeries(series: PortfolioTimelinePoint[], timeframe: Ti
     const dailySeries = filteredSeries.filter(isDailyPoint);
 
     if (dailySeries.length >= 2) {
+      // Long timeframes plot the daily band, but while today's session is still
+      // open no daily close has been written yet, so the line would look frozen
+      // at the last close. Append the freshest intraday sample (the live value)
+      // when it is newer than the last daily point, so the line ends at "now".
+      const lastDaily = dailySeries[dailySeries.length - 1];
+
+      if (
+        isIntradayPoint(latestPoint) &&
+        getUtcDateTime(latestPoint.date) > getUtcDateTime(lastDaily.date)
+      ) {
+        return [...dailySeries, latestPoint];
+      }
+
       return dailySeries;
     }
   }

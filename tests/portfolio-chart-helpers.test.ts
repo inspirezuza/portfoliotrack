@@ -92,6 +92,45 @@ test("portfolio chart timeframe helpers preserve intraday and daily fallbacks", 
   );
 });
 
+test("portfolio chart long timeframes append the live intraday tail past the last daily close", () => {
+  // Daily closes up to Fri, then today's session is open with only intraday bars
+  // (no daily close yet) — the long-timeframe line should end at the live value.
+  const series = [
+    createTimelinePoint("2026-06-10", 100, "1d"),
+    createTimelinePoint("2026-06-11", 110, "1d"),
+    createTimelinePoint("2026-06-12", 120, "1d"),
+    createTimelinePoint("2026-06-15T05:30:00.000Z", 118, "1h"),
+    createTimelinePoint("2026-06-15T05:56:00.000Z", 130, "5m"),
+  ];
+
+  // ALL / 1Y plot the daily band plus the freshest intraday sample as the tail.
+  assert.deepEqual(
+    getVisibleSeries(series, "ALL").map((point) => point.date),
+    ["2026-06-10", "2026-06-11", "2026-06-12", "2026-06-15T05:56:00.000Z"],
+  );
+  assert.deepEqual(
+    getVisibleSeries(series, "1Y").map((point) => point.date),
+    ["2026-06-10", "2026-06-11", "2026-06-12", "2026-06-15T05:56:00.000Z"],
+  );
+
+  // The appended live value drives the range stats (latest = today's value).
+  const stats = getRangeStats(buildPortfolioChartData(getVisibleSeries(series, "ALL")));
+  assert.equal(stats?.latestPoint.value, 130);
+  assert.equal(stats?.highPoint.value, 130);
+
+  // When the series already ends on a daily close (no fresher intraday bar), the
+  // daily band is returned unchanged — covered by the daily-latest case above.
+  const dailyOnly = [
+    createTimelinePoint("2026-06-10", 100, "1d"),
+    createTimelinePoint("2026-06-11", 110, "1d"),
+    createTimelinePoint("2026-06-12", 120, "1d"),
+  ];
+  assert.deepEqual(
+    getVisibleSeries(dailyOnly, "ALL").map((point) => point.date),
+    ["2026-06-10", "2026-06-11", "2026-06-12"],
+  );
+});
+
 test("portfolio chart data helpers preserve range stats and padded domains", () => {
   const chartData = buildPortfolioChartData([
     createTimelinePoint("2026-01-01", 100, "1d"),
