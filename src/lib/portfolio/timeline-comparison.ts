@@ -24,7 +24,14 @@ import type {
 } from "@/lib/portfolio/timeline";
 
 export type PortfolioValuationPoint = PortfolioTimelinePoint & {
+  // Net external cash invested at this point (cost basis, signed: + for buys, - for sells).
+  // Used by the absolute series to track invested capital.
   netCashFlow: number;
+  // The same net external flow valued at this point's closing price (units transacted * close).
+  // Used by the time-weighted series so that units acquired on a trade day contribute no return
+  // until the next period — the end-of-day cash-flow convention. Subtracting cost here instead
+  // would leak the intraday gap between purchase price and close into the day's return.
+  netFlowValueAtClose: number;
 };
 
 const MIN_MONEY_WEIGHTED_ANNUALIZATION_DAYS = 30;
@@ -122,7 +129,7 @@ export function buildCashFlowAdjustedComparisonSeries({
       continue;
     }
 
-    const adjustedPortfolioEndingValue = normalizeMoney(point.value - point.netCashFlow);
+    const adjustedPortfolioEndingValue = normalizeMoney(point.value - point.netFlowValueAtClose);
     const portfolioReturn = adjustedPortfolioEndingValue / previousComparablePoint.value - 1;
     const benchmarkReturn = lastBenchmarkClose / previousBenchmarkClose - 1;
 

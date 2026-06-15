@@ -13,18 +13,22 @@ const portfolioSeries: PortfolioValuationPoint[] = [
     date: "2025-01-01T00:00:00.000Z",
     interval: "1d",
     netCashFlow: 100,
+    netFlowValueAtClose: 100,
     value: 100,
   },
   {
+    // 5 units bought on a day that closed at 11 → invested cost 50, but worth 55 at the close.
     date: "2025-01-10T00:00:00.000Z",
     interval: "1d",
     netCashFlow: 50,
+    netFlowValueAtClose: 55,
     value: 165,
   },
   {
     date: "2025-02-15T00:00:00.000Z",
     interval: "1d",
     netCashFlow: 0,
+    netFlowValueAtClose: 0,
     value: 180,
   },
 ];
@@ -72,15 +76,17 @@ test("portfolio timeline comparison helpers preserve cash-flow adjusted indexed 
       benchmark: 100,
     },
     {
+      // Units bought this day contribute no return until the next period (end-of-day cash-flow
+      // convention), so a single holding's index telescopes to its price move: 10 → 11 → 12.
       date: "2025-01-10T00:00:00.000Z",
       interval: "1d",
-      portfolio: 115,
+      portfolio: 110,
       benchmark: 110,
     },
     {
       date: "2025-02-15T00:00:00.000Z",
       interval: "1d",
-      portfolio: 125.45,
+      portfolio: 120,
       benchmark: 120,
     },
   ]);

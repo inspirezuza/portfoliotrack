@@ -1,4 +1,4 @@
-import { normalizeMoney } from "@/lib/db/precision";
+import { normalizeMoney, normalizeQuantity } from "@/lib/db/precision";
 import {
   applyTransaction,
   sortTransactionsChronologically,
@@ -62,6 +62,9 @@ export function buildPortfolioValueSeries({
   const series: PortfolioValuationPoint[] = [];
   let transactionIndex = 0;
   let pendingCashFlow = 0;
+  // Net units transacted (signed: + for buys, - for sells) accumulated since the last emitted
+  // point, keyed by instrument. Used to value the day's flow at its closing price.
+  const pendingFlowUnits = new Map<number, number>();
 
   for (const anchor of priceAnchors) {
     const date = anchor.priceAt;
@@ -77,11 +80,41 @@ export function buildPortfolioValueSeries({
       applyTransaction(position, transaction);
       positions.set(transaction.instrumentId, position);
       pendingCashFlow = normalizeMoney(pendingCashFlow + getExternalCashFlow(transaction));
+      const signedUnits = transaction.side === "BUY" ? transaction.quantity : -transaction.quantity;
+      pendingFlowUnits.set(
+        transaction.instrumentId,
+        normalizeQuantity((pendingFlowUnits.get(transaction.instrumentId) ?? 0) + signedUnits),
+      );
       transactionIndex += 1;
     }
 
+    // Resolve a closing price for every instrument that is either an open position or has a
+    // pending flow this period. Fall back to the position's cost basis (average cost) when no
+    // market price exists yet, so a freshly bought, not-yet-priced holding is valued neutrally
+    // instead of freezing the entire portfolio timeline. advancePriceState is idempotent within a
+    // date, so it is safe to call once per relevant instrument here.
+    const relevantInstrumentIds = new Set<number>();
+    for (const [instrumentId, position] of positions) {
+      if (position.quantity > 0) {
+        relevantInstrumentIds.add(instrumentId);
+      }
+    }
+    for (const instrumentId of pendingFlowUnits.keys()) {
+      relevantInstrumentIds.add(instrumentId);
+    }
+
+    const closeByInstrument = new Map<number, number>();
+    for (const instrumentId of relevantInstrumentIds) {
+      const marketClose = advancePriceState(priceStates.get(instrumentId), date);
+      const fallbackClose = positions.get(instrumentId)?.averageCost ?? 0;
+      const close = marketClose ?? (fallbackClose > 0 ? fallbackClose : null);
+
+      if (close != null) {
+        closeByInstrument.set(instrumentId, close);
+      }
+    }
+
     let totalValue = 0;
-    let canValuePortfolio = true;
     let hasOpenPosition = false;
 
     for (const position of positions.values()) {
@@ -90,24 +123,36 @@ export function buildPortfolioValueSeries({
       }
 
       hasOpenPosition = true;
-      const close = advancePriceState(priceStates.get(position.instrumentId), date);
+      const close = closeByInstrument.get(position.instrumentId);
 
       if (close == null) {
-        canValuePortfolio = false;
-        break;
+        continue;
       }
 
       totalValue = normalizeMoney(totalValue + position.quantity * close);
     }
 
-    if (canValuePortfolio && (hasOpenPosition || pendingCashFlow !== 0)) {
+    let netFlowValueAtClose = 0;
+    for (const [instrumentId, units] of pendingFlowUnits) {
+      const close = closeByInstrument.get(instrumentId);
+
+      if (close == null) {
+        continue;
+      }
+
+      netFlowValueAtClose = normalizeMoney(netFlowValueAtClose + units * close);
+    }
+
+    if (hasOpenPosition || pendingCashFlow !== 0) {
       series.push({
         date,
         interval: anchor.interval,
         value: totalValue,
         netCashFlow: pendingCashFlow,
+        netFlowValueAtClose,
       });
       pendingCashFlow = 0;
+      pendingFlowUnits.clear();
     }
   }
 
