@@ -33,7 +33,10 @@ export const PERFORMANCE_MODE_OPTIONS: PerformanceMode[] = ["INDEXED", "GAP", "D
 export const RETURN_BASIS_OPTIONS: ReturnBasis[] = ["TWR", "MWR", "ABSOLUTE"];
 
 export function getVisibleSeries(series: ActivePerformancePoint[], timeframe: TimeframeKey) {
-  return selectVisibleTimeframePoints({ points: series, timeframe });
+  // Append the live intraday tail so long timeframes end at today's value rather
+  // than freezing at the last daily close while the session is still open. The
+  // readout cards derive from this series' latest point, so they stay in sync.
+  return selectVisibleTimeframePoints({ appendLiveTail: true, points: series, timeframe });
 }
 
 export function getSelectionPoints(data: ChartPoint[], selection: SelectionRange | null) {

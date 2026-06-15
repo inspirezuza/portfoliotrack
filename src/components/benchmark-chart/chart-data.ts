@@ -73,6 +73,29 @@ function getPreferredIntradayInterval(timeframe: TimeframeKey) {
   return null;
 }
 
+// On long timeframes the chart plots the daily band, but while today's session
+// is still open no daily close has been written yet, so the line (and the
+// latest-point readout) would freeze at the last close. When the freshest sample
+// is a newer intraday bar, append it so the series ends at the live value.
+function withLiveIntradayTail<TPoint extends TimeframePoint>(
+  dailyPoints: TPoint[],
+  filteredPoints: TPoint[],
+): TPoint[] {
+  const latest = filteredPoints[filteredPoints.length - 1] ?? null;
+  const lastDaily = dailyPoints[dailyPoints.length - 1] ?? null;
+
+  if (
+    latest == null ||
+    lastDaily == null ||
+    !isIntradayPoint(latest) ||
+    getUtcDateTime(latest.date) <= getUtcDateTime(lastDaily.date)
+  ) {
+    return dailyPoints;
+  }
+
+  return [...dailyPoints, latest];
+}
+
 function getLastPointBefore<TPoint extends TimeframePoint>(points: TPoint[], timestamp: number) {
   let previousPoint: TPoint | null = null;
 
@@ -89,11 +112,13 @@ function getLastPointBefore<TPoint extends TimeframePoint>(points: TPoint[], tim
 
 export function selectVisibleTimeframePoints<TPoint extends TimeframePoint>({
   anchorDate,
+  appendLiveTail = false,
   includeBaselinePoint = false,
   points,
   timeframe,
 }: {
   anchorDate?: string | null;
+  appendLiveTail?: boolean;
   includeBaselinePoint?: boolean;
   points: TPoint[];
   timeframe: TimeframeKey;
@@ -134,7 +159,9 @@ export function selectVisibleTimeframePoints<TPoint extends TimeframePoint>({
     const dailyPoints = filteredPoints.filter(isDailyPoint);
 
     if (dailyPoints.length >= 2) {
-      return addBaselinePoint(dailyPoints);
+      return addBaselinePoint(
+        appendLiveTail ? withLiveIntradayTail(dailyPoints, filteredPoints) : dailyPoints,
+      );
     }
   }
 

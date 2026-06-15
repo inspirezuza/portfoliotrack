@@ -105,6 +105,49 @@ test("benchmark chart selection helpers preserve timeframe and reversed drag beh
   assert.equal(getSelectionPoints(chartData, null), null);
 });
 
+test("benchmark chart long timeframes append the live intraday tail past the last daily close", () => {
+  // Daily TWR points through Fri, then today's open session has only intraday
+  // bars (no daily close yet) — the long-timeframe series should end at the live
+  // value so the chart and the latest-point readout cards stay in sync.
+  const series = [
+    createPerformancePoint("2026-06-10T00:00:00.000Z", "1d"),
+    createPerformancePoint("2026-06-11T00:00:00.000Z", "1d"),
+    createPerformancePoint("2026-06-12T00:00:00.000Z", "1d"),
+    createPerformancePoint("2026-06-15T05:30:00.000Z", "1h"),
+    createPerformancePoint("2026-06-15T05:56:00.000Z", "5m"),
+  ];
+
+  assert.deepEqual(
+    getVisibleSeries(series, "ALL").map((point) => point.date),
+    [
+      "2026-06-10T00:00:00.000Z",
+      "2026-06-11T00:00:00.000Z",
+      "2026-06-12T00:00:00.000Z",
+      "2026-06-15T05:56:00.000Z",
+    ],
+  );
+  assert.deepEqual(
+    getVisibleSeries(series, "1Y").map((point) => point.date),
+    [
+      "2026-06-10T00:00:00.000Z",
+      "2026-06-11T00:00:00.000Z",
+      "2026-06-12T00:00:00.000Z",
+      "2026-06-15T05:56:00.000Z",
+    ],
+  );
+
+  // No fresher intraday bar → the daily band is returned unchanged.
+  const dailyOnly = [
+    createPerformancePoint("2026-06-10T00:00:00.000Z", "1d"),
+    createPerformancePoint("2026-06-11T00:00:00.000Z", "1d"),
+    createPerformancePoint("2026-06-12T00:00:00.000Z", "1d"),
+  ];
+  assert.deepEqual(
+    getVisibleSeries(dailyOnly, "ALL").map((point) => point.date),
+    ["2026-06-10T00:00:00.000Z", "2026-06-11T00:00:00.000Z", "2026-06-12T00:00:00.000Z"],
+  );
+});
+
 test("benchmark chart selection helper calculates portfolio, benchmark, and gap changes", () => {
   const startPoint = createChartPoint("2026-05-01T00:00:00.000Z", {
     benchmarkReturn: 4,
