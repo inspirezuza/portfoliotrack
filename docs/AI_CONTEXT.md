@@ -171,9 +171,9 @@ Performance behavior:
 - `src/lib/portfolio/timeline.ts` replays all non-future transactions in the selected portfolio, including closed positions, for the benchmark chart.
 - The benchmark chart is cash-flow-adjusted TWR-style performance indexed from `100`; gap is portfolio TWR minus benchmark price return, and drawdown is from each series high watermark.
 - `src/server/dashboard.ts` also returns an absolute performance summary: total P&L, net invested, and absolute return when net invested is positive. IRR/MWR is intentionally deferred until the app has explicit deposit, withdrawal, dividend, tax, and FX cash-flow records.
-- `GET /api/cron/market-data/[slot]` starts `daily-auto` refreshes from Vercel Cron at 18:00, 19:00, 20:00, 20:30, 21:00, 22:00, 23:00, 00:00, and 03:00 Thailand time.
+- `GET /api/cron/market-data/[slot]` starts `daily-auto` refreshes from Vercel Cron and the GitHub Actions fallback workflow at 18:00, 19:00, 20:00, 20:30, 21:00, 22:00, 23:00, 00:00, and 03:00 Thailand time.
 - Slot cron refresh is guarded by `market_refresh_runs`: one running/success run per Bangkok date/slot key per portfolio, with at most two attempts after failed or stale-running jobs.
-- Vercel Hobby cron timing is hourly best-effort, so these slot labels are target windows and not exact minute guarantees.
+- Vercel Hobby cron timing is hourly best-effort, so these slot labels are target windows and not exact minute guarantees. The GitHub fallback authenticates with OIDC from `.github/workflows/market-refresh.yml`; duplicate slot calls are safe because the run table claim is idempotent.
 - Admin manual refresh uses the existing button/form path, bypasses the scheduled slot limit, records a `manual` run, schedules the protected worker, and preserves the dashboard banner/status flow without holding the original request open.
 
 ## UI Shell, Theme, And Language

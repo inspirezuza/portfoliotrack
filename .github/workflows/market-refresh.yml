@@ -1,0 +1,108 @@
+name: Market refresh fallback
+
+on:
+  schedule:
+    - cron: "0 11 * * *"
+    - cron: "0 12 * * *"
+    - cron: "0 13 * * *"
+    - cron: "30 13 * * *"
+    - cron: "0 14 * * *"
+    - cron: "0 15 * * *"
+    - cron: "0 16 * * *"
+    - cron: "0 17 * * *"
+    - cron: "0 20 * * *"
+  workflow_dispatch:
+    inputs:
+      slot:
+        description: "Market refresh slot"
+        default: "2100"
+        required: true
+        type: choice
+        options:
+          - "1800"
+          - "1900"
+          - "2000"
+          - "2030"
+          - "2100"
+          - "2200"
+          - "2300"
+          - "0000"
+          - "0300"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      APP_BASE_URL: ${{ vars.APP_BASE_URL }}
+      DISPATCH_SLOT: ${{ inputs.slot || '2100' }}
+      OIDC_AUDIENCE: portfoliotrack-cron
+      SCHEDULE_EXPR: ${{ github.event.schedule }}
+    steps:
+      - name: Resolve refresh slot
+        id: slot
+        shell: bash
+        run: |
+          case "$GITHUB_EVENT_NAME" in
+            schedule)
+              case "$SCHEDULE_EXPR" in
+                "0 11 * * *") slot="1800" ;;
+                "0 12 * * *") slot="1900" ;;
+                "0 13 * * *") slot="2000" ;;
+                "30 13 * * *") slot="2030" ;;
+                "0 14 * * *") slot="2100" ;;
+                "0 15 * * *") slot="2200" ;;
+                "0 16 * * *") slot="2300" ;;
+                "0 17 * * *") slot="0000" ;;
+                "0 20 * * *") slot="0300" ;;
+                *) echo "Unsupported schedule: $SCHEDULE_EXPR" >&2; exit 1 ;;
+              esac
+              ;;
+            workflow_dispatch)
+              slot="$DISPATCH_SLOT"
+              ;;
+            *)
+              echo "Unsupported event: $GITHUB_EVENT_NAME" >&2
+              exit 1
+              ;;
+          esac
+
+          case "$slot" in
+            1800|1900|2000|2030|2100|2200|2300|0000|0300) ;;
+            *) echo "Unsupported slot: $slot" >&2; exit 1 ;;
+          esac
+
+          echo "slot=$slot" >> "$GITHUB_OUTPUT"
+
+      - name: Request GitHub OIDC token
+        id: oidc
+        shell: bash
+        run: |
+          token_json="$(
+            curl -fsS \
+              -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}"
+          )"
+          token="$(
+            printf '%s' "$token_json" \
+              | node -e "let input = ''; process.stdin.on('data', (chunk) => { input += chunk; }); process.stdin.on('end', () => process.stdout.write(JSON.parse(input).value));"
+          )"
+
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+
+      - name: Start market refresh
+        shell: bash
+        run: |
+          if [ -z "$APP_BASE_URL" ]; then
+            echo "APP_BASE_URL repository variable is required." >&2
+            exit 1
+          fi
+
+          curl -fsS -m 30 \
+            -H "Authorization: Bearer ${{ steps.oidc.outputs.token }}" \
+            "${APP_BASE_URL}/api/cron/market-data/${{ steps.slot.outputs.slot }}"

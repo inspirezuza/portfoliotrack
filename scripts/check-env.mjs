@@ -6,9 +6,14 @@ const MODE_ALIASES = new Map([
   ["dev", "development"],
   ["local", "development"],
   ["development", "development"],
+  ["deploy", "deploy"],
   ["prod", "production"],
   ["production", "production"],
 ]);
+
+function getDeployMode(env) {
+  return env.VERCEL_ENV === "production" ? "production" : "development";
+}
 
 function parseMode(argv, env) {
   const explicitModeIndex = argv.indexOf("--mode");
@@ -17,10 +22,12 @@ function parseMode(argv, env) {
   const mode = MODE_ALIASES.get(rawMode);
 
   if (!mode) {
-    throw new Error(`Unknown environment check mode "${rawMode}". Use development or production.`);
+    throw new Error(
+      `Unknown environment check mode "${rawMode}". Use development, production, or deploy.`,
+    );
   }
 
-  return mode;
+  return mode === "deploy" ? getDeployMode(env) : mode;
 }
 
 function getMissingNames(names, env) {
@@ -88,4 +95,4 @@ if (fileURLToPath(import.meta.url) === process.argv[1]) {
   main();
 }
 
-export { DEFAULT_LOCAL_DATABASE_URL, parseMode, validateEnvironment };
+export { DEFAULT_LOCAL_DATABASE_URL, getDeployMode, parseMode, validateEnvironment };

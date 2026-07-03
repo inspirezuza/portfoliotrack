@@ -44,6 +44,31 @@ test("config check rejects production when deployment secrets are missing", () =
   );
 });
 
+test("config check treats Vercel production deploys as production", () => {
+  assert.throws(
+    () =>
+      runCheck(["--mode", "deploy"], {
+        ADMIN_PASSWORD_HASH: "hash",
+        ADMIN_USERNAME: "admin",
+        AUTH_SECRET: "secret",
+        DATABASE_URL: "postgresql://example.invalid/portfoliotrack",
+        VERCEL_ENV: "production",
+      }),
+    /missing required production env: CRON_SECRET/,
+  );
+});
+
+test("config check treats Vercel preview deploys as development", () => {
+  const output = runCheck(["--mode", "deploy"], {
+    ADMIN_PASSWORD_HASH: "hash",
+    ADMIN_USERNAME: "admin",
+    AUTH_SECRET: "secret",
+    VERCEL_ENV: "preview",
+  });
+
+  assert.match(output, /development env looks ready/);
+});
+
 test("config check warns when local database settings fall back to localhost", () => {
   const output = runCheck(["--mode", "development"], {
     ADMIN_PASSWORD_HASH: "hash",

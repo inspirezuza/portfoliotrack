@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAuthorizedGitHubActionsCronRequest } from "@/lib/auth/github-actions-oidc";
 import { ensureDefaultPortfolio, listPortfolios } from "@/server/portfolios";
 import { scheduleMarketRefreshWorker } from "@/server/market-refresh-batches";
 import {
@@ -42,8 +43,12 @@ function getCronSecret() {
   return secret === "" ? undefined : secret;
 }
 
-function isAuthorizedCronRequest(request: Request, secret: string) {
-  return request.headers.get("authorization") === `Bearer ${secret}`;
+async function isAuthorizedCronRequest(request: Request, secret: string) {
+  if (request.headers.get("authorization") === `Bearer ${secret}`) {
+    return true;
+  }
+
+  return isAuthorizedGitHubActionsCronRequest(request);
 }
 
 function getAggregateStatus(results: PortfolioRefreshResult[]) {
@@ -79,7 +84,7 @@ export async function handleMarketDataCronRequest(request: Request, slotInput: s
     return jsonErrorResponse("CRON_SECRET_MISSING", "CRON_SECRET is not configured.", 500);
   }
 
-  if (!isAuthorizedCronRequest(request, secret)) {
+  if (!(await isAuthorizedCronRequest(request, secret))) {
     return jsonErrorResponse("UNAUTHORIZED", "Cron authorization failed.", 401);
   }
 

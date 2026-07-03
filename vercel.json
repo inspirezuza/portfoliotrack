@@ -1,4 +1,6 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "pnpm run config:check:deploy && pnpm run build",
   "crons": [
     {
       "path": "/api/cron/market-data/1800",
