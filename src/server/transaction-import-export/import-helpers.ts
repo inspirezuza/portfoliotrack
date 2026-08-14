@@ -1,5 +1,5 @@
 import { normalizeMoney, normalizePrice, normalizeQuantity } from "@/lib/db/precision";
-import { getKnownDrMetadata } from "@/lib/instruments/dr-metadata";
+import { getDrInstrumentType } from "@/lib/instruments/dr-metadata";
 import { normalizeInstrumentType } from "@/lib/instruments/instrument-types";
 import { TransactionExcelError, type ParsedTransactionExcelRow } from "@/lib/transactions/excel";
 import { type InstrumentInput } from "@/lib/validation/instrument";
@@ -144,9 +144,7 @@ export function getProviderSymbolCandidates({
   }
 
   const displaySymbol = normalizeDisplaySymbol(symbol);
-  const knownDrMetadata = getKnownDrMetadata({ symbol: displaySymbol });
-  const symbolLooksThai =
-    symbol.toUpperCase().endsWith(".BK") || knownDrMetadata != null || /\d$/.test(displaySymbol);
+  const symbolLooksThai = symbol.toUpperCase().endsWith(".BK") || /\d$/.test(displaySymbol);
 
   if (market === "TH" || symbolLooksThai) {
     return [`${displaySymbol}.BK`, displaySymbol];
@@ -175,22 +173,25 @@ export function getFallbackInstrumentInput({
   providerSymbol: string;
 }): InstrumentInput {
   const displaySymbol = normalizeDisplaySymbol(symbol || providerSymbol);
-  const knownDrMetadata = getKnownDrMetadata({ symbol: displaySymbol, providerSymbol });
   const inferredMarket =
     market ||
     (providerSymbol.toUpperCase().endsWith(".BK") ||
     symbol.toUpperCase().endsWith(".BK") ||
-    knownDrMetadata != null ||
     /\d$/.test(displaySymbol)
       ? "TH"
       : "US");
+  const drInstrumentType = getDrInstrumentType({
+    market: inferredMarket,
+    symbol: displaySymbol,
+    instrumentType,
+    providerSymbol,
+  });
 
   return {
     symbol: displaySymbol,
     displayName: displayName || displaySymbol,
     market: inferredMarket,
-    instrumentType:
-      normalizeInstrumentType(instrumentType) || knownDrMetadata?.instrumentType || "EQUITY",
+    instrumentType: drInstrumentType ?? (normalizeInstrumentType(instrumentType) || "EQUITY"),
     currency: currency || (inferredMarket === "TH" ? "THB" : "USD"),
     providerSymbol:
       providerSymbol || (inferredMarket === "TH" ? `${displaySymbol}.BK` : displaySymbol),

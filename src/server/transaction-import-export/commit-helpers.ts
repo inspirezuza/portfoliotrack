@@ -1,4 +1,4 @@
-import { getKnownDrMetadata } from "@/lib/instruments/dr-metadata";
+import { getKnownDrMetadata, getDrInstrumentType } from "@/lib/instruments/dr-metadata";
 import { normalizeInstrumentType } from "@/lib/instruments/instrument-types";
 import type { NewTransaction } from "@/lib/db/schema";
 import type { InstrumentInput } from "@/lib/validation/instrument";
@@ -34,13 +34,13 @@ export function buildTransactionInsertValue(
 
 export function buildInstrumentInsertValue(input: InstrumentInput) {
   const knownDrMetadata = getKnownDrMetadata(input);
+  const drInstrumentType = getDrInstrumentType(input);
 
   return {
     symbol: input.symbol,
     displayName: input.displayName,
     market: input.market,
-    instrumentType:
-      knownDrMetadata?.instrumentType ?? normalizeInstrumentType(input.instrumentType),
+    instrumentType: drInstrumentType ?? normalizeInstrumentType(input.instrumentType),
     currency: input.currency,
     providerSymbol: input.providerSymbol,
     underlyingSymbol: knownDrMetadata?.underlyingSymbol ?? null,

@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyKnownDrMetadata, getKnownDrMetadata } from "@/lib/instruments/dr-metadata";
+import {
+  applyKnownDrMetadata,
+  getDrInstrumentType,
+  getKnownDrMetadata,
+} from "@/lib/instruments/dr-metadata";
 
 test("known DR metadata matches display symbols and provider symbols", () => {
   assert.equal(getKnownDrMetadata({ symbol: "AAPL80" })?.underlyingProviderSymbol, "AAPL");
@@ -8,6 +12,37 @@ test("known DR metadata matches display symbols and provider symbols", () => {
     getKnownDrMetadata({ symbol: "placeholder", providerSymbol: "ASTS03.BK" })
       ?.underlyingProviderSymbol,
     "ASTS",
+  );
+});
+
+test("new and unlisted Thai DR symbols are classified as DR", () => {
+  assert.equal(getKnownDrMetadata({ symbol: "crsp03" })?.drRatio, 500);
+  assert.equal(
+    getDrInstrumentType({
+      market: "TH",
+      symbol: "CRSP03",
+      instrumentType: "EQUITY",
+      providerSymbol: "CRSP03.BK",
+    }),
+    "DR",
+  );
+  assert.equal(
+    getDrInstrumentType({
+      market: "SET",
+      symbol: "MSFT19",
+      instrumentType: "EQUITY",
+      providerSymbol: "MSFT19",
+    }),
+    "DR",
+  );
+  assert.equal(
+    getDrInstrumentType({
+      market: "US",
+      symbol: "MSFT19",
+      instrumentType: "EQUITY",
+      providerSymbol: "MSFT19",
+    }),
+    null,
   );
 });
 

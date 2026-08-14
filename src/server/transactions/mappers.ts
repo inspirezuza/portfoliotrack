@@ -1,4 +1,5 @@
 import { normalizeMoney } from "@/lib/db/precision";
+import { applyKnownDrMetadata } from "@/lib/instruments/dr-metadata";
 import type { Instrument, Portfolio, Transaction } from "@/lib/db/schema";
 import type { TransactionBroker } from "@/lib/validation/transaction";
 
@@ -53,6 +54,7 @@ export function mapTransactionListItem(row: {
   instrument: Instrument;
   portfolio?: Pick<Portfolio, "name">;
 }): TransactionListItem {
+  const instrument = applyKnownDrMetadata(row.instrument);
   const grossAmount = normalizeMoney(row.transaction.quantity * row.transaction.price);
   const netAmount =
     row.transaction.side === "BUY"
@@ -74,14 +76,14 @@ export function mapTransactionListItem(row: {
     updatedAt: row.transaction.updatedAt,
     portfolioName: row.portfolio?.name ?? null,
     instrument: {
-      id: row.instrument.id,
-      symbol: row.instrument.symbol,
-      displayName: row.instrument.displayName,
-      market: row.instrument.market,
-      instrumentType: row.instrument.instrumentType,
-      currency: row.instrument.currency,
-      providerSymbol: row.instrument.providerSymbol,
-      underlyingProviderSymbol: row.instrument.underlyingProviderSymbol,
+      id: instrument.id,
+      symbol: instrument.symbol,
+      displayName: instrument.displayName,
+      market: instrument.market,
+      instrumentType: instrument.instrumentType,
+      currency: instrument.currency,
+      providerSymbol: instrument.providerSymbol,
+      underlyingProviderSymbol: instrument.underlyingProviderSymbol,
     },
     grossAmount,
     netAmount,
@@ -94,16 +96,18 @@ export function mapInstrumentOption(
   instrument: Instrument,
   currentQuantity = 0,
 ): TransactionInstrumentOption {
+  const enrichedInstrument = applyKnownDrMetadata(instrument);
+
   return {
-    id: instrument.id,
-    symbol: instrument.symbol,
-    displayName: instrument.displayName,
-    market: instrument.market,
-    instrumentType: instrument.instrumentType,
-    currency: instrument.currency,
-    providerSymbol: instrument.providerSymbol,
-    isActive: instrument.isActive,
+    id: enrichedInstrument.id,
+    symbol: enrichedInstrument.symbol,
+    displayName: enrichedInstrument.displayName,
+    market: enrichedInstrument.market,
+    instrumentType: enrichedInstrument.instrumentType,
+    currency: enrichedInstrument.currency,
+    providerSymbol: enrichedInstrument.providerSymbol,
+    isActive: enrichedInstrument.isActive,
     currentQuantity,
-    label: `${instrument.symbol} - ${instrument.displayName} - ${instrument.market} - ${instrument.currency}`,
+    label: `${enrichedInstrument.symbol} - ${enrichedInstrument.displayName} - ${enrichedInstrument.market} - ${enrichedInstrument.currency}`,
   };
 }

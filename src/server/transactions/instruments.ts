@@ -3,7 +3,7 @@ import "server-only";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/runtime";
 import { instruments, transactions } from "@/lib/db/schema";
-import { getKnownDrMetadata } from "@/lib/instruments/dr-metadata";
+import { getDrInstrumentType, getKnownDrMetadata } from "@/lib/instruments/dr-metadata";
 import { normalizeInstrumentType } from "@/lib/instruments/instrument-types";
 import { calculatePositions } from "@/lib/portfolio/positions";
 import { parsePortfolioId } from "@/server/portfolios";
@@ -23,6 +23,7 @@ function isUniqueConstraintError(error: unknown) {
 export async function createInstrument(input: unknown) {
   const parsedInput = parseInstrumentInput(input);
   const knownDrMetadata = getKnownDrMetadata(parsedInput);
+  const drInstrumentType = getDrInstrumentType(parsedInput);
 
   try {
     const [instrument] = await db
@@ -31,8 +32,7 @@ export async function createInstrument(input: unknown) {
         symbol: parsedInput.symbol,
         displayName: parsedInput.displayName,
         market: parsedInput.market,
-        instrumentType:
-          knownDrMetadata?.instrumentType ?? normalizeInstrumentType(parsedInput.instrumentType),
+        instrumentType: drInstrumentType ?? normalizeInstrumentType(parsedInput.instrumentType),
         currency: parsedInput.currency,
         providerSymbol: parsedInput.providerSymbol,
         underlyingSymbol: knownDrMetadata?.underlyingSymbol ?? null,

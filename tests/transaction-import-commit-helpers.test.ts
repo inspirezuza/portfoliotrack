@@ -56,6 +56,19 @@ test("transaction import commit helpers preserve insert defaults and DR metadata
   assert.equal(instrumentInsert.underlyingSymbol, "AAPL");
   assert.equal(instrumentInsert.underlyingProviderSymbol, "AAPL");
   assert.equal(instrumentInsert.isActive, true);
+
+  const crsp03Insert = buildInstrumentInsertValue(
+    createInstrumentInput({
+      displayName: "CRISPR Therapeutics DR",
+      instrumentType: "EQUITY",
+      providerSymbol: "CRSP03.BK",
+      symbol: "CRSP03",
+    }),
+  );
+
+  assert.equal(crsp03Insert.instrumentType, "DR");
+  assert.equal(crsp03Insert.underlyingSymbol, "CRSP");
+  assert.equal(crsp03Insert.drRatio, 500);
 });
 
 test("transaction import commit helpers resolve pending instrument ids or throw import errors", () => {

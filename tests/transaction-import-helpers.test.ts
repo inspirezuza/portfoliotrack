@@ -125,6 +125,17 @@ test("transaction import helpers infer provider symbols and fallback instrument 
   assert.equal(fallback.currency, "THB");
   assert.equal(fallback.providerSymbol, "AAPL80.BK");
   assert.equal(getCreateInstrumentKey(fallback), "AAPL80.BK");
+
+  const crsp03Fallback = getFallbackInstrumentInput({
+    symbol: "CRSP03",
+    displayName: "CRISPR Therapeutics DR",
+    market: "TH",
+    instrumentType: "EQUITY",
+    currency: "THB",
+    providerSymbol: "CRSP03.BK",
+  });
+
+  assert.equal(crsp03Fallback.instrumentType, "DR");
 });
 
 test("transaction import instrument resolution preserves ID, provider symbol, and symbol priority", () => {

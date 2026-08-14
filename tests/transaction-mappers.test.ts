@@ -103,3 +103,27 @@ test("instrument option mapper preserves labels and inactive held selectability"
   assert.equal(isTransactionInstrumentSelectable(inactiveHeldOption), true);
   assert.equal(isTransactionInstrumentSelectable(inactiveEmptyOption), false);
 });
+
+test("transaction mappers classify persisted Thai DR rows", () => {
+  const persistedCrsp03: Instrument = {
+    ...BASE_INSTRUMENT,
+    currency: "THB",
+    displayName: "CRISPR Therapeutics DR",
+    instrumentType: "EQUITY",
+    market: "TH",
+    providerSymbol: "CRSP03.BK",
+    symbol: "CRSP03",
+  };
+
+  const option = mapInstrumentOption(persistedCrsp03);
+  const transaction = mapTransactionListItem({
+    instrument: persistedCrsp03,
+    transaction: {
+      ...BASE_TRANSACTION,
+      instrumentId: persistedCrsp03.id,
+    },
+  });
+
+  assert.equal(option.instrumentType, "DR");
+  assert.equal(transaction.instrument.instrumentType, "DR");
+});

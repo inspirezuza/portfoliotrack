@@ -6,7 +6,7 @@ import {
   getInstrumentTypeFromYahooQuoteType,
   normalizeInstrumentType,
 } from "@/lib/instruments/instrument-types";
-import { getKnownDrMetadata } from "@/lib/instruments/dr-metadata";
+import { getDrInstrumentType } from "@/lib/instruments/dr-metadata";
 import { instrumentInputSchema, type InstrumentInput } from "@/lib/validation/instrument";
 import type { ParsedTransactionExcelRow } from "@/lib/transactions/excel";
 import {
@@ -70,19 +70,21 @@ async function getYahooInstrumentInput({
       }
 
       const resolvedSymbol = normalizeDisplaySymbol(symbol || quote.symbol);
-      const knownDrMetadata = getKnownDrMetadata({
+      const resolvedMarket = market || getMarket(quote.symbol, quote.exchange, quote.market);
+      const quoteInstrumentType = getInstrumentTypeFromYahooQuoteType(quote.quoteType);
+      const drInstrumentType = getDrInstrumentType({
+        market: resolvedMarket,
         symbol: resolvedSymbol,
+        instrumentType,
         providerSymbol: quote.symbol,
       });
 
       return {
         symbol: resolvedSymbol,
         displayName: displayName || quote.longName || quote.shortName || resolvedSymbol,
-        market: market || getMarket(quote.symbol, quote.exchange, quote.market),
+        market: resolvedMarket,
         instrumentType:
-          normalizeInstrumentType(instrumentType) ||
-          knownDrMetadata?.instrumentType ||
-          getInstrumentTypeFromYahooQuoteType(quote.quoteType),
+          drInstrumentType ?? (normalizeInstrumentType(instrumentType) || quoteInstrumentType),
         currency: currency || quote.currency,
         providerSymbol: quote.symbol.toUpperCase(),
       };

@@ -9,6 +9,7 @@ type DrMetadata = {
 };
 
 type DrLookupInput = {
+  market?: string | null;
   symbol: string;
   providerSymbol?: string | null;
 };
@@ -42,12 +43,47 @@ const knownDrMetadataByDisplaySymbol: Record<string, DrMetadata> = {
     drRatio: 1000,
     fxProviderSymbol: "USDTHB=X",
   },
+  CRSP03: {
+    instrumentType: "DR",
+    underlyingSymbol: "CRSP",
+    underlyingDisplayName: "CRISPR Therapeutics Ltd",
+    underlyingCurrency: "USD",
+    underlyingProviderSymbol: "CRSP",
+    drRatio: 500,
+    fxProviderSymbol: "USDTHB=X",
+  },
 };
 
 function normalizeDisplaySymbol(value: string) {
   const normalizedValue = value.trim().toUpperCase();
 
   return normalizedValue.endsWith(".BK") ? normalizedValue.slice(0, -3) : normalizedValue;
+}
+
+function isThaiInstrument(input: DrLookupInput) {
+  const normalizedMarket = input.market?.trim().toUpperCase();
+  const normalizedProviderSymbol = input.providerSymbol?.trim().toUpperCase() ?? "";
+
+  return (
+    normalizedMarket === "TH" ||
+    normalizedMarket === "SET" ||
+    normalizedProviderSymbol.endsWith(".BK")
+  );
+}
+
+function hasThaiDrSymbolSuffix(value: string) {
+  return /^[A-Z][A-Z0-9]*\d{2}$/.test(normalizeDisplaySymbol(value));
+}
+
+function isLikelyThaiDr(input: DrLookupInput) {
+  if (!isThaiInstrument(input)) {
+    return false;
+  }
+
+  return (
+    hasThaiDrSymbolSuffix(input.symbol) ||
+    (input.providerSymbol != null && hasThaiDrSymbolSuffix(input.providerSymbol))
+  );
 }
 
 export function getKnownDrMetadata(input: DrLookupInput) {
@@ -60,24 +96,38 @@ export function getKnownDrMetadata(input: DrLookupInput) {
   );
 }
 
+export function getDrInstrumentType(input: DrLookupInput & { instrumentType?: string | null }) {
+  if (
+    input.instrumentType?.trim().toUpperCase() === "DR" ||
+    getKnownDrMetadata(input) != null ||
+    isLikelyThaiDr(input)
+  ) {
+    return "DR" as const;
+  }
+
+  return null;
+}
+
 export function applyKnownDrMetadata<TInstrument extends DrEnrichableInstrument>(
   instrument: TInstrument,
 ): TInstrument {
   const metadata = getKnownDrMetadata(instrument);
+  const instrumentType = getDrInstrumentType(instrument);
 
-  if (metadata == null) {
+  if (metadata == null && instrumentType == null) {
     return instrument;
   }
 
   return {
     ...instrument,
-    instrumentType: metadata.instrumentType,
-    underlyingSymbol: instrument.underlyingSymbol ?? metadata.underlyingSymbol,
-    underlyingDisplayName: instrument.underlyingDisplayName ?? metadata.underlyingDisplayName,
-    underlyingCurrency: instrument.underlyingCurrency ?? metadata.underlyingCurrency,
+    instrumentType: instrumentType ?? instrument.instrumentType,
+    underlyingSymbol: instrument.underlyingSymbol ?? metadata?.underlyingSymbol ?? null,
+    underlyingDisplayName:
+      instrument.underlyingDisplayName ?? metadata?.underlyingDisplayName ?? null,
+    underlyingCurrency: instrument.underlyingCurrency ?? metadata?.underlyingCurrency ?? null,
     underlyingProviderSymbol:
-      instrument.underlyingProviderSymbol ?? metadata.underlyingProviderSymbol,
-    drRatio: instrument.drRatio ?? metadata.drRatio,
-    fxProviderSymbol: instrument.fxProviderSymbol ?? metadata.fxProviderSymbol,
+      instrument.underlyingProviderSymbol ?? metadata?.underlyingProviderSymbol ?? null,
+    drRatio: instrument.drRatio ?? metadata?.drRatio ?? null,
+    fxProviderSymbol: instrument.fxProviderSymbol ?? metadata?.fxProviderSymbol ?? null,
   };
 }

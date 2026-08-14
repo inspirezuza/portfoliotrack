@@ -3,7 +3,7 @@ import { isAdminAuthenticated } from "@/lib/auth/admin";
 import YahooFinance from "yahoo-finance2";
 import { withOperationTimeout } from "@/lib/async/timeout";
 import { getInstrumentTypeFromYahooQuoteType } from "@/lib/instruments/instrument-types";
-import { getKnownDrMetadata } from "@/lib/instruments/dr-metadata";
+import { getDrInstrumentType } from "@/lib/instruments/dr-metadata";
 
 const yahooFinance = new YahooFinance({
   suppressNotices: ["yahooSurvey"],
@@ -220,18 +220,22 @@ export async function GET(request: Request) {
               quote.symbol;
 
             const symbol = getDisplaySymbol(quote.symbol);
-            const knownDrMetadata = getKnownDrMetadata({
+            const market = getMarket(quote.symbol, quote.exchange, quote.market);
+            const quoteInstrumentType = getInstrumentTypeFromYahooQuoteType(
+              quote.quoteType ?? searchQuote.quoteType,
+            );
+            const drInstrumentType = getDrInstrumentType({
+              market,
               symbol,
+              instrumentType: quoteInstrumentType,
               providerSymbol: quote.symbol,
             });
 
             return {
               symbol,
               displayName,
-              market: getMarket(quote.symbol, quote.exchange, quote.market),
-              instrumentType:
-                knownDrMetadata?.instrumentType ??
-                getInstrumentTypeFromYahooQuoteType(quote.quoteType ?? searchQuote.quoteType),
+              market,
+              instrumentType: drInstrumentType ?? quoteInstrumentType,
               currency: quote.currency,
               providerSymbol: quote.symbol,
               exchangeName: searchQuote.exchDisp ?? quote.exchange ?? null,
