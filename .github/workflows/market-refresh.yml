@@ -2,15 +2,21 @@ name: Market refresh fallback
 
 on:
   schedule:
+    - cron: "0 3 * * *"
+    - cron: "30 5 * * *"
+    - cron: "30 7 * * *"
+    - cron: "35 9 * * *"
     - cron: "0 11 * * *"
     - cron: "0 12 * * *"
     - cron: "0 13 * * *"
     - cron: "30 13 * * *"
     - cron: "0 14 * * *"
+    - cron: "30 14 * * *"
     - cron: "0 15 * * *"
     - cron: "0 16 * * *"
     - cron: "0 17 * * *"
     - cron: "0 20 * * *"
+    - cron: "0 21 * * *"
   workflow_dispatch:
     inputs:
       slot:
@@ -19,15 +25,21 @@ on:
         required: true
         type: choice
         options:
+          - "1000"
+          - "1230"
+          - "1430"
+          - "1635"
           - "1800"
           - "1900"
           - "2000"
           - "2030"
           - "2100"
+          - "2130"
           - "2200"
           - "2300"
           - "0000"
           - "0300"
+          - "0400"
 
 permissions:
   contents: read
@@ -50,15 +62,21 @@ jobs:
           case "$GITHUB_EVENT_NAME" in
             schedule)
               case "$SCHEDULE_EXPR" in
+                "0 3 * * *") slot="1000" ;;
+                "30 5 * * *") slot="1230" ;;
+                "30 7 * * *") slot="1430" ;;
+                "35 9 * * *") slot="1635" ;;
                 "0 11 * * *") slot="1800" ;;
                 "0 12 * * *") slot="1900" ;;
                 "0 13 * * *") slot="2000" ;;
                 "30 13 * * *") slot="2030" ;;
                 "0 14 * * *") slot="2100" ;;
+                "30 14 * * *") slot="2130" ;;
                 "0 15 * * *") slot="2200" ;;
                 "0 16 * * *") slot="2300" ;;
                 "0 17 * * *") slot="0000" ;;
                 "0 20 * * *") slot="0300" ;;
+                "0 21 * * *") slot="0400" ;;
                 *) echo "Unsupported schedule: $SCHEDULE_EXPR" >&2; exit 1 ;;
               esac
               ;;
@@ -72,7 +90,7 @@ jobs:
           esac
 
           case "$slot" in
-            1800|1900|2000|2030|2100|2200|2300|0000|0300) ;;
+            1000|1230|1430|1635|1800|1900|2000|2030|2100|2130|2200|2300|0000|0300|0400) ;;
             *) echo "Unsupported slot: $slot" >&2; exit 1 ;;
           esac
 

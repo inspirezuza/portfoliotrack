@@ -481,15 +481,9 @@ const loadDashboardBase = cache(async (portfolioScopeKey: string) => {
     ...additionalHistoricalPriceRows,
   ];
   const priceSnapshotRows = holdingsSource.snapshotRows;
-  const benchmarkSnapshot =
-    benchmarkInstrument == null
-      ? null
-      : (priceSnapshotRows.find((snapshot) => snapshot.instrumentId === benchmarkInstrument.id) ??
-        null);
-  const latestMarketDataAsOf =
-    [holdingsSnapshot.latestPriceAsOf, benchmarkSnapshot?.asOf ?? null]
-      .filter((value): value is string => value != null)
-      .sort((left, right) => right.localeCompare(left))[0] ?? null;
+  // The price-health card describes the selected portfolio's open positions.
+  // A newer benchmark quote must not make stale holding prices look current.
+  const latestMarketDataAsOf = holdingsSnapshot.latestPriceAsOf;
   const {
     convertedInstrumentRows,
     convertedTransactionRows,
