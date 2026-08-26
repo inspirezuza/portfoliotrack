@@ -181,6 +181,9 @@ function getPortfolioScopeKey(portfolioIds: number[]) {
 // the moment any underlying row changes, so this is only a ceiling that lets
 // abandoned entries (e.g. a portfolio nobody visits anymore) expire.
 const DASHBOARD_CACHE_REVALIDATE_SECONDS = 120;
+// Bump when cached dashboard semantics or payload shape changes. Data-version
+// keys only reflect database writes, so they cannot invalidate code-only changes.
+const DASHBOARD_CACHE_SCHEMA_VERSION = "2";
 
 // The longest intraday window the refresh maintains is 1h @ 35 days, so intraday
 // bars older than this are never plotted. Bounding the load avoids pulling years
@@ -567,7 +570,7 @@ const loadCachedOverview = cache(
   (portfolioScopeKey: string, version: string): Promise<DashboardOverview> =>
     unstable_cache(
       () => buildDashboardOverview(portfolioScopeKey),
-      ["dashboard-overview", portfolioScopeKey, version],
+      ["dashboard-overview", DASHBOARD_CACHE_SCHEMA_VERSION, portfolioScopeKey, version],
       {
         tags: buildDashboardCacheTags(portfolioScopeKey),
         revalidate: DASHBOARD_CACHE_REVALIDATE_SECONDS,
@@ -643,7 +646,7 @@ const loadCachedCharts = cache(
   (portfolioScopeKey: string, version: string): Promise<DashboardCharts> =>
     unstable_cache(
       () => buildDashboardCharts(portfolioScopeKey),
-      ["dashboard-charts", portfolioScopeKey, version],
+      ["dashboard-charts", DASHBOARD_CACHE_SCHEMA_VERSION, portfolioScopeKey, version],
       {
         tags: buildDashboardCacheTags(portfolioScopeKey),
         revalidate: DASHBOARD_CACHE_REVALIDATE_SECONDS,
